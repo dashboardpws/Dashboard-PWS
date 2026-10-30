@@ -96,7 +96,7 @@ function rowsFromTemplate(
     questions[key] = rows
   }
 
-  return { versiDefinisi: VERSION, questions }
+  return { formVersionId: 'versi-uji', versiDefinisi: VERSION, questions }
 }
 
 describe('templateFromRows', () => {

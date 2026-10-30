@@ -3,6 +3,10 @@ import {
   SEMUA_TIPE_FIELD,
   TIPE_BUTUH_OPSI,
 } from '@/lib/service/form-builder/validasi'
+import type {
+  RuleAutofill,
+  RuleVisibilitas,
+} from '@/lib/form-builder/engine/types'
 
 export type TipeFieldEditor = TipeField
 
@@ -71,6 +75,8 @@ export interface DraftFormDocument {
   formVersionId: string
   sections: DraftSection[]
   fields: DraftField[]
+  rulesAutofill?: RuleAutofill[]
+  rulesVisibilitas?: RuleVisibilitas[]
 }
 
 export interface BuildFormVersionInput {
@@ -98,6 +104,8 @@ export interface BuildFormVersionInput {
     optionSourceKey: string | null
     opsi: { value: string; label: string; urutan: number; aktif: boolean }[]
   }[]
+  rulesAutofill: RuleAutofill[]
+  rulesVisibilitas: RuleVisibilitas[]
   actorId?: string | null
 }
 

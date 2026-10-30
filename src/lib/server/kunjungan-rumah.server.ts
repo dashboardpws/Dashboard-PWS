@@ -121,7 +121,11 @@ export async function getKunjunganRumahTemplateRows() {
     .orderBy(formSections.urutan)
 
   if (sectionRows.length === 0)
-    return { versiDefinisi: form.version, questions: {} }
+    return {
+      formVersionId: form.formVersionId,
+      versiDefinisi: form.version,
+      questions: {},
+    }
 
   const sectionIds = sectionRows.map((row) => row.id)
   const namaById = new Map(sectionRows.map((row) => [row.id, row.nama]))
@@ -182,6 +186,8 @@ export async function getKunjunganRumahTemplateRows() {
     const sectionNama = namaById.get(row.sectionId)
     if (!sectionNama) continue
     const entry: TemplateQuestionRow = {
+      fieldId: row.id,
+      sectionId: row.sectionId,
       kode: namaFieldTanpaPrefix(row.nama),
       pertanyaan: row.label,
       tipe: row.tipe,
@@ -197,7 +203,11 @@ export async function getKunjunganRumahTemplateRows() {
     else bySection[sectionNama] = [entry]
   }
 
-  return { versiDefinisi: form.version, questions: bySection }
+  return {
+    formVersionId: form.formVersionId,
+    versiDefinisi: form.version,
+    questions: bySection,
+  }
 }
 
 /**

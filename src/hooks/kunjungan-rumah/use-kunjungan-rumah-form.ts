@@ -19,6 +19,14 @@ import {
   createRecordId,
 } from '@/lib/kunjungan-rumah/types'
 import type { KunjunganRumahRecord } from '@/lib/kunjungan-rumah/types'
+import type { SasaranSuggestion } from '@/lib/kunjungan-rumah/sasaran/warga-row'
+import {
+  buatKrFieldBindings,
+  bersihkanFieldTersembunyiKR,
+  evaluasiVisibilitasKR,
+  templateTerlihatKR,
+  terapkanAutofillKeStateKR,
+} from '@/lib/kunjungan-rumah/kr-state-bridge'
 
 export interface UseKunjunganRumahFormOptions {
   /** Record yang sedang diedit. Saat diberikan, submit memperbarui record ini (bukan menambah baru). */
@@ -26,16 +34,32 @@ export interface UseKunjunganRumahFormOptions {
 }
 
 export function useKunjunganRumahForm(opts?: UseKunjunganRumahFormOptions) {
-  const { templates } = useKunjunganRumahTemplates()
+  const {
+    templates: templatesDasar,
+    rulesAutofill,
+    rulesVisibilitas,
+  } = useKunjunganRumahTemplates()
   const toast = useToast()
   const record = opts?.record ?? null
   const editingId = record?.id ?? null
   const [state, dispatch] = useReducer(kunjunganRumahReducer, undefined, () => {
     const s = initialKunjunganRumahState()
-    const first = templates.hasilOpsi[0]
+    const first = templatesDasar.hasilOpsi[0]
     if (first && s.hasil !== first) s.hasil = first
     return s
   })
+  const bindings = useMemo(
+    () => buatKrFieldBindings(templatesDasar),
+    [templatesDasar],
+  )
+  const visibilitas = useMemo(
+    () => evaluasiVisibilitasKR({ state, bindings, rules: rulesVisibilitas }),
+    [state, bindings, rulesVisibilitas],
+  )
+  const templates = useMemo(
+    () => templateTerlihatKR(templatesDasar, visibilitas, bindings),
+    [templatesDasar, visibilitas, bindings],
+  )
   // Sumber tunggal: Postgres via server fn. Tanpa localStorage.
   const {
     records,
@@ -47,6 +71,35 @@ export function useKunjunganRumahForm(opts?: UseKunjunganRumahFormOptions) {
   } = useKunjunganRumahRecords()
   const [fotoUploading, setFotoUploading] = useState(false)
   const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    const hasil = bersihkanFieldTersembunyiKR({
+      state,
+      bindings,
+      visibilitas,
+    })
+    if (hasil.changed) dispatch({ type: 'REPLACE_STATE', state: hasil.state })
+  }, [state, bindings, visibilitas])
+
+  const handleWargaSelected = useCallback(
+    (row: SasaranSuggestion) => {
+      const stateWithWarga = kunjunganRumahReducer(state, {
+        type: 'APPLY_SASARAN',
+        row,
+      })
+      const hasilAutofill = terapkanAutofillKeStateKR({
+        state: stateWithWarga,
+        bindings,
+        rules: rulesAutofill,
+        konteks: {
+          wargaTerpilih: { ...row },
+          anggotaKeluarga: stateWithWarga.anggota,
+        },
+      })
+      dispatch({ type: 'REPLACE_STATE', state: hasilAutofill.state })
+    },
+    [state, bindings, rulesAutofill],
+  )
 
   // Mode edit: isi form dari record yang dipilih.
   useEffect(() => {
@@ -197,6 +250,7 @@ export function useKunjunganRumahForm(opts?: UseKunjunganRumahFormOptions) {
 
   return {
     templates,
+    handleWargaSelected,
     state,
     dispatch,
     records,

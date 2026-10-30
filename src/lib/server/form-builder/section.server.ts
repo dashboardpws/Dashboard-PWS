@@ -3,12 +3,18 @@ import { db } from '@/lib/server/db.server'
 import {
   formFieldOptions,
   formFields,
+  formFieldAutofills,
+  formFieldVisibilityRules,
   formSections,
   formVersions,
   forms,
 } from '@/lib/schema/schema'
 import { KesalahanValidasi } from './form-version.server'
 import { namaTanpaPrefix } from '@/lib/form-builder/kode-bawaan'
+import type {
+  RuleAutofill,
+  RuleVisibilitas,
+} from '@/lib/form-builder/engine/types'
 
 /** Satu pilihan jawaban milik satu field. */
 export interface OpsiDefinisiField {
@@ -69,6 +75,38 @@ export async function ambilDefinisiVersi(formVersionId: string) {
   const namaUntukEditor = (nama: string): string =>
     bawaan ? namaTanpaPrefix(nama) : nama
 
+  const [autofillRows, visibilitasRows] = await Promise.all([
+    db
+      .select()
+      .from(formFieldAutofills)
+      .where(eq(formFieldAutofills.formVersionId, formVersionId)),
+    db
+      .select()
+      .from(formFieldVisibilityRules)
+      .where(eq(formFieldVisibilityRules.formVersionId, formVersionId)),
+  ])
+  const rulesAutofill = autofillRows.map((r) => ({
+    id: r.id,
+    triggerFieldId: r.triggerFieldId,
+    targetFieldId: r.targetFieldId,
+    sumber: r.sumber as RuleAutofill['sumber'],
+    kolom: r.kolom,
+    transform: r.transform as RuleAutofill['transform'],
+    mode: r.mode as RuleAutofill['mode'],
+    aktif: r.aktif,
+    urutan: r.urutan,
+  }))
+  const rulesVisibilitas = visibilitasRows.map((r) => ({
+    id: r.id,
+    targetType: r.targetType as RuleVisibilitas['targetType'],
+    targetId: r.targetId,
+    triggerFieldId: r.triggerFieldId,
+    operator: r.operator as RuleVisibilitas['operator'],
+    nilaiAcuan: r.nilaiAcuan as RuleVisibilitas['nilaiAcuan'],
+    aktif: r.aktif,
+    urutan: r.urutan,
+  }))
+
   const sections = await db
     .select({
       id: formSections.id,
@@ -84,7 +122,7 @@ export async function ambilDefinisiVersi(formVersionId: string) {
   // Versi tanpa section tidak punya field, jadi query field dan opsi dilewati
   // saja. `inArray` dengan daftar kosong justru tetap memindai tabel.
   if (sections.length === 0) {
-    return { ...versi[0], sections: [] }
+    return { ...versi[0], sections: [], rulesAutofill, rulesVisibilitas }
   }
 
   const fieldRows = await db
@@ -122,6 +160,8 @@ export async function ambilDefinisiVersi(formVersionId: string) {
   if (fieldRows.length === 0) {
     return {
       ...versi[0],
+      rulesAutofill,
+      rulesVisibilitas,
       sections: sections.map((section) => ({ ...section, fields: [] })),
     }
   }
@@ -153,6 +193,8 @@ export async function ambilDefinisiVersi(formVersionId: string) {
 
   return {
     ...versi[0],
+    rulesAutofill,
+    rulesVisibilitas,
     sections: sections.map((section) => ({
       ...section,
       fields: (fieldsBySection.get(section.id) ?? []).map((field) => ({

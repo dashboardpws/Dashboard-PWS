@@ -62,6 +62,8 @@ type PlainSection = (typeof PLAIN_SECTIONS)[number]
 
 /** Bentuk baris yang dikirim server fn. Sudah diratakan supaya aman lewat RPC. */
 export interface TemplateQuestionRow {
+  fieldId?: string
+  sectionId?: string
   kode: string
   pertanyaan: string
   tipe: string
@@ -75,6 +77,8 @@ export interface TemplateQuestionRow {
 }
 
 export interface KunjunganRumahTemplateRows {
+  /** ID versi yang menjadi sumber definisi dan aturan runtime. */
+  formVersionId: string
   /**
    * Nomor versi definisi di database (`form_versions.version`).
    *
@@ -94,6 +98,8 @@ function toField(
 ): KunjunganRumahTemplateField {
   return {
     id: row.kode,
+    ...(row.fieldId ? { runtimeId: row.fieldId } : {}),
+    ...(row.sectionId ? { runtimeSectionId: row.sectionId } : {}),
     label: row.pertanyaan,
     kind: row.tipe as KunjunganRumahFieldKind,
     section,

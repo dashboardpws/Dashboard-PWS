@@ -23,13 +23,16 @@ export type TargetVisibilitas = 'field' | 'section'
 export type OperatorVisibilitas =
   'eq' | 'neq' | 'in' | 'nin' | 'kosong' | 'tidak_kosong'
 
+export type NilaiJSON =
+  string | number | boolean | null | NilaiJSON[] | { [key: string]: NilaiJSON }
+
 export interface RuleVisibilitas {
   id: string
   targetType: TargetVisibilitas
   targetId: string // fieldId atau sectionId
   triggerFieldId: string
   operator: OperatorVisibilitas
-  nilaiAcuan: unknown // string | number | string[] | null
+  nilaiAcuan: NilaiJSON
   aktif: boolean
   urutan: number
 }

@@ -51,7 +51,7 @@ export async function muatAturanForm(formVersionId: string): Promise<{
       targetId: r.targetId,
       triggerFieldId: r.triggerFieldId,
       operator: r.operator as RuleVisibilitas['operator'],
-      nilaiAcuan: r.nilaiAcuan,
+      nilaiAcuan: r.nilaiAcuan as RuleVisibilitas['nilaiAcuan'],
       aktif: r.aktif,
       urutan: r.urutan,
     }))

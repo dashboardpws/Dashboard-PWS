@@ -17,11 +17,20 @@ import type { KunjunganRumahTemplates } from '@/lib/kunjungan-rumah/template/kun
  * field, dan `/kelola` untuk angka field aktif.
  */
 export function useKunjunganRumahTemplates() {
-  const { templates, loading, error, source, refresh } =
-    useKunjunganRumahTemplateDb()
+  const {
+    templates,
+    rulesAutofill,
+    rulesVisibilitas,
+    loading,
+    error,
+    source,
+    refresh,
+  } = useKunjunganRumahTemplateDb()
 
   return {
     templates,
+    rulesAutofill,
+    rulesVisibilitas,
     loading,
     error,
     source,

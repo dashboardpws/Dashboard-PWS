@@ -49,6 +49,8 @@ export function normalisasiPayloadBuild(
     formVersionId: dokumen.formVersionId,
     sections: sectionsPayload,
     fields: fieldsPayload,
+    rulesAutofill: dokumen.rulesAutofill ?? [],
+    rulesVisibilitas: dokumen.rulesVisibilitas ?? [],
     actorId: null,
   }
 }

@@ -30,6 +30,7 @@ interface Props {
 export function KunjunganRumahFormScene({ record }: Props) {
   const {
     templates,
+    handleWargaSelected,
     state,
     dispatch,
     records,
@@ -123,6 +124,7 @@ export function KunjunganRumahFormScene({ record }: Props) {
           state={state}
           templates={templates}
           dispatch={dispatch}
+          onWargaSelected={handleWargaSelected}
         />
         <AnggotaSection
           state={state}

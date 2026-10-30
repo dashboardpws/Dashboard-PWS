@@ -20,6 +20,10 @@ export type KunjunganRumahSection =
 
 export interface KunjunganRumahTemplateField {
   id: string
+  /** ID field database; tidak ada pada definisi fallback lokal. */
+  runtimeId?: string
+  /** ID section database; dipakai aturan visibilitas runtime. */
+  runtimeSectionId?: string
   label: string
   kind: KunjunganRumahFieldKind
   section: KunjunganRumahSection

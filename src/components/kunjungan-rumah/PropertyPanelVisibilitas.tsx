@@ -1,6 +1,9 @@
 // src/components/kelola/builder/PropertyPanelVisibilitas.tsx
-import React from 'react'
-import type { RuleVisibilitas, OperatorVisibilitas, TargetVisibilitas } from '@/lib/form-builder/engine/types'
+import type {
+  RuleVisibilitas,
+  OperatorVisibilitas,
+  TargetVisibilitas,
+} from '@/lib/form-builder/engine/types'
 
 interface FieldOption {
   id: string
@@ -13,10 +16,20 @@ interface Props {
   allFields: FieldOption[]
   rules: RuleVisibilitas[]
   onChange: (newRules: RuleVisibilitas[]) => void
+  disabled?: boolean
 }
 
-export function PropertyPanelVisibilitas({ targetType, targetId, allFields, rules, onChange }: Props) {
-  const activeRules = rules.filter((r) => r.targetType === targetType && r.targetId === targetId)
+export function PropertyPanelVisibilitas({
+  targetType,
+  targetId,
+  allFields,
+  rules,
+  onChange,
+  disabled = false,
+}: Props) {
+  const activeRules = rules.filter(
+    (r) => r.targetType === targetType && r.targetId === targetId,
+  )
 
   const handleAddRule = () => {
     const newRule: RuleVisibilitas = {
@@ -41,29 +54,40 @@ export function PropertyPanelVisibilitas({ targetType, targetId, allFields, rule
   }
 
   return (
-    <div className="space-y-4 border-t pt-4">
+    <div className="space-y-4 border-t border-line pt-4">
       <div className="flex items-center justify-between">
-        <h4 className="text-sm font-semibold">Aturan Visibilitas (Show/Hide)</h4>
+        <h4 className="text-sm font-semibold">
+          Aturan Visibilitas (Show/Hide)
+        </h4>
         <button
           type="button"
           onClick={handleAddRule}
-          className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700"
+          disabled={disabled || allFields.length === 0}
+          className="rounded-lg bg-accent px-2.5 py-1.5 text-xs font-semibold text-on-accent hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
         >
           + Tambah Kondisi
         </button>
       </div>
 
       {activeRules.length === 0 ? (
-        <p className="text-xs text-gray-500 italic">Selalu tampil (tanpa syarat).</p>
+        <p className="text-xs italic text-muted">
+          Selalu tampil (tanpa syarat).
+        </p>
       ) : (
         activeRules.map((rule, idx) => (
-          <div key={rule.id} className="p-3 border rounded-md space-y-2 bg-gray-50 text-xs">
+          <div
+            key={rule.id}
+            className="space-y-2 rounded-lg border border-line bg-surface p-3 text-xs"
+          >
             <div className="flex justify-between items-center">
-              <span className="font-medium text-gray-700">Tampilkan Jika #{idx + 1}</span>
+              <span className="font-medium text-ink-2">
+                Tampilkan Jika #{idx + 1}
+              </span>
               <button
                 type="button"
                 onClick={() => handleDeleteRule(rule.id)}
-                className="text-red-600 hover:text-red-800"
+                disabled={disabled}
+                className="text-danger hover:underline disabled:opacity-50"
               >
                 Hapus
               </button>
@@ -71,11 +95,14 @@ export function PropertyPanelVisibilitas({ targetType, targetId, allFields, rule
 
             {/* Trigger Field */}
             <div>
-              <label className="block text-gray-600 mb-1">Field Pemicu:</label>
+              <label className="mb-1 block text-ink-2">Field Pemicu:</label>
               <select
                 value={rule.triggerFieldId}
-                onChange={(e) => handleUpdateRule(rule.id, { triggerFieldId: e.target.value })}
-                className="w-full border rounded p-1"
+                disabled={disabled}
+                onChange={(e) =>
+                  handleUpdateRule(rule.id, { triggerFieldId: e.target.value })
+                }
+                className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-ink outline-none focus:border-accent"
               >
                 {allFields.map((f) => (
                   <option key={f.id} value={f.id}>
@@ -88,11 +115,16 @@ export function PropertyPanelVisibilitas({ targetType, targetId, allFields, rule
             {/* Operator & Nilai Acuan */}
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-gray-600 mb-1">Operator:</label>
+                <label className="mb-1 block text-ink-2">Operator:</label>
                 <select
                   value={rule.operator}
-                  onChange={(e) => handleUpdateRule(rule.id, { operator: e.target.value as OperatorVisibilitas })}
-                  className="w-full border rounded p-1"
+                  disabled={disabled}
+                  onChange={(e) =>
+                    handleUpdateRule(rule.id, {
+                      operator: e.target.value as OperatorVisibilitas,
+                    })
+                  }
+                  className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-ink outline-none focus:border-accent"
                 >
                   <option value="eq">Sama Dengan (=)</option>
                   <option value="neq">Tidak Sama (!=)</option>
@@ -101,22 +133,33 @@ export function PropertyPanelVisibilitas({ targetType, targetId, allFields, rule
                 </select>
               </div>
 
-              {rule.operator !== 'kosong' && rule.operator !== 'tidak_kosong' && (
-                <div>
-                  <label className="block text-gray-600 mb-1">Nilai Acuan:</label>
-                  <input
-                    type="text"
-                    value={String(rule.nilaiAcuan ?? '')}
-                    onChange={(e) => handleUpdateRule(rule.id, { nilaiAcuan: e.target.value })}
-                    className="w-full border rounded p-1"
-                    placeholder="misal: Ya"
-                  />
-                </div>
-              )}
+              {rule.operator !== 'kosong' &&
+                rule.operator !== 'tidak_kosong' && (
+                  <div>
+                    <label className="mb-1 block text-ink-2">
+                      Nilai Acuan:
+                    </label>
+                    <input
+                      type="text"
+                      value={String(rule.nilaiAcuan ?? '')}
+                      disabled={disabled}
+                      onChange={(e) =>
+                        handleUpdateRule(rule.id, {
+                          nilaiAcuan: e.target.value,
+                        })
+                      }
+                      className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-ink outline-none focus:border-accent"
+                      placeholder="misal: Ya"
+                    />
+                  </div>
+                )}
             </div>
           </div>
         ))
       )}
+      <p className="text-[11px] text-muted">
+        Aturan disimpan saat form di-build.
+      </p>
     </div>
   )
 }

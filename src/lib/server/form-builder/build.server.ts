@@ -2,7 +2,9 @@ import { count, eq, inArray } from 'drizzle-orm'
 import { db } from '@/lib/server/db.server'
 import {
   formFields,
+  formFieldAutofills,
   formFieldOptions,
+  formFieldVisibilityRules,
   formSections,
   formVersions,
   forms,
@@ -316,6 +318,8 @@ interface KonteksBuild {
   formVersionId: string
   sectionsInput: SectionInput[]
   fieldsInput: FieldInput[]
+  rulesAutofill: BuildFormVersionInput['rulesAutofill']
+  rulesVisibilitas: BuildFormVersionInput['rulesVisibilitas']
   /** `forms.kode` form pemilik versi ini. null = form manual. */
   formKode: string | null
   /** Section dan field versi ini dari database, untuk membedakan upsert dari delete. */
@@ -348,7 +352,13 @@ interface KonteksBuild {
 async function susunKonteks(
   input: BuildFormVersionInput,
 ): Promise<KonteksBuild> {
-  const { formVersionId, sections: sectionsInput, fields: fieldsInput } = input
+  const {
+    formVersionId,
+    sections: sectionsInput,
+    fields: fieldsInput,
+    rulesAutofill,
+    rulesVisibilitas,
+  } = input
   const { existingSections, existingFields } = await loadExisting(
     db,
     formVersionId,
@@ -366,6 +376,8 @@ async function susunKonteks(
     formVersionId,
     sectionsInput,
     fieldsInput,
+    rulesAutofill,
+    rulesVisibilitas,
     formKode,
     existingSections,
     existingFields,
@@ -393,6 +405,35 @@ function validasiDraft(ctx: KonteksBuild): void {
   const { sectionsInput, fieldsInput, existingFields, formKode } = ctx
   const bawaan = formKode !== null
   const existingFieldIds = new Set(existingFields.map((f) => f.id))
+  const fieldClientIds = new Set(fieldsInput.map((f) => f.clientId))
+  const sectionClientIds = new Set(sectionsInput.map((s) => s.clientId))
+
+  for (const rule of ctx.rulesAutofill) {
+    if (
+      !fieldClientIds.has(rule.triggerFieldId) ||
+      !fieldClientIds.has(rule.targetFieldId)
+    ) {
+      throw new KesalahanValidasi({
+        ok: false,
+        kode: 'FIELD_TIDAK_ADA',
+        pesan: 'Aturan autofill merujuk field yang tidak ada di draft.',
+      })
+    }
+  }
+  for (const rule of ctx.rulesVisibilitas) {
+    const targetAda =
+      rule.targetType === 'field'
+        ? fieldClientIds.has(rule.targetId)
+        : sectionClientIds.has(rule.targetId)
+    if (!fieldClientIds.has(rule.triggerFieldId) || !targetAda) {
+      throw new KesalahanValidasi({
+        ok: false,
+        kode: 'FIELD_TIDAK_ADA',
+        pesan:
+          'Aturan visibilitas merujuk field atau section yang tidak ada di draft.',
+      })
+    }
+  }
 
   // Pola nama field menolak `::`, jadi yang divalidasi adalah bentuk pendeknya
   // sementara yang ditulis ke database memakai namespace.
@@ -652,6 +693,78 @@ async function tulisOpsi(
   }
 }
 
+/** Ganti aturan versi dengan draft setelah ID sementara dipetakan ke database. */
+async function tulisAturan(
+  tx: DbTx,
+  ctx: KonteksBuild,
+  fieldIds: Map<string, string>,
+  sectionIds: Map<string, string>,
+): Promise<void> {
+  await tx
+    .delete(formFieldAutofills)
+    .where(eq(formFieldAutofills.formVersionId, ctx.formVersionId))
+  await tx
+    .delete(formFieldVisibilityRules)
+    .where(eq(formFieldVisibilityRules.formVersionId, ctx.formVersionId))
+
+  if (ctx.rulesAutofill.length > 0) {
+    await tx.insert(formFieldAutofills).values(
+      ctx.rulesAutofill.map((rule, urutan) => {
+        const triggerFieldId = fieldIds.get(rule.triggerFieldId)
+        const targetFieldId = fieldIds.get(rule.targetFieldId)
+        if (!triggerFieldId || !targetFieldId) {
+          throw new KesalahanValidasi({
+            ok: false,
+            kode: 'FIELD_TIDAK_ADA',
+            pesan: 'Field aturan autofill gagal dipetakan ke database.',
+          })
+        }
+        return {
+          formVersionId: ctx.formVersionId,
+          triggerFieldId,
+          targetFieldId,
+          sumber: rule.sumber,
+          kolom: rule.kolom,
+          transform: rule.transform,
+          mode: rule.mode,
+          urutan,
+          aktif: rule.aktif,
+        }
+      }),
+    )
+  }
+
+  if (ctx.rulesVisibilitas.length > 0) {
+    await tx.insert(formFieldVisibilityRules).values(
+      ctx.rulesVisibilitas.map((rule, urutan) => {
+        const triggerFieldId = fieldIds.get(rule.triggerFieldId)
+        const targetId =
+          rule.targetType === 'field'
+            ? fieldIds.get(rule.targetId)
+            : sectionIds.get(rule.targetId)
+        if (!triggerFieldId || !targetId) {
+          throw new KesalahanValidasi({
+            ok: false,
+            kode: 'FIELD_TIDAK_ADA',
+            pesan:
+              'Field atau section aturan visibilitas gagal dipetakan ke database.',
+          })
+        }
+        return {
+          formVersionId: ctx.formVersionId,
+          targetType: rule.targetType,
+          targetId,
+          triggerFieldId,
+          operator: rule.operator,
+          nilaiAcuan: rule.nilaiAcuan,
+          aktif: rule.aktif,
+          urutan,
+        }
+      }),
+    )
+  }
+}
+
 /**
  * Langkah 5 — hapus section yang tidak ada lagi di draft.
  *
@@ -694,6 +807,7 @@ export async function buildFormVersion(
     // Urutan lima langkah ini mengikat: lihat docstring `buildFormVersion`.
     const sectionClientIdToId = await tulisSections(tx, ctx)
     const fieldClientIdToId = await tulisFields(tx, ctx, sectionClientIdToId)
+    await tulisAturan(tx, ctx, fieldClientIdToId, sectionClientIdToId)
     await hapusFieldHilang(tx, ctx)
     await tulisOpsi(tx, ctx, fieldClientIdToId)
     await hapusSections(tx, ctx)

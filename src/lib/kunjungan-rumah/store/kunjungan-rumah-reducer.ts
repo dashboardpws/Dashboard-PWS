@@ -149,6 +149,7 @@ export function initialKunjunganRumahState(): KunjunganRumahState {
 }
 
 export type KunjunganRumahAction =
+  | { type: 'REPLACE_STATE'; state: KunjunganRumahState }
   | { type: 'SET_FIELD'; key: keyof KeluargaInfo | string; value: string }
   | {
       type: 'SET_SAN_FIELD'
@@ -205,6 +206,8 @@ export function kunjunganRumahReducer(
   action: KunjunganRumahAction,
 ): KunjunganRumahState {
   switch (action.type) {
+    case 'REPLACE_STATE':
+      return action.state
     case 'SET_FIELD':
       return { ...state, info: { ...state.info, [action.key]: action.value } }
     case 'SET_SAN_FIELD':

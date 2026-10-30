@@ -1,6 +1,10 @@
-import React from 'react'
 import { KOLOM_WARGA } from '@/lib/form-builder/rules/autofill-katalog'
-import type { RuleAutofill, SumberAutofill, TransformAutofill, ModeAutofill } from '@/lib/form-builder/engine/types'
+import type {
+  RuleAutofill,
+  SumberAutofill,
+  TransformAutofill,
+  ModeAutofill,
+} from '@/lib/form-builder/engine/types'
 
 interface FieldOption {
   id: string
@@ -12,9 +16,16 @@ interface Props {
   allFields: FieldOption[]
   rules: RuleAutofill[]
   onChange: (newRules: RuleAutofill[]) => void
+  disabled?: boolean
 }
 
-export function PropertyPanelAutofill({ triggerFieldId, allFields, rules, onChange }: Props) {
+export function PropertyPanelAutofill({
+  triggerFieldId,
+  allFields,
+  rules,
+  onChange,
+  disabled = false,
+}: Props) {
   // Filter aturan yang hanya berlaku untuk triggerFieldId ini
   const activeRules = rules.filter((r) => r.triggerFieldId === triggerFieldId)
 
@@ -42,29 +53,36 @@ export function PropertyPanelAutofill({ triggerFieldId, allFields, rules, onChan
   }
 
   return (
-    <div className="space-y-4 border-t pt-4">
+    <div className="space-y-4 border-t border-line pt-4">
       <div className="flex items-center justify-between">
-        <h4 className="text-sm font-semibold">Aturan Auto-Fill</h4>
+        <h4 className="text-sm font-semibold text-ink">Aturan Auto-Fill</h4>
         <button
           type="button"
           onClick={handleAddRule}
-          className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700"
+          disabled={disabled || allFields.length < 2}
+          className="rounded-lg bg-accent px-2.5 py-1.5 text-xs font-semibold text-on-accent hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
         >
           + Tambah Target
         </button>
       </div>
 
       {activeRules.length === 0 ? (
-        <p className="text-xs text-gray-500 italic">Belum ada target auto-fill untuk field ini.</p>
+        <p className="text-xs italic text-muted">
+          Belum ada target auto-fill untuk field ini.
+        </p>
       ) : (
         activeRules.map((rule, idx) => (
-          <div key={rule.id} className="p-3 border rounded-md space-y-2 bg-gray-50 text-xs">
+          <div
+            key={rule.id}
+            className="space-y-2 rounded-lg border border-line bg-surface p-3 text-xs"
+          >
             <div className="flex justify-between items-center">
-              <span className="font-medium text-gray-700">Aturan #{idx + 1}</span>
+              <span className="font-medium text-ink-2">Aturan #{idx + 1}</span>
               <button
                 type="button"
                 onClick={() => handleDeleteRule(rule.id)}
-                className="text-red-600 hover:text-red-800"
+                disabled={disabled}
+                className="text-danger hover:underline disabled:opacity-50"
               >
                 Hapus
               </button>
@@ -72,11 +90,16 @@ export function PropertyPanelAutofill({ triggerFieldId, allFields, rules, onChan
 
             {/* Target Field */}
             <div>
-              <label className="block text-gray-600 mb-1">Target Field (Path / ID):</label>
+              <label className="mb-1 block text-ink-2">
+                Target Field (Path / ID):
+              </label>
               <select
                 value={rule.targetFieldId}
-                onChange={(e) => handleUpdateRule(rule.id, { targetFieldId: e.target.value })}
-                className="w-full border rounded p-1"
+                disabled={disabled}
+                onChange={(e) =>
+                  handleUpdateRule(rule.id, { targetFieldId: e.target.value })
+                }
+                className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-ink outline-none focus:border-accent"
               >
                 <option value="">-- Pilih Target --</option>
                 {allFields.map((f) => (
@@ -90,11 +113,16 @@ export function PropertyPanelAutofill({ triggerFieldId, allFields, rules, onChan
             {/* Sumber Data */}
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-gray-600 mb-1">Sumber Data:</label>
+                <label className="mb-1 block text-ink-2">Sumber Data:</label>
                 <select
                   value={rule.sumber}
-                  onChange={(e) => handleUpdateRule(rule.id, { sumber: e.target.value as SumberAutofill })}
-                  className="w-full border rounded p-1"
+                  disabled={disabled}
+                  onChange={(e) =>
+                    handleUpdateRule(rule.id, {
+                      sumber: e.target.value as SumberAutofill,
+                    })
+                  }
+                  className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-ink outline-none focus:border-accent"
                 >
                   <option value="warga">Warga</option>
                   <option value="anggota">Anggota (Group)</option>
@@ -104,12 +132,15 @@ export function PropertyPanelAutofill({ triggerFieldId, allFields, rules, onChan
 
               {/* Kolom */}
               <div>
-                <label className="block text-gray-600 mb-1">Kolom Sumber:</label>
+                <label className="mb-1 block text-ink-2">Kolom Sumber:</label>
                 {rule.sumber === 'warga' ? (
                   <select
                     value={rule.kolom}
-                    onChange={(e) => handleUpdateRule(rule.id, { kolom: e.target.value })}
-                    className="w-full border rounded p-1"
+                    disabled={disabled}
+                    onChange={(e) =>
+                      handleUpdateRule(rule.id, { kolom: e.target.value })
+                    }
+                    className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-ink outline-none focus:border-accent"
                   >
                     {KOLOM_WARGA.map((kw) => (
                       <option key={kw.value} value={kw.value}>
@@ -121,9 +152,12 @@ export function PropertyPanelAutofill({ triggerFieldId, allFields, rules, onChan
                   <input
                     type="text"
                     value={rule.kolom}
+                    disabled={disabled}
                     placeholder="mis: nik, nama"
-                    onChange={(e) => handleUpdateRule(rule.id, { kolom: e.target.value })}
-                    className="w-full border rounded p-1"
+                    onChange={(e) =>
+                      handleUpdateRule(rule.id, { kolom: e.target.value })
+                    }
+                    className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-ink outline-none focus:border-accent"
                   />
                 )}
               </div>
@@ -132,11 +166,16 @@ export function PropertyPanelAutofill({ triggerFieldId, allFields, rules, onChan
             {/* Transform & Mode */}
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-gray-600 mb-1">Transform:</label>
+                <label className="mb-1 block text-ink-2">Transform:</label>
                 <select
                   value={rule.transform}
-                  onChange={(e) => handleUpdateRule(rule.id, { transform: e.target.value as TransformAutofill })}
-                  className="w-full border rounded p-1"
+                  disabled={disabled}
+                  onChange={(e) =>
+                    handleUpdateRule(rule.id, {
+                      transform: e.target.value as TransformAutofill,
+                    })
+                  }
+                  className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-ink outline-none focus:border-accent"
                 >
                   <option value="teks">Teks</option>
                   <option value="nik">NIK (16 Digit)</option>
@@ -147,11 +186,16 @@ export function PropertyPanelAutofill({ triggerFieldId, allFields, rules, onChan
               </div>
 
               <div>
-                <label className="block text-gray-600 mb-1">Mode Overwrite:</label>
+                <label className="mb-1 block text-ink-2">Mode Overwrite:</label>
                 <select
                   value={rule.mode}
-                  onChange={(e) => handleUpdateRule(rule.id, { mode: e.target.value as ModeAutofill })}
-                  className="w-full border rounded p-1"
+                  disabled={disabled}
+                  onChange={(e) =>
+                    handleUpdateRule(rule.id, {
+                      mode: e.target.value as ModeAutofill,
+                    })
+                  }
+                  className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-ink outline-none focus:border-accent"
                 >
                   <option value="isi_kosong">Isi Hanya Jika Kosong</option>
                   <option value="timpa">Selalu Timpa</option>
@@ -161,6 +205,9 @@ export function PropertyPanelAutofill({ triggerFieldId, allFields, rules, onChan
           </div>
         ))
       )}
+      <p className="text-[11px] text-muted">
+        Aturan disimpan saat form di-build.
+      </p>
     </div>
   )
 }

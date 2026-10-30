@@ -24,8 +24,15 @@ import {
   nilaiEnum,
   sumberOpsiPerKelompok,
   tipeBolehPakaiSumber,
+  SUMBER_CARI_WARGA,
 } from '@/lib/service/form-builder/sumber-opsi'
 import type { KunciEditor } from '@/lib/form-builder/kode-bawaan'
+import type {
+  RuleAutofill,
+  RuleVisibilitas,
+} from '@/lib/form-builder/engine/types'
+import { PropertyPanelAutofill } from '@/components/kunjungan-rumah/PropertyPanelAutofill'
+import { PropertyPanelVisibilitas } from '@/components/kunjungan-rumah/PropertyPanelVisibilitas'
 
 interface Props {
   selectedItem: SelectedItem
@@ -54,6 +61,11 @@ interface Props {
     type: string | null,
     key: string | null,
   ) => void
+  rulesAutofill: RuleAutofill[]
+  rulesVisibilitas: RuleVisibilitas[]
+  setRulesAutofill: (rules: RuleAutofill[]) => void
+  setRulesVisibilitas: (rules: RuleVisibilitas[]) => void
+  disabled: boolean
 }
 
 export function SettingsPanel({
@@ -69,7 +81,16 @@ export function SettingsPanel({
   updateOpsi,
   deleteOpsi,
   setSumberOpsi,
+  rulesAutofill,
+  rulesVisibilitas,
+  setRulesAutofill,
+  setRulesVisibilitas,
+  disabled,
 }: Props) {
+  const allFields = (document?.fields ?? []).map((field) => ({
+    id: field.clientId,
+    nama: field.label || field.nama || 'Field tanpa nama',
+  }))
   if (!selectedItem) {
     return (
       <div className="w-[320px] shrink-0 border-l border-line bg-surface-2 p-3 overflow-y-auto h-full min-h-0">
@@ -96,6 +117,10 @@ export function SettingsPanel({
         kunci={kunci}
         updateSection={updateSection}
         deleteSection={deleteSection}
+        allFields={allFields}
+        rulesVisibilitas={rulesVisibilitas}
+        setRulesVisibilitas={setRulesVisibilitas}
+        disabled={disabled}
       />
     )
   }
@@ -112,6 +137,12 @@ export function SettingsPanel({
       updateOpsi={updateOpsi}
       deleteOpsi={deleteOpsi}
       setSumberOpsi={setSumberOpsi}
+      allFields={allFields}
+      rulesAutofill={rulesAutofill}
+      rulesVisibilitas={rulesVisibilitas}
+      setRulesAutofill={setRulesAutofill}
+      setRulesVisibilitas={setRulesVisibilitas}
+      disabled={disabled}
     />
   )
 }
@@ -123,6 +154,10 @@ function SectionSettings({
   kunci,
   updateSection,
   deleteSection,
+  allFields,
+  rulesVisibilitas,
+  setRulesVisibilitas,
+  disabled,
 }: {
   sectionClientId: string
   onClose: () => void
@@ -130,6 +165,10 @@ function SectionSettings({
   kunci: KunciEditor
   updateSection: (clientId: string, patch: Partial<DraftSection>) => void
   deleteSection: (clientId: string) => void
+  allFields: { id: string; nama: string }[]
+  rulesVisibilitas: RuleVisibilitas[]
+  setRulesVisibilitas: (rules: RuleVisibilitas[]) => void
+  disabled: boolean
 }) {
   const section = document?.sections.find((s) => s.clientId === sectionClientId)
   if (!section) return null
@@ -205,6 +244,14 @@ function SectionSettings({
             </Button>
           </div>
         )}
+        <PropertyPanelVisibilitas
+          targetType="section"
+          targetId={sectionClientId}
+          allFields={allFields}
+          rules={rulesVisibilitas}
+          onChange={setRulesVisibilitas}
+          disabled={disabled}
+        />
       </div>
     </div>
   )
@@ -221,6 +268,12 @@ function FieldSettings({
   updateOpsi,
   deleteOpsi,
   setSumberOpsi,
+  allFields,
+  rulesAutofill,
+  rulesVisibilitas,
+  setRulesAutofill,
+  setRulesVisibilitas,
+  disabled,
 }: {
   fieldClientId: string
   onClose: () => void
@@ -240,6 +293,12 @@ function FieldSettings({
     type: string | null,
     key: string | null,
   ) => void
+  allFields: { id: string; nama: string }[]
+  rulesAutofill: RuleAutofill[]
+  rulesVisibilitas: RuleVisibilitas[]
+  setRulesAutofill: (rules: RuleAutofill[]) => void
+  setRulesVisibilitas: (rules: RuleVisibilitas[]) => void
+  disabled: boolean
 }) {
   const field = document?.fields.find((f) => f.clientId === fieldClientId)
   if (!field) return null
@@ -645,6 +704,23 @@ function FieldSettings({
             disimpan di sini.
           </p>
         )}
+        {field.optionSourceType === SUMBER_CARI_WARGA ? (
+          <PropertyPanelAutofill
+            triggerFieldId={fieldClientId}
+            allFields={allFields}
+            rules={rulesAutofill}
+            onChange={setRulesAutofill}
+            disabled={disabled}
+          />
+        ) : null}
+        <PropertyPanelVisibilitas
+          targetType="field"
+          targetId={fieldClientId}
+          allFields={allFields}
+          rules={rulesVisibilitas}
+          onChange={setRulesVisibilitas}
+          disabled={disabled}
+        />
       </div>
     </div>
   )

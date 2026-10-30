@@ -70,6 +70,8 @@ export function FormBuilderWorkspace({
     updateOpsi,
     deleteOpsi,
     setSumberOpsi,
+    setRulesAutofill,
+    setRulesVisibilitas,
     selectedItem,
   } = draft
 
@@ -371,6 +373,11 @@ export function FormBuilderWorkspace({
                 updateOpsi={updateOpsi}
                 deleteOpsi={deleteOpsi}
                 setSumberOpsi={setSumberOpsi}
+                rulesAutofill={document?.rulesAutofill ?? []}
+                rulesVisibilitas={document?.rulesVisibilitas ?? []}
+                setRulesAutofill={setRulesAutofill}
+                setRulesVisibilitas={setRulesVisibilitas}
+                disabled={!bisaUbah}
               />
             </div>
           ) : (

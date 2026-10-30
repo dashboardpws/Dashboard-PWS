@@ -34,9 +34,15 @@ interface Props {
   state: KunjunganRumahState
   templates: KunjunganRumahTemplates
   dispatch: React.Dispatch<KunjunganRumahAction>
+  onWargaSelected?: (row: SasaranSuggestion) => void
 }
 
-export function KeluargaInfoSection({ state, templates, dispatch }: Props) {
+export function KeluargaInfoSection({
+  state,
+  templates,
+  dispatch,
+  onWargaSelected,
+}: Props) {
   const keluargaInfoFields = useMemo(
     () =>
       templates.keluargaInfo
@@ -117,7 +123,8 @@ export function KeluargaInfoSection({ state, templates, dispatch }: Props) {
   const [mengisiOtomatis, setMengisiOtomatis] = useState(false)
   const pilihSaran = async (row: SasaranSuggestion) => {
     const iniRequest = ++requestId.current
-    dispatch({ type: 'APPLY_SASARAN', row })
+    if (onWargaSelected) onWargaSelected(row)
+    else dispatch({ type: 'APPLY_SASARAN', row })
     setSaran(null)
 
     // Dua fetch jalan bersamaan lalu dipasang bareng: keduanya baca data yang

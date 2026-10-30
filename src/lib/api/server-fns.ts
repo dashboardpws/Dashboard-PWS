@@ -14,6 +14,7 @@ import {
   saveKunjunganRumahRecord,
   updateKunjunganRumahRecord,
 } from '@/lib/server/kunjungan-rumah.server'
+import { muatAturanForm } from '@/lib/server/form-builder/runtime-extend.server'
 import {
   querySurveyors,
   listFasKes,
@@ -397,7 +398,8 @@ export const getKunjunganRumahTemplate = createServerFn({ method: 'GET' })
   .handler(async () => {
     const rows = await getKunjunganRumahTemplateRows()
     if (!rows) return null
-    return rows
+    const aturan = await muatAturanForm(rows.formVersionId)
+    return { ...rows, aturan }
   })
 
 export const listKunjunganRumah = createServerFn({ method: 'GET' })

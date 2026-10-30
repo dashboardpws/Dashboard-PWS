@@ -125,7 +125,13 @@ function definisiToDraft(definisi: DefinisiVersi): DraftFormDocument {
     })),
   )
 
-  return { formVersionId: definisi.id, sections, fields }
+  return {
+    formVersionId: definisi.id,
+    sections,
+    fields,
+    rulesAutofill: definisi.rulesAutofill,
+    rulesVisibilitas: definisi.rulesVisibilitas,
+  }
 }
 
 interface UseFormBuilderDraftReturn {
@@ -163,6 +169,12 @@ interface UseFormBuilderDraftReturn {
     fieldClientId: string,
     type: string | null,
     key: string | null,
+  ) => void
+  setRulesAutofill: (
+    rules: NonNullable<DraftFormDocument['rulesAutofill']>,
+  ) => void
+  setRulesVisibilitas: (
+    rules: NonNullable<DraftFormDocument['rulesVisibilitas']>,
   ) => void
   updateOpsi: (
     fieldClientId: string,
@@ -226,13 +238,31 @@ export function useFormBuilderDraft(): UseFormBuilderDraftReturn {
 
   const deleteSection = useCallback(
     (clientId: string) => {
-      updateDocument((doc) => ({
-        ...doc,
-        sections: doc.sections.filter((s) => s.clientId !== clientId),
-        // Field milik section yang dihapus ikut terhapus: di database keduanya
-        // Cascade, jadi tidak boleh menyisakan field yatim di draft.
-        fields: doc.fields.filter((f) => f.sectionClientId !== clientId),
-      }))
+      updateDocument((doc) => {
+        const fieldIds = new Set(
+          doc.fields
+            .filter((field) => field.sectionClientId === clientId)
+            .map((field) => field.clientId),
+        )
+        return {
+          ...doc,
+          sections: doc.sections.filter((s) => s.clientId !== clientId),
+          // Field dan aturan yang merujuk section/field yang dihapus ikut
+          // dibuang agar draft selalu bisa disimpan dalam satu transaksi.
+          fields: doc.fields.filter((f) => f.sectionClientId !== clientId),
+          rulesAutofill: (doc.rulesAutofill ?? []).filter(
+            (rule) =>
+              !fieldIds.has(rule.triggerFieldId) &&
+              !fieldIds.has(rule.targetFieldId),
+          ),
+          rulesVisibilitas: (doc.rulesVisibilitas ?? []).filter(
+            (rule) =>
+              rule.targetId !== clientId &&
+              !fieldIds.has(rule.triggerFieldId) &&
+              !(rule.targetType === 'field' && fieldIds.has(rule.targetId)),
+          ),
+        }
+      })
       setSelectedItem(null)
     },
     [updateDocument],
@@ -258,6 +288,15 @@ export function useFormBuilderDraft(): UseFormBuilderDraftReturn {
       updateDocument((doc) => ({
         ...doc,
         fields: doc.fields.filter((f) => f.clientId !== clientId),
+        rulesAutofill: (doc.rulesAutofill ?? []).filter(
+          (rule) =>
+            rule.triggerFieldId !== clientId && rule.targetFieldId !== clientId,
+        ),
+        rulesVisibilitas: (doc.rulesVisibilitas ?? []).filter(
+          (rule) =>
+            rule.triggerFieldId !== clientId &&
+            !(rule.targetType === 'field' && rule.targetId === clientId),
+        ),
       }))
       setSelectedItem((prev) =>
         prev?.type === 'field' && prev.clientId === clientId ? null : prev,
@@ -363,6 +402,20 @@ export function useFormBuilderDraft(): UseFormBuilderDraftReturn {
           }
         }),
       }))
+    },
+    [updateDocument],
+  )
+
+  const setRulesAutofill = useCallback(
+    (rules: NonNullable<DraftFormDocument['rulesAutofill']>) => {
+      updateDocument((doc) => ({ ...doc, rulesAutofill: rules }))
+    },
+    [updateDocument],
+  )
+
+  const setRulesVisibilitas = useCallback(
+    (rules: NonNullable<DraftFormDocument['rulesVisibilitas']>) => {
+      updateDocument((doc) => ({ ...doc, rulesVisibilitas: rules }))
     },
     [updateDocument],
   )
@@ -511,6 +564,8 @@ export function useFormBuilderDraft(): UseFormBuilderDraftReturn {
     updateOpsi,
     deleteOpsi,
     setSumberOpsi,
+    setRulesAutofill,
+    setRulesVisibilitas,
     handleDragEnd,
     buildForm,
   }
