@@ -151,12 +151,10 @@ function normalkanSasaran(row: BarisImportSasaran): SasaranSuggestion {
   }
 }
 
-// Kolom enum `data_warga_import` dideklarasikan di `src/lib/schema/data-import.ts`
-// tanpa nama kolom eksplisit, jadi pemetaannya menjadi camelCase
-// (`hubunganKeluarga`, `jenisKelamin`, `agama`, dst) yang tidak ada di database.
-// Select ditulis manual di `SELECT_SASARAN` supaya file schema tidak perlu
-// disentuh. Kolom sisanya (`rt`, `rw` bertipe smallint di import tapi varchar(3)
-// di `data_warga`) ikut dikonversi ke teks di sana.
+// `SELECT_SASARAN` menyatukan bentuk data dari tabel warga dan tabel import.
+// Nama kolom enum import sudah dipetakan eksplisit di schema agar sesuai dengan
+// kolom database snake_case; query tetap ditulis manual karena kedua sumber
+// memakai tipe dan kolom yang berbeda, termasuk `rt`/`rw` yang perlu jadi teks.
 
 /**
  * Cari warga sasaran di `data_warga` dan `data_warga_import` yang mirip `q`.

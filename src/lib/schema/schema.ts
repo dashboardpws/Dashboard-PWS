@@ -416,9 +416,11 @@ export const validSession = pgTable('valid_session', {
  */
 export const pinAttempts = pgTable('pin_attempts', {
   ip: varchar({ length: 64 }).primaryKey(),
-  gagalBerturut: integer().notNull().default(0),
-  terkunciSampai: timestamp({ withTimezone: true }),
-  terakhirGagal: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  gagalBerturut: integer('gagal_berturut').notNull().default(0),
+  terkunciSampai: timestamp('terkunci_sampai', { withTimezone: true }),
+  terakhirGagal: timestamp('terakhir_gagal', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 })
 
 export const pushSubscriptions = pgTable('push_subscriptions', {

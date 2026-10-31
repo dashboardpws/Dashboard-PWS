@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MAX_FOTO } from '@/lib/constants'
-import { fileToDataUrl, prepareFotos } from './fotos'
+import { MAX_TOTAL_BYTES, fileToDataUrl, prepareFotos } from './fotos'
 import type { KunjunganRumahFoto } from './models'
 
 function jpg(name: string, size: number): File {
@@ -54,9 +54,10 @@ describe('prepareFotos', () => {
   })
 
   it('lewati saat total byte melebihi budget', async () => {
+    const base64MelewatiBudget = Math.ceil((MAX_TOTAL_BYTES + 1) * (4 / 3))
     const huge: KunjunganRumahFoto = {
       ...existingFoto,
-      dataUrl: `data:image/jpeg;base64,${'A'.repeat(5 * 1024 * 1024)}`,
+      dataUrl: `data:image/jpeg;base64,${'A'.repeat(base64MelewatiBudget)}`,
     }
     const { added, skipped } = await prepareFotos(
       [huge],

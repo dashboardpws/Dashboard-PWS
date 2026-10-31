@@ -361,12 +361,13 @@ export function kunjunganRumahReducer(
       return { ...state, ttd: action.value }
     case 'APPLY_SASARAN': {
       // Isi form dengan baris `data_warga_import` yang dipilih user. Kolom
-      // header hanya ditimpa kalau form masih kosong, jadi isian yang sudah
-      // dikoreksi staff tidak hilang. `rt`/`rw` tidak punya field di template
-      // keluarga default, tapi tetap disimpan supaya bisa dipakai server.
+      // pencarian (`nik` dan `namaKK`) selalu disinkronkan ke pilihan yang pasti;
+      // kolom lain hanya mengisi nilai kosong supaya koreksi staf tetap terjaga.
+      // `rt`/`rw` tidak punya field di template keluarga default, tapi tetap
+      // disimpan supaya bisa dipakai server.
       const r = action.row
       const header: Record<string, string> = {}
-      if (!state.info.namaKK.trim() && r.namaKk) header.namaKK = r.namaKk
+      if (r.namaKk) header.namaKK = r.namaKk
       if (!state.info.alamat.trim() && r.alamat) header.alamat = r.alamat
       if (!state.info.kelurahan.trim() && r.kelurahan)
         header.kelurahan = r.kelurahan
@@ -377,7 +378,7 @@ export function kunjunganRumahReducer(
         header.provinsi = r.provinsi
       if (r.rt) header.rt = r.rt
       if (r.rw) header.rw = r.rw
-      if (r.nik && !state.info.nik.trim()) header.nik = r.nik
+      if (r.nik) header.nik = r.nik
 
       // Baris anggota untuk warga sasaran ikut dibuat bila belum ada, karena
       // kolom `pekerjaan` di `data_warga` diambil dari baris yang NIK-nya sama
@@ -557,20 +558,44 @@ export function kunjunganRumahReducer(
     case 'ISI_ANGGOTA_KELUARGA': {
       const { rows } = action
       if (rows.length === 0) return state
-      const mappedRows = rows.map((row) => ({
-        id: createRecordId(),
-        nama: row.namaArt,
-        nik: row.nik,
-        tglLahir: row.tglLahir ?? '',
-        jk: row.jenisKelamin ? opsiJk(row.jenisKelamin) : '',
-        hubKK: row.hubunganKeluarga
-          ? opsiHubKK(row.hubunganKeluarga)
-          : 'Kepala Keluarga',
-        statusKawin: row.statusKawin ? opsiKawin(row.statusKawin) : '',
-        pendidikan: row.pendidikan ? opsiPendidikan(row.pendidikan) : '',
-        pekerjaan: row.pekerjaan || '',
-        agama: row.agama || '',
-      }))
+      const identitasRows = new Set<string>()
+      const mappedRows = rows.flatMap((row) => {
+        const nik = row.nik.trim().toLocaleLowerCase('id-ID')
+        const nama = row.namaArt
+          .trim()
+          .replace(/\s+/g, ' ')
+          .toLocaleLowerCase('id-ID')
+        const namaKk = row.namaKk
+          .trim()
+          .replace(/\s+/g, ' ')
+          .toLocaleLowerCase('id-ID')
+        const tglLahir = row.tglLahir?.trim() ?? ''
+        const identitas = nik
+          ? `nik:${nik}`
+          : nama && namaKk
+            ? `tanpa-nik:${JSON.stringify([nama, namaKk, tglLahir])}`
+            : null
+
+        if (identitas && identitasRows.has(identitas)) return []
+        if (identitas) identitasRows.add(identitas)
+
+        return [
+          {
+            id: createRecordId(),
+            nama: row.namaArt,
+            nik: row.nik,
+            tglLahir: row.tglLahir ?? '',
+            jk: row.jenisKelamin ? opsiJk(row.jenisKelamin) : '',
+            hubKK: row.hubunganKeluarga
+              ? opsiHubKK(row.hubunganKeluarga)
+              : 'Kepala Keluarga',
+            statusKawin: row.statusKawin ? opsiKawin(row.statusKawin) : '',
+            pendidikan: row.pendidikan ? opsiPendidikan(row.pendidikan) : '',
+            pekerjaan: row.pekerjaan || '',
+            agama: row.agama || '',
+          },
+        ]
+      })
       return { ...state, anggota: mappedRows }
     }
     case 'ISI_SANITASI_DARI_RIWAYAT': {

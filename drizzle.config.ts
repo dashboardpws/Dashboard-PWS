@@ -9,5 +9,8 @@ export default defineConfig({
   schema: './src/lib/schema/*.ts',
   out: './drizzle',
   schemaFilter: ['public'],
+  // Migrasi aplikasi dicatat di schema `drizzle`, bukan `public`. Filter ini
+  // menjadi pagar tambahan jika tabel catatan migrasi dibuat di `public`.
+  tablesFilter: ['*', '!__drizzle_migrations'],
   dbCredentials: { url: process.env.DATABASE_URL! },
 })

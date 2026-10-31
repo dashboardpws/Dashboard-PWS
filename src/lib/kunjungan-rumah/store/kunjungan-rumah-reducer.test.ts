@@ -683,6 +683,18 @@ describe('APPLY_SASARAN', () => {
     expect(sesudah.anggota.map((a) => a.nama)).toEqual(['Sari', 'Rina'])
   })
 
+  it('tidak menggabungkan anggota tanpa NIK yang tanggal lahirnya berbeda', () => {
+    const sesudah = dispatch(stateDenganIsi(), {
+      type: 'ISI_ANGGOTA_KELUARGA',
+      rows: [
+        suggestion({ nik: '', namaArt: 'Sari', tglLahir: '1980-02-15' }),
+        suggestion({ nik: '', namaArt: 'Sari', tglLahir: '2005-08-20' }),
+      ],
+    })
+
+    expect(sesudah.anggota).toHaveLength(2)
+  })
+
   it('ISI_ANGGOTA_KELUARGA membiarkan baris kosong utuh untuk diisi kader', () => {
     // NIK dan tanggal lahir kosong tidak ditebak; komponen form yang menandai
     // field kosong itu, dan server menolak menyimpan sampai dilengkapi.
