@@ -8,10 +8,8 @@ function parsePath(path: string): string[] {
   if (!path) return []
   const parts = path.split('.')
   const result: string[] = []
-  for (let i = 0; i < parts.length; i++) {
-    if (parts[i] && parts[i]!.length > 0) {
-      result.push(parts[i]!)
-    }
+  for (const part of parts) {
+    if (part.length > 0) result.push(part)
   }
   return result
 }
@@ -22,8 +20,7 @@ export function getNestedValue(obj: unknown, path: string): unknown {
   if (Array.isArray(obj)) return undefined
   const parts = parsePath(path)
   let current: unknown = obj
-  for (let i = 0; i < parts.length; i++) {
-    const part = parts[i]!
+  for (const part of parts) {
     if (current === null || current === undefined) return undefined
     if (typeof current !== 'object') return undefined
     if (Array.isArray(current)) return undefined

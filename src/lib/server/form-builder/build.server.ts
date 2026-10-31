@@ -407,8 +407,24 @@ function validasiDraft(ctx: KonteksBuild): void {
   const existingFieldIds = new Set(existingFields.map((f) => f.id))
   const fieldClientIds = new Set(fieldsInput.map((f) => f.clientId))
   const sectionClientIds = new Set(sectionsInput.map((s) => s.clientId))
+  const autofillRuleKeys = new Set<string>()
 
   for (const rule of ctx.rulesAutofill) {
+    const key = JSON.stringify([
+      rule.triggerFieldId,
+      rule.targetFieldId,
+      rule.sumber,
+      rule.kolom,
+    ])
+    if (autofillRuleKeys.has(key)) {
+      throw new KesalahanValidasi({
+        ok: false,
+        kode: 'ATURAN_AUTOFILL_DUPLIKAT',
+        pesan: `Aturan autofill duplikat untuk target "${rule.targetFieldId}" dan kolom "${rule.kolom}".`,
+      })
+    }
+    autofillRuleKeys.add(key)
+
     if (
       !fieldClientIds.has(rule.triggerFieldId) ||
       !fieldClientIds.has(rule.targetFieldId)

@@ -19,46 +19,45 @@ function cocok(
   operator: RuleVisibilitas['operator'],
   nilaiAcuan: unknown,
 ): boolean {
-  if (operator === 'kosong') return nilaiKosong(triggerValue)
-  if (operator === 'tidak_kosong') return !nilaiKosong(triggerValue)
-  if (operator === 'eq') {
-    const tvKosong = nilaiKosong(triggerValue)
-    const naKosong = nilaiKosong(nilaiAcuan)
-    if (tvKosong && naKosong) return true
-    if (tvKosong || naKosong) {
-      if (tvKosong) return nilaiKosong(nilaiAcuan)
-      if (naKosong) return nilaiKosong(triggerValue)
+  switch (operator) {
+    case 'kosong':
+      return nilaiKosong(triggerValue)
+    case 'tidak_kosong':
+      return !nilaiKosong(triggerValue)
+    case 'eq': {
+      const tvKosong = nilaiKosong(triggerValue)
+      const naKosong = nilaiKosong(nilaiAcuan)
+      if (tvKosong || naKosong) return tvKosong && naKosong
+      return String(triggerValue) === String(nilaiAcuan)
     }
-    return String(triggerValue) === String(nilaiAcuan)
-  }
-  if (operator === 'neq') {
-    const tvKosong = nilaiKosong(triggerValue)
-    const naKosong = nilaiKosong(nilaiAcuan)
-    if (tvKosong && naKosong) return false
-    if (tvKosong || naKosong) {
-      if (tvKosong) return !nilaiKosong(nilaiAcuan)
-      if (naKosong) return !nilaiKosong(triggerValue)
+    case 'neq': {
+      const tvKosong = nilaiKosong(triggerValue)
+      const naKosong = nilaiKosong(nilaiAcuan)
+      if (tvKosong || naKosong) return tvKosong !== naKosong
+      return String(triggerValue) !== String(nilaiAcuan)
     }
-    return String(triggerValue) !== String(nilaiAcuan)
-  }
-  if (operator === 'in') {
-    const arr = Array.isArray(nilaiAcuan) ? nilaiAcuan : []
-    if (nilaiKosong(triggerValue)) {
-      return arr.some((x) => nilaiKosong(x))
+    case 'in': {
+      const arr = Array.isArray(nilaiAcuan) ? nilaiAcuan : []
+      if (nilaiKosong(triggerValue)) {
+        return arr.some((x) => nilaiKosong(x))
+      }
+      return arr.some((x) => String(x) === String(triggerValue))
     }
-    return arr.some((x) => String(x) === String(triggerValue))
-  }
-  if (operator === 'nin') {
-    const arr = Array.isArray(nilaiAcuan) ? nilaiAcuan : []
-    if (nilaiKosong(triggerValue)) {
-      const hasEmpty = arr.some((x) => nilaiKosong(x))
-      return !hasEmpty
+    case 'nin': {
+      const arr = Array.isArray(nilaiAcuan) ? nilaiAcuan : []
+      if (nilaiKosong(triggerValue)) {
+        return !arr.some((x) => nilaiKosong(x))
+      }
+      return !arr.some((x) => String(x) === String(triggerValue))
     }
-    return !arr.some((x) => String(x) === String(triggerValue))
   }
-  return false
 }
 
+/**
+ * Evaluasi aturan aktif per target. Beberapa rule untuk target yang sama
+ * digabung dengan AND dan dievaluasi menurut `urutan`. Nilai kosong mencakup
+ * null, undefined, string kosong, dan array kosong.
+ */
 export function evaluasiVisibilitas(params: {
   answers: Record<string, unknown>
   rules: RuleVisibilitas[]

@@ -1,8 +1,8 @@
-// src/components/kelola/builder/PropertyPanelVisibilitas.tsx
 import type {
   RuleVisibilitas,
   OperatorVisibilitas,
   TargetVisibilitas,
+  NilaiJSON,
 } from '@/lib/form-builder/engine/types'
 
 interface FieldOption {
@@ -17,6 +17,8 @@ interface Props {
   rules: RuleVisibilitas[]
   onChange: (newRules: RuleVisibilitas[]) => void
   disabled?: boolean
+  canAdd?: boolean
+  catatan?: string
 }
 
 export function PropertyPanelVisibilitas({
@@ -26,6 +28,8 @@ export function PropertyPanelVisibilitas({
   rules,
   onChange,
   disabled = false,
+  canAdd = true,
+  catatan,
 }: Props) {
   const activeRules = rules.filter(
     (r) => r.targetType === targetType && r.targetId === targetId,
@@ -62,7 +66,7 @@ export function PropertyPanelVisibilitas({
         <button
           type="button"
           onClick={handleAddRule}
-          disabled={disabled || allFields.length === 0}
+          disabled={disabled || !canAdd || allFields.length === 0}
           className="rounded-lg bg-accent px-2.5 py-1.5 text-xs font-semibold text-on-accent hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
         >
           + Tambah Kondisi
@@ -119,15 +123,26 @@ export function PropertyPanelVisibilitas({
                 <select
                   value={rule.operator}
                   disabled={disabled}
-                  onChange={(e) =>
-                    handleUpdateRule(rule.id, {
-                      operator: e.target.value as OperatorVisibilitas,
-                    })
-                  }
+                  onChange={(e) => {
+                    const operator = e.target.value as OperatorVisibilitas
+                    const nilaiAcuan =
+                      operator === 'in' || operator === 'nin'
+                        ? Array.isArray(rule.nilaiAcuan)
+                          ? rule.nilaiAcuan
+                          : rule.nilaiAcuan === ''
+                            ? []
+                            : [rule.nilaiAcuan]
+                        : Array.isArray(rule.nilaiAcuan)
+                          ? (rule.nilaiAcuan[0] ?? '')
+                          : rule.nilaiAcuan
+                    handleUpdateRule(rule.id, { operator, nilaiAcuan })
+                  }}
                   className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-ink outline-none focus:border-accent"
                 >
                   <option value="eq">Sama Dengan (=)</option>
                   <option value="neq">Tidak Sama (!=)</option>
+                  <option value="in">Termasuk dalam daftar</option>
+                  <option value="nin">Tidak termasuk dalam daftar</option>
                   <option value="kosong">Kosong</option>
                   <option value="tidak_kosong">Tidak Kosong</option>
                 </select>
@@ -137,19 +152,34 @@ export function PropertyPanelVisibilitas({
                 rule.operator !== 'tidak_kosong' && (
                   <div>
                     <label className="mb-1 block text-ink-2">
-                      Nilai Acuan:
+                      {rule.operator === 'in' || rule.operator === 'nin'
+                        ? 'Nilai acuan (pisahkan dengan koma):'
+                        : 'Nilai acuan:'}
                     </label>
                     <input
                       type="text"
-                      value={String(rule.nilaiAcuan ?? '')}
-                      disabled={disabled}
-                      onChange={(e) =>
-                        handleUpdateRule(rule.id, {
-                          nilaiAcuan: e.target.value,
-                        })
+                      value={
+                        Array.isArray(rule.nilaiAcuan)
+                          ? rule.nilaiAcuan.map(String).join(', ')
+                          : String(rule.nilaiAcuan ?? '')
                       }
+                      disabled={disabled}
+                      onChange={(e) => {
+                        const nilaiAcuan: NilaiJSON =
+                          rule.operator === 'in' || rule.operator === 'nin'
+                            ? e.target.value
+                                .split(',')
+                                .map((nilai) => nilai.trim())
+                                .filter(Boolean)
+                            : e.target.value
+                        handleUpdateRule(rule.id, { nilaiAcuan })
+                      }}
                       className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-ink outline-none focus:border-accent"
-                      placeholder="misal: Ya"
+                      placeholder={
+                        rule.operator === 'in' || rule.operator === 'nin'
+                          ? 'misal: Ya, Mungkin'
+                          : 'misal: Ya'
+                      }
                     />
                   </div>
                 )}
@@ -157,6 +187,11 @@ export function PropertyPanelVisibilitas({
           </div>
         ))
       )}
+      {catatan ? (
+        <p className="rounded-md border border-line bg-surface-2 p-2 text-[11px] text-muted">
+          {catatan}
+        </p>
+      ) : null}
       <p className="text-[11px] text-muted">
         Aturan disimpan saat form di-build.
       </p>

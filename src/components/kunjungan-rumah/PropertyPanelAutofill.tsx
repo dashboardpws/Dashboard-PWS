@@ -17,6 +17,8 @@ interface Props {
   rules: RuleAutofill[]
   onChange: (newRules: RuleAutofill[]) => void
   disabled?: boolean
+  canAdd?: boolean
+  catatan?: string
 }
 
 export function PropertyPanelAutofill({
@@ -25,6 +27,8 @@ export function PropertyPanelAutofill({
   rules,
   onChange,
   disabled = false,
+  canAdd = true,
+  catatan,
 }: Props) {
   // Filter aturan yang hanya berlaku untuk triggerFieldId ini
   const activeRules = rules.filter((r) => r.triggerFieldId === triggerFieldId)
@@ -59,7 +63,7 @@ export function PropertyPanelAutofill({
         <button
           type="button"
           onClick={handleAddRule}
-          disabled={disabled || allFields.length < 2}
+          disabled={disabled || !canAdd || allFields.length < 2}
           className="rounded-lg bg-accent px-2.5 py-1.5 text-xs font-semibold text-on-accent hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
         >
           + Tambah Target
@@ -205,6 +209,11 @@ export function PropertyPanelAutofill({
           </div>
         ))
       )}
+      {catatan ? (
+        <p className="rounded-md border border-line bg-surface-2 p-2 text-[11px] text-muted">
+          {catatan}
+        </p>
+      ) : null}
       <p className="text-[11px] text-muted">
         Aturan disimpan saat form di-build.
       </p>

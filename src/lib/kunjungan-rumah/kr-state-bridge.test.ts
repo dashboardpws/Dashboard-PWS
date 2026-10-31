@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { initialKunjunganRumahState } from './store/kunjungan-rumah-reducer'
 import { createDefaultKunjunganRumahTemplates } from './template/kunjungan-rumah-templates'
+import type { KrFieldBinding } from './kr-state-bridge'
 import {
   answersToKrState,
   bersihkanFieldTersembunyiKR,
@@ -8,7 +9,6 @@ import {
   evaluasiVisibilitasKR,
   krStateToAnswers,
   terapkanAutofillKeStateKR,
-  type KrFieldBinding,
 } from './kr-state-bridge'
 
 describe('bridge state Form KR', () => {

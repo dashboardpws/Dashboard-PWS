@@ -110,9 +110,15 @@ describe('terapkanAutofill', () => {
     }
     const result = terapkanAutofill({ answers, rules, konteks })
     expect(result.changed).toBe(true)
-    expect((result.answersBaru.info as any).nik).toBe('3201234567890123')
-    expect((result.answersBaru.info as any).namaKK).toBe('Budi') // tetangga tetap ada
-    expect((result.answersBaru.sanitasi as any).jambanSaniter).toBe('ada') // tetangga tetap ada
+    expect((result.answersBaru.info as Record<string, unknown>).nik).toBe(
+      '3201234567890123',
+    )
+    expect((result.answersBaru.info as Record<string, unknown>).namaKK).toBe(
+      'Budi',
+    ) // tetangga tetap ada
+    expect(
+      (result.answersBaru.sanitasi as Record<string, unknown>).jambanSaniter,
+    ).toBe('ada') // tetangga tetap ada
   })
 
   it('mengambil dari anggota keluarga (field group)', () => {

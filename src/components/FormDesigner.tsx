@@ -175,9 +175,9 @@ export function FormDesigner() {
   // --------------------------------------------------------------------------
 
   /** Update properti umum (label, name, placeholder, required, dll) */
-  const handleUpdateProperty = <K extends keyof FormField>(
-    key: K,
-    value: FormField[K],
+  const handleUpdateProperty = <TKey extends keyof FormField>(
+    key: TKey,
+    value: FormField[TKey],
   ) => {
     setFields((prev) =>
       prev.map((field) => {

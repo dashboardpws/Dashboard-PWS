@@ -41,7 +41,6 @@ import {
 import type {
   RuleAutofill,
   RuleVisibilitas,
-  KonteksAutofill,
 } from '@/lib/form-builder/engine/types'
 import { getNestedValue } from '@/lib/form-builder/engine/nested'
 
@@ -161,40 +160,6 @@ export function useFormRuntime({
     return hasil.length === 0 ? SECTION_KOSONG : hasil
   }, [sections])
 
-  // Bangun konteks autofill
-  const konteksAutofill: KonteksAutofill = useMemo(() => {
-    // Cari field group berisi anggota
-    const gf = allFields.find(
-      (f) => f.tipe === 'group' && /anggota/i.test(f.nama),
-    )
-    let anggotaKeluarga: Array<Record<string, unknown>> = []
-    if (gf) {
-      const v = getNestedValue(answers, gf.id)
-      if (Array.isArray(v)) {
-        anggotaKeluarga = v as Array<Record<string, unknown>>
-      }
-    }
-    return {
-      wargaTerpilih: warga as KonteksAutofill['wargaTerpilih'],
-      anggotaKeluarga,
-      riwayat: [],
-    }
-  }, [warga, allFields, answers])
-
-  // Auto-fill saat warga dipilih
-  useEffect(() => {
-    if (!rulesAutofill.length) return
-    if (!warga) return
-    const { answersBaru, changed } = terapkanAutofill({
-      answers,
-      rules: rulesAutofill,
-      konteks: konteksAutofill,
-    })
-    if (changed) {
-      setAnswers(answersBaru)
-    }
-  }, [warga, konteksAutofill]) // eslint-disable-line react-hooks/exhaustive-deps
-
   // Evaluasi visibilitas
   const vis = useMemo(() => {
     if (!rulesVisibilitas.length) {
@@ -217,36 +182,44 @@ export function useFormRuntime({
   useEffect(() => {
     if (vis.toClearField.size === 0 && vis.toClearSection.size === 0) return
     setAnswers((prev) => {
-      let next = { ...prev }
+      let next = prev
+      const cleared = new Set<string>()
+      const safeDelete = (path: string) => {
+        const parts = path.split('.').filter(Boolean)
+        if (parts.length === 0) return
+
+        if (parts.length === 1) {
+          const [key] = parts
+          if (key && Object.hasOwn(next, key)) {
+            if (next === prev) next = { ...prev }
+            delete next[key]
+            cleared.add(path)
+          }
+          return
+        }
+
+        const cleaned = deleteNestedPath(next, path)
+        if (cleaned !== next) {
+          next = cleaned
+          cleared.add(path)
+        }
+      }
+
       // clear field tersembunyi
       for (const fid of vis.toClearField) {
-        const parts = fid.split('.').filter((p) => p.length > 0)
-        if (parts.length === 0) continue
-        if (parts.length === 1) {
-          const first = parts[0]!
-          delete next[first]
-        } else {
-          next = deleteNestedPath(next, fid)
-        }
+        safeDelete(fid)
       }
       // clear field di section tersembunyi
       if (vis.toClearSection.size > 0) {
         for (const sec of sections) {
           if (vis.toClearSection.has(sec.id)) {
             for (const f of sec.fields) {
-              const parts = f.id.split('.').filter((p) => p.length > 0)
-              if (parts.length === 0) continue
-              if (parts.length === 1) {
-                const first = parts[0]!
-                delete next[first]
-              } else {
-                next = deleteNestedPath(next, f.id)
-              }
+              safeDelete(f.id)
             }
           }
         }
       }
-      return next
+      return cleared.size > 0 ? next : prev
     })
   }, [vis.toClearField, vis.toClearSection, sections])
 
@@ -279,6 +252,7 @@ export function useFormRuntime({
       current = current[part] as Record<string, unknown>
     }
     const lastPart = parts[parts.length - 1]!
+    if (!Object.hasOwn(current, lastPart)) return obj
     delete current[lastPart]
     return result
   }
@@ -388,12 +362,34 @@ export function useFormRuntime({
     }
   }, [cariWarga])
 
-  const pilihWarga = useCallback((row: SasaranSuggestion) => {
-    setWargaNik(row.nik)
-    setWarga(row)
-    setCariWarga(CARI_KOSONG)
-    setSaranWarga(SARAN_KOSONG)
-  }, [])
+  const pilihWarga = useCallback(
+    (row: SasaranSuggestion) => {
+      setWargaNik(row.nik)
+      setWarga(row)
+      setCariWarga(CARI_KOSONG)
+      setSaranWarga(SARAN_KOSONG)
+
+      const fieldGroupAnggota = allFields.find(
+        (field) => field.tipe === 'group' && /anggota/i.test(field.nama),
+      )
+      const nilaiAnggota = fieldGroupAnggota
+        ? getNestedValue(answers, fieldGroupAnggota.id)
+        : undefined
+      const hasil = terapkanAutofill({
+        answers,
+        rules: rulesAutofill,
+        konteks: {
+          wargaTerpilih: { ...row },
+          anggotaKeluarga: Array.isArray(nilaiAnggota)
+            ? (nilaiAnggota as Array<Record<string, unknown>>)
+            : [],
+          riwayat: [],
+        },
+      })
+      if (hasil.changed) setAnswers(hasil.answersBaru)
+    },
+    [allFields, answers, rulesAutofill],
+  )
 
   /**
    * NIK ditulis manual di kotak pencarian tanpa memilih suggestion. Pilihan warga

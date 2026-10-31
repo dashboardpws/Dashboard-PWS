@@ -87,10 +87,26 @@ export function SettingsPanel({
   setRulesVisibilitas,
   disabled,
 }: Props) {
-  const allFields = (document?.fields ?? []).map((field) => ({
-    id: field.clientId,
-    nama: field.label || field.nama || 'Field tanpa nama',
+  const fieldsWithSection = (document?.fields ?? []).map((field) => ({
+    field,
+    sectionName: document?.sections.find(
+      (section) => section.clientId === field.sectionClientId,
+    )?.nama,
   }))
+  const ruleFields = fieldsWithSection
+    .filter(
+      ({ field, sectionName }) =>
+        !kunci.strukturSection ||
+        (field.tipe !== 'group' &&
+          (sectionName === 'keluargaInfo' || sectionName === 'sanitasi')),
+    )
+    .map(({ field }) => ({
+      id: field.clientId,
+      nama: field.label || field.nama || 'Field tanpa nama',
+    }))
+  const catatanDukunganRule = kunci.strukturSection
+    ? 'Form KR saat ini menjalankan rule untuk field tunggal Data Keluarga dan Sanitasi. Field anggota dan sasaran yang berulang belum mendukung rule per baris.'
+    : undefined
   if (!selectedItem) {
     return (
       <div className="w-[320px] shrink-0 border-l border-line bg-surface-2 p-3 overflow-y-auto h-full min-h-0">
@@ -117,10 +133,18 @@ export function SettingsPanel({
         kunci={kunci}
         updateSection={updateSection}
         deleteSection={deleteSection}
-        allFields={allFields}
+        allFields={ruleFields}
         rulesVisibilitas={rulesVisibilitas}
         setRulesVisibilitas={setRulesVisibilitas}
         disabled={disabled}
+        canAddRule={
+          !kunci.strukturSection ||
+          ['keluargaInfo', 'sanitasi'].includes(
+            document?.sections.find((s) => s.clientId === selectedItem.clientId)
+              ?.nama ?? '',
+          )
+        }
+        catatanDukunganRule={catatanDukunganRule}
       />
     )
   }
@@ -137,12 +161,21 @@ export function SettingsPanel({
       updateOpsi={updateOpsi}
       deleteOpsi={deleteOpsi}
       setSumberOpsi={setSumberOpsi}
-      allFields={allFields}
+      allFields={ruleFields}
       rulesAutofill={rulesAutofill}
       rulesVisibilitas={rulesVisibilitas}
       setRulesAutofill={setRulesAutofill}
       setRulesVisibilitas={setRulesVisibilitas}
       disabled={disabled}
+      canAddRule={
+        !kunci.strukturSection ||
+        ['keluargaInfo', 'sanitasi'].includes(
+          fieldsWithSection.find(
+            ({ field }) => field.clientId === selectedItem.clientId,
+          )?.sectionName ?? '',
+        )
+      }
+      catatanDukunganRule={catatanDukunganRule}
     />
   )
 }
@@ -158,6 +191,8 @@ function SectionSettings({
   rulesVisibilitas,
   setRulesVisibilitas,
   disabled,
+  canAddRule,
+  catatanDukunganRule,
 }: {
   sectionClientId: string
   onClose: () => void
@@ -169,6 +204,8 @@ function SectionSettings({
   rulesVisibilitas: RuleVisibilitas[]
   setRulesVisibilitas: (rules: RuleVisibilitas[]) => void
   disabled: boolean
+  canAddRule: boolean
+  catatanDukunganRule?: string
 }) {
   const section = document?.sections.find((s) => s.clientId === sectionClientId)
   if (!section) return null
@@ -251,6 +288,8 @@ function SectionSettings({
           rules={rulesVisibilitas}
           onChange={setRulesVisibilitas}
           disabled={disabled}
+          canAdd={canAddRule}
+          catatan={catatanDukunganRule}
         />
       </div>
     </div>
@@ -274,6 +313,8 @@ function FieldSettings({
   setRulesAutofill,
   setRulesVisibilitas,
   disabled,
+  canAddRule,
+  catatanDukunganRule,
 }: {
   fieldClientId: string
   onClose: () => void
@@ -299,6 +340,8 @@ function FieldSettings({
   setRulesAutofill: (rules: RuleAutofill[]) => void
   setRulesVisibilitas: (rules: RuleVisibilitas[]) => void
   disabled: boolean
+  canAddRule: boolean
+  catatanDukunganRule?: string
 }) {
   const field = document?.fields.find((f) => f.clientId === fieldClientId)
   if (!field) return null
@@ -711,6 +754,8 @@ function FieldSettings({
             rules={rulesAutofill}
             onChange={setRulesAutofill}
             disabled={disabled}
+            canAdd={canAddRule}
+            catatan={catatanDukunganRule}
           />
         ) : null}
         <PropertyPanelVisibilitas
@@ -720,6 +765,8 @@ function FieldSettings({
           rules={rulesVisibilitas}
           onChange={setRulesVisibilitas}
           disabled={disabled}
+          canAdd={canAddRule}
+          catatan={catatanDukunganRule}
         />
       </div>
     </div>
