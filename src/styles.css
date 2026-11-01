@@ -135,7 +135,7 @@ html.theme-anim *::after {
   --color-surface: #101d22;
   --color-surface-warm: #0f1a1e;
   --color-surface-2: #1a2831;
-  --color-line: #2e4755;
+  --color-line: #162936;
   --color-line-2: #243845;
   --color-ink: #d7ece8;
   --color-ink-2: #b8cdc9;
@@ -143,8 +143,8 @@ html.theme-anim *::after {
   --color-muted: #8aa7a2;
   --color-muted-soft: #6f8d88;
   --color-brand: #162a30;
-  --color-accent: #4fd6cd;
-  --color-accent-hover: #7de3da;
+  --color-accent: #147a74;
+  --color-accent-hover: #1b8c85;
   --color-on-accent: #0a1418;
   --color-toast-bg: #e6f1ee;
   --color-toast-text: #0a1418;
@@ -350,13 +350,15 @@ pre code {
 }
 .mantine-Button-root[data-variant='default']:hover {
   border-color: var(--color-accent);
+  background-color: var(--color-surface-2);
+  color: var(--color-ink-2);
 }
 
 .mantine-Button-root[data-variant='primary'],
 .mantine-Button-root[data-variant='export'] {
   border-color: var(--color-accent);
   background-color: var(--color-accent);
-  color: var(--color-on-accent);
+  color: var(--color-ink);
 }
 .mantine-Button-root[data-variant='primary']:hover,
 .mantine-Button-root[data-variant='export']:hover {

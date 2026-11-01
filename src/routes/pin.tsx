@@ -114,6 +114,35 @@ function RouteComponent() {
               placeholder="••••••"
               autoComplete="off"
               maxLength={8}
+              styles={{
+                // 1. Mengubah warna label "PIN"
+                label: {
+                  color: 'var(--color-ink-2)', // atau 'var(--mantine-color-text)'
+                  fontWeight: 500,
+                },
+                // 2. Mengubah warna background & teks di dalam field input
+                innerInput: {
+                  color: 'var(--color-ink)', // Warna teks saat diketik
+                  caretColor: 'var(--color-ink-2)', // Warna garis vertikal penanda fokus (kursor ketik)
+                  '&::placeholder': {
+                    color: 'var(--color-muted)', // Warna teks placeholder
+                    opacity: 0.7,
+                  },
+                },
+                input: {
+                  backgroundColor: 'var(--color-surface)', // atau 'var(--mantine-color-body)'
+                  borderColor: 'var(--color-line)',
+                  color: 'var(--color-ink-1)',
+                  '&:focus-within': {
+                    borderColor: 'var(--color-accent)',
+                  },
+                },
+                // 3. Mengubah warna ikon mata (visibility toggle)
+                visibilityToggle: {
+                  color: 'var(--color-ink-2)',
+                  backgroundColor: 'transparent'
+                },
+              }}
             />
 
             <Button

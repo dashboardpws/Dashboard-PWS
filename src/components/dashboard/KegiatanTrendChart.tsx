@@ -65,6 +65,10 @@ export function KegiatanTrendChart({ data, loading }: KegiatanTrendChartProps) {
           allowDecimals: false,
           tickFormatter: (v) =>
             v >= 1000 ? `${(v / 1000).toFixed(1)}k` : `${v}`,
+          tick: { fill: 'var(--color-ink-2)', fontSize: 12 },
+        }}
+        xAxisProps={{
+          tick: { fill: 'var(--color-ink-2)', fontSize: 12 }, 
         }}
         series={[
           {

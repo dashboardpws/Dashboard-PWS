@@ -1,4 +1,6 @@
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
+import { Button, Group, Modal, Text } from '@mantine/core'
+import { useDisclosure } from '@mantine/hooks'
 import {
   ExpandMore,
   Assignment,
@@ -486,6 +488,33 @@ export function Sidebar({
   onToggleCollapsed,
 }: SidebarProps) {
   const { logout } = useAuth()
+  const navigate = useNavigate()
+  const [logoutOpened, { open: openLogout, close: closeLogout }] =
+    useDisclosure(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+
+  const handleOpenLogoutModal = () => {
+    openLogout()
+  }
+
+  const handleLogout = async () => {
+    if (isLoggingOut) return
+
+    setIsLoggingOut(true)
+
+    try {
+      await logout()
+      closeLogout()
+      await navigate({
+        to: '/pin',
+        replace: true,
+      })
+    } catch (error) {
+      console.error('Gagal logout:', error)
+    } finally {
+      setIsLoggingOut(false)
+    }
+  }
 
   const items = navItemsForUser()
   const isDark = useIsDarkMode()
@@ -648,7 +677,7 @@ export function Sidebar({
       <div className="shrink-0 border-t border-line p-3">
         <button
           type="button"
-          onClick={() => void logout()}
+          onClick={handleOpenLogoutModal}
           aria-label="Keluar"
           title={collapsed ? 'Keluar' : undefined}
           className={cn(
@@ -680,6 +709,52 @@ export function Sidebar({
           </span>
         </button>
       </div>
+      
+      <Modal
+        opened={logoutOpened}
+        onClose={closeLogout}
+        title="Konfirmasi Logout"
+        centered
+        size="sm"
+        closeOnClickOutside={!isLoggingOut}
+        closeOnEscape={!isLoggingOut}
+        styles={{
+          // Mengubah background utama isi modal
+          content: {
+            backgroundColor: 'var(--color-surface)', // atau gunakan variabel CSS: 'var(--mantine-color-dark-7)'
+            color: 'var(--color-ink)',
+          },
+          // Mengubah background bagian header modal agar warnanya menyatu
+          header: {
+            backgroundColor: 'var(--color-surface)',
+            color: 'var(--color-ink)',
+            fontWeight: 'bolder'
+          },
+        }}
+        // className='bg-surface!'
+      >
+        <Text size="sm" c="dimmed">
+          Apakah kamu yakin ingin keluar dari aplikasi?
+        </Text>
+
+        <Group justify="flex-end" mt="lg">
+          <Button
+            variant="default"
+            onClick={closeLogout}
+            disabled={isLoggingOut}
+          >
+            Batal
+          </Button>
+
+          <Button
+            color="red"
+            onClick={() => void handleLogout()}
+            loading={isLoggingOut}
+          >
+            Ya, Keluar
+          </Button>
+        </Group>
+      </Modal>
     </aside>
   )
 }

@@ -136,6 +136,7 @@ export const getSessionToken = createServerFn({ method: 'GET' }).handler(
 export const logoutSession = createServerFn({ method: 'POST' }).handler(
   async () => {
     await destroySession(getCookie('session'))
+    return { success: 200 }
   },
 )
 

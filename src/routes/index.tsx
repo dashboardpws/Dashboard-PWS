@@ -100,7 +100,6 @@ function Dashboard() {
     <AppShell>
       <PageHeader
         title="Dashboard PWS"
-        description="Pantau cakupan kunjungan oleh kader puskesmas, plus isian form terbaru dari semua form."
       />
       <p className="mt-1 text-xs text-muted">
         Periode {fmtDate(period.startDate)} – {fmtDate(period.endDate)} ·{' '}
