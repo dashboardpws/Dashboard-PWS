@@ -11,18 +11,25 @@ export function BlockPalette({
   items,
   onDragStart,
   disabled,
+  onAddField,
+  onAddTemplate,
 }: {
   items: PaletteItem[]
   onDragStart?: () => void
   disabled?: boolean
+  onAddField: (item: PaletteItem) => void
+  onAddTemplate: (template: TemplateField) => void
 }) {
   const kelompokTemplate = templatePerKelompok()
 
   return (
-    <div className="w-60 shrink-0 border-r border-line bg-surface-2 p-3 overflow-y-auto overflow-x-none h-full min-h-0">
+    <div className="h-full min-h-0 w-60 shrink-0 overflow-y-auto overflow-x-hidden border-r border-line bg-surface-2 p-3 max-md:w-full max-md:border-r-0">
       <h3 className="text-xs font-semibold text-ink-2 uppercase tracking-wide mb-2">
         Komponen
       </h3>
+      <p className="mb-3 text-[11px] leading-relaxed text-muted">
+        Klik untuk menambahkan ke section aktif, atau tarik ke canvas.
+      </p>
       <div className="grid gap-2">
         {items.map((item) => (
           <PaletteItemDraggable
@@ -30,6 +37,7 @@ export function BlockPalette({
             item={item}
             onDragStart={onDragStart}
             disabled={disabled}
+            onAdd={() => onAddField(item)}
           />
         ))}
       </div>
@@ -55,6 +63,7 @@ export function BlockPalette({
                     template={template}
                     onDragStart={onDragStart}
                     disabled={disabled}
+                    onAdd={() => onAddTemplate(template)}
                   />
                 ))}
               </div>
@@ -70,10 +79,12 @@ function PaletteItemDraggable({
   item,
   onDragStart,
   disabled,
+  onAdd,
 }: {
   item: PaletteItem
   onDragStart?: () => void
   disabled?: boolean
+  onAdd: () => void
 }) {
   const Icon = ikonUntuk(item.icon)
   const { ref, isDragging } = useDraggable({
@@ -84,10 +95,13 @@ function PaletteItemDraggable({
   })
 
   return (
-    <div
+    <button
+      type="button"
       ref={ref}
       onDragStart={onDragStart}
-      className="group flex items-center gap-2 rounded-lg border border-line bg-surface p-2.5 cursor-grab hover:border-accent-border hover:shadow-sm transition-all"
+      onClick={onAdd}
+      disabled={disabled}
+      className="group flex w-full cursor-grab items-center gap-2 rounded-lg border border-line bg-surface p-2.5 text-left transition-all hover:border-accent-border hover:shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
       style={{ opacity: isDragging ? 0.5 : 1 }}
     >
       <div className="w-8 h-8 flex items-center justify-center rounded border border-line bg-accent-light">
@@ -96,7 +110,7 @@ function PaletteItemDraggable({
       <span className="flex-1 text-sm font-medium text-ink truncate">
         {item.label}
       </span>
-    </div>
+    </button>
   )
 }
 
@@ -111,10 +125,12 @@ function TemplateDraggable({
   template,
   onDragStart,
   disabled,
+  onAdd,
 }: {
   template: TemplateField
   onDragStart?: () => void
   disabled?: boolean
+  onAdd: () => void
 }) {
   const Icon = ikonUntuk(template.ikon)
   const { ref, isDragging } = useDraggable({
@@ -125,11 +141,14 @@ function TemplateDraggable({
   })
 
   return (
-    <div
+    <button
+      type="button"
       ref={ref}
       onDragStart={onDragStart}
+      onClick={onAdd}
+      disabled={disabled}
       title={`${template.nama} — ${template.hint}`}
-      className="group flex items-center gap-2 rounded-lg border border-dashed border-accent-border bg-accent-light/40 p-2 cursor-grab hover:border-accent hover:bg-accent-light hover:shadow-sm transition-all"
+      className="group flex w-full cursor-grab items-center gap-2 rounded-lg border border-dashed border-accent-border bg-accent-light/40 p-2 text-left transition-all hover:border-accent hover:bg-accent-light hover:shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
       style={{ opacity: isDragging ? 0.5 : 1 }}
     >
       <div className="w-7 h-7 flex items-center justify-center rounded border border-line bg-surface shrink-0">
@@ -143,6 +162,6 @@ function TemplateDraggable({
           {template.nama}
         </div>
       </div>
-    </div>
+    </button>
   )
 }

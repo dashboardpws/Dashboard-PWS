@@ -9,13 +9,14 @@ import {
   Lightbulb,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
 import type { DraftField } from './types'
 import { TIPE_FIELD_LABELS, TIPE_BUTUH_OPSI } from './types'
 import {
   cariSumber,
   SUMBER_SUGGEST,
 } from '@/lib/service/form-builder/sumber-opsi'
+import { DynamicField } from '@/components/survey/DynamicField'
+import { fieldKeRuntime } from '@/components/kelola/builder/preview/draft-ke-runtime'
 
 interface Props {
   fieldClientId: string
@@ -25,9 +26,10 @@ interface Props {
   isSelected: boolean
   onSelect: (clientId: string) => void
   onDeselect: () => void
-  onUpdateField: (clientId: string, patch: Partial<DraftField>) => void
   /** undefined = field ini tidak boleh dihapus, jadi tombolnya disembunyikan. */
   onDeleteField?: (clientId: string) => void
+  previewValue: unknown
+  onPreviewChange: (value: unknown) => void
 }
 
 export function FieldNode({
@@ -38,8 +40,9 @@ export function FieldNode({
   isSelected,
   onSelect,
   onDeselect,
-  onUpdateField,
   onDeleteField,
+  previewValue,
+  onPreviewChange,
 }: Props) {
   // Terima field (reorder) + palette (buat baru via section induk — lihat hook).
   // Section ditolak: accept hanya field dan palette.
@@ -60,34 +63,27 @@ export function FieldNode({
   const source = cariSumber(field.optionSourceType, field.optionSourceKey)
   const sumberDipakai =
     field.optionSourceType === SUMBER_SUGGEST || source !== null
+  const fieldPreview = fieldKeRuntime(field, index)
+
+  // Canvas hanya untuk mencoba bentuk input. Pencarian warga tetap milik alur
+  // pengisian petugas dan tidak boleh membuat request ketika admin mengetik.
+  fieldPreview.cariWarga = null
 
   return (
     <div
       ref={ref}
       style={{ opacity: isDragging ? 0.4 : 1 }}
-      className={`relative group flex items-start gap-2 rounded-lg border p-2 transition-all ${
+      className={`relative group rounded-xl border p-3 transition-all ${
         isSelected
-          ? 'border-accent-border bg-accent-light'
-          : 'border-line hover:border-accent-border'
+          ? 'border-accent-border bg-accent-light/70 shadow-sm'
+          : 'border-line bg-surface hover:border-accent-border hover:shadow-sm'
       } ${isDropTarget && !isDragging ? 'bg-accent-light/50 border-accent-border' : ''}`}
       onClick={() => onSelect(fieldClientId)}
     >
-      <div className="w-6 h-6 flex items-center justify-center">
-        <GripVertical className="w-4 h-4 text-muted cursor-grab opacity-0 group-hover:opacity-100" />
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <Input
-            value={field.label}
-            onChange={(e) => {
-              e.stopPropagation()
-              onUpdateField(fieldClientId, { label: e.target.value })
-            }}
-            className="flex-1 min-w-30 bg-transparent border-0 focus:ring-0 text-sm font-medium text-ink placeholder:text-muted"
-            placeholder="Pertanyaan"
-          />
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-line text-muted font-mono">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <GripVertical className="h-4 w-4 shrink-0 cursor-grab text-muted opacity-50 transition-opacity group-hover:opacity-100" />
+          <span className="rounded-md bg-surface-2 px-2 py-1 text-[10px] font-semibold text-muted">
             {TIPE_FIELD_LABELS[field.tipe]}
           </span>
           {needsOptions && !hasOptions && !sumberDipakai && (
@@ -111,46 +107,48 @@ export function FieldNode({
             </span>
           )}
         </div>
+      </div>
 
-        <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted">
-          {field.tipe === 'group' && field.jumlahKolom && (
-            <span>📋 {field.jumlahKolom} kolom</span>
-          )}
-          {field.optionSourceType === SUMBER_SUGGEST ? (
-            <span className="inline-flex items-center gap-1">
-              <Lightbulb className="w-3 h-3" />
-              {hasOptions
-                ? `${field.opsi.filter((o) => o.aktif && o.value).length} saran`
-                : 'tanpa saran'}
-            </span>
-          ) : source ? (
-            <span
-              className="inline-flex items-center gap-1"
-              title={
-                source.perluServer
-                  ? 'Dibaca dari database saat form diisi'
-                  : 'Daftar tetap dari enum data warga'
-              }
-            >
-              <Database className="w-3 h-3" />
-              {source.label}
-            </span>
-          ) : null}
-          {hasOptions && !sumberDipakai && (
-            <span>
-              ☑ {field.opsi.filter((o) => o.aktif && o.value).length} opsi
-            </span>
-          )}
-          {field.placeholder && (
-            <span className="italic">"{field.placeholder}"</span>
-          )}
-        </div>
+      <div
+        className="pointer-events-auto"
+        onClick={() => onSelect(fieldClientId)}
+      >
+        <DynamicField
+          field={fieldPreview}
+          value={previewValue}
+          onChange={onPreviewChange}
+        />
+      </div>
 
-        {field.deskripsi && (
-          <div className="mt-1 text-[11px] text-muted italic">
-            {field.deskripsi}
-          </div>
-        )}
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-muted">
+        {field.tipe === 'group' && field.jumlahKolom ? (
+          <span>{field.jumlahKolom} kolom</span>
+        ) : null}
+        {field.optionSourceType === SUMBER_SUGGEST ? (
+          <span className="inline-flex items-center gap-1">
+            <Lightbulb className="h-3 w-3" />
+            {hasOptions
+              ? `${field.opsi.filter((o) => o.aktif && o.value).length} saran`
+              : 'tanpa saran'}
+          </span>
+        ) : source ? (
+          <span
+            className="inline-flex items-center gap-1"
+            title={
+              source.perluServer
+                ? 'Dibaca dari database saat form diisi'
+                : 'Daftar tetap dari enum data warga'
+            }
+          >
+            <Database className="h-3 w-3" />
+            {source.label}
+          </span>
+        ) : null}
+        {hasOptions && !sumberDipakai ? (
+          <span>
+            {field.opsi.filter((o) => o.aktif && o.value).length} opsi
+          </span>
+        ) : null}
       </div>
 
       <div className="flex items-center gap-1">

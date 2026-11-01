@@ -1,0 +1,3 @@
+-- Baseline snapshot hasil introspeksi database yang menjadi acuan Drizzle.
+-- Tidak ada DDL: objek database ini sudah ada dan perubahan berikutnya dibuat
+-- sebagai migrasi baru dari snapshot ini.

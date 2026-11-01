@@ -10,9 +10,6 @@ import { and, desc, eq, inArray } from 'drizzle-orm'
 import { barisWargaDariPayload, simpanWargaSasaran } from './sasaran.server'
 import { db } from './db.server'
 import {
-  formFieldOptions,
-  formFields,
-  formSections,
   formVersions,
   forms,
   surveyEntries,
@@ -20,6 +17,7 @@ import {
 } from '@/lib/schema/schema'
 import { isValidNik } from '@/lib/utils'
 import { pastikanPetugasValid } from '@/lib/server/petugas/user-registry.server'
+import { parseFormDefinition } from '@/lib/form-builder/form-schema'
 
 export // ---- kunjungan rumah langsung ke DB — pengganti localStorage `pws-kunjungan-rumah` ----
 type JsonRecord = Record<string, unknown>
@@ -113,94 +111,42 @@ async function semuaVersiKunjunganRumah(): Promise<string[] | null> {
 export async function getKunjunganRumahTemplateRows() {
   const form = await getKunjunganRumahForm()
   if (!form) return null
-
-  const sectionRows = await db
-    .select({ id: formSections.id, nama: formSections.nama })
-    .from(formSections)
-    .where(eq(formSections.formVersionId, form.formVersionId))
-    .orderBy(formSections.urutan)
-
+  const [version] = await db
+    .select({ schema: formVersions.schema })
+    .from(formVersions)
+    .where(eq(formVersions.id, form.formVersionId))
+    .limit(1)
+  if (!version) return null
+  const definition = parseFormDefinition(version.schema)
+  const sectionRows = definition.sections
   if (sectionRows.length === 0)
     return {
       formVersionId: form.formVersionId,
       versiDefinisi: form.version,
       questions: {},
     }
-
-  const sectionIds = sectionRows.map((row) => row.id)
-  const namaById = new Map(sectionRows.map((row) => [row.id, row.nama]))
-
-  const fieldRows = await db
-    .select({
-      id: formFields.id,
-      sectionId: formFields.sectionId,
-      nama: formFields.nama,
-      label: formFields.label,
-      tipe: formFields.tipe,
-      // Bucket layout panel sasaran disimpan di `optionSourceKey`prefix `bucket=`.
-      // `form_fields` tidak punya kolom `bucket` sendiri; prefixed key dipakai supaya
-      // satu kolom varchar tetap bisa menyimpan dua hal tanpa menambah kolom.
-      optionSourceKey: formFields.optionSourceKey,
-      deskripsi: formFields.deskripsi,
-      wajib: formFields.wajib,
-      urutan: formFields.urutan,
-      aktif: formFields.aktif,
-    })
-    .from(formFields)
-    .where(inArray(formFields.sectionId, sectionIds))
-    .orderBy(formFields.urutan)
-
-  // Opsi = baris `form_field_options` milik field. Satu query untuk semua field
-  // lalu di-group di memory supaya tidak jadi N+1. Baris nonaktif ikut diambil
-  // supaya urutan opsi tidak berubah kalau admin menonaktifkan lalu
-  // mengaktifkan lagi lewat Form Builder; penyingkirannya dilakukan di bawah.
-  const optionRows =
-    fieldRows.length === 0
-      ? []
-      : await db
-          .select({
-            fieldId: formFieldOptions.fieldId,
-            value: formFieldOptions.value,
-            aktif: formFieldOptions.aktif,
-          })
-          .from(formFieldOptions)
-          .where(
-            inArray(
-              formFieldOptions.fieldId,
-              fieldRows.map((row) => row.id),
-            ),
-          )
-          .orderBy(formFieldOptions.urutan)
-
-  const opsiByField = new Map<string, string[]>()
-  for (const row of optionRows) {
-    if (!row.aktif) continue
-    if (typeof row.value !== 'string') continue
-    const list = opsiByField.get(row.fieldId)
-    if (list) list.push(row.value)
-    else opsiByField.set(row.fieldId, [row.value])
-  }
-
   const bySection: Record<string, TemplateQuestionRow[]> = {}
-  for (const row of fieldRows) {
-    const sectionNama = namaById.get(row.sectionId)
-    if (!sectionNama) continue
-    const entry: TemplateQuestionRow = {
-      fieldId: row.id,
-      sectionId: row.sectionId,
-      kode: namaFieldTanpaPrefix(row.nama),
-      pertanyaan: row.label,
-      tipe: row.tipe,
-      bucket: parseBucket(row.optionSourceKey),
-      hint: row.deskripsi,
-      wajib: row.wajib,
-      urutan: row.urutan,
-      aktif: row.aktif,
-      opsi: opsiByField.get(row.id) ?? [],
+  for (const section of sectionRows) {
+    for (const field of section.fields) {
+      const entry: TemplateQuestionRow = {
+        fieldId: field.id,
+        sectionId: section.id,
+        kode: namaFieldTanpaPrefix(field.name),
+        pertanyaan: field.label,
+        tipe: field.type,
+        bucket: parseBucket(field.optionSourceKey),
+        hint: field.description,
+        wajib: field.required,
+        urutan: field.order,
+        aktif: field.active,
+        opsi: field.options
+          .filter((option) => option.active)
+          .map((option) => option.value),
+      }
+      const list = bySection[section.name]
+      if (list) list.push(entry)
+      else bySection[section.name] = [entry]
     }
-    const list = bySection[sectionNama]
-    if (list) list.push(entry)
-    else bySection[sectionNama] = [entry]
   }
 
   return {
@@ -264,17 +210,17 @@ const NAMA_FIELD_RECORD_LEGACY = 'penyimpanan::' + FIELD_RECORD_LEGACY
 async function fieldIdRecordLegacy(
   formVersionId: string,
 ): Promise<string | null> {
-  const [row] = await db
-    .select({ id: formFields.id })
-    .from(formFields)
-    .where(
-      and(
-        eq(formFields.formVersionId, formVersionId),
-        eq(formFields.nama, NAMA_FIELD_RECORD_LEGACY),
-      ),
-    )
+  const [version] = await db
+    .select({ schema: formVersions.schema })
+    .from(formVersions)
+    .where(eq(formVersions.id, formVersionId))
     .limit(1)
-  return row?.id ?? null
+  const definition = version ? parseFormDefinition(version.schema) : null
+  return (
+    definition?.sections
+      .flatMap((section) => section.fields)
+      .find((field) => field.name === NAMA_FIELD_RECORD_LEGACY)?.id ?? null
+  )
 }
 
 /** Baca metadata header dari `info` di payload legacy. */
@@ -303,6 +249,10 @@ export async function listKunjunganRumahRecords() {
   // `semuaVersiKunjunganRumah()`.
   const versionIds = await semuaVersiKunjunganRumah()
   if (!versionIds) return []
+  const fieldIds = (
+    await Promise.all(versionIds.map((id) => fieldIdRecordLegacy(id)))
+  ).filter((id): id is string => id !== null)
+  if (fieldIds.length === 0) return []
   const rows = await db
     .select({
       id: surveys.id,
@@ -312,11 +262,10 @@ export async function listKunjunganRumahRecords() {
     })
     .from(surveys)
     .innerJoin(surveyEntries, eq(surveyEntries.surveyId, surveys.id))
-    .innerJoin(formFields, eq(formFields.id, surveyEntries.fieldId))
     .where(
       and(
         inArray(surveys.formVersionId, versionIds),
-        eq(formFields.nama, NAMA_FIELD_RECORD_LEGACY),
+        inArray(surveyEntries.fieldId, fieldIds),
       ),
     )
     .orderBy(desc(surveys.createdAt))
@@ -329,15 +278,19 @@ export async function listKunjunganRumahRecords() {
 }
 
 export async function getKunjunganRumahRecord(id: string) {
+  const [survey] = await db
+    .select({ formVersionId: surveys.formVersionId })
+    .from(surveys)
+    .where(eq(surveys.id, id))
+    .limit(1)
+  if (!survey) return null
+  const fieldId = await fieldIdRecordLegacy(survey.formVersionId)
+  if (!fieldId) return null
   const [row] = await db
     .select({ value: surveyEntries.value })
     .from(surveyEntries)
-    .innerJoin(formFields, eq(formFields.id, surveyEntries.fieldId))
     .where(
-      and(
-        eq(surveyEntries.surveyId, id),
-        eq(formFields.nama, NAMA_FIELD_RECORD_LEGACY),
-      ),
+      and(eq(surveyEntries.surveyId, id), eq(surveyEntries.fieldId, fieldId)),
     )
     .limit(1)
   const payload = row?.value

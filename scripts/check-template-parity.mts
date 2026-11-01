@@ -68,21 +68,33 @@ if (!rows) {
 // ---------------------------------------------------------------------------
 
 /** Baris mentah, supaya nama field yang ter-prefix `::` masih terlihat. */
-const barisMentah: {
-  section: string
-  nama: string
-  tipe: string
-  optionSourceKey: string | null
-}[] = await db.execute(sql`
-  SELECT s.nama AS section, f.nama, f.tipe, f."optionSourceKey"
-  FROM form_fields f
-  JOIN form_sections s ON s.id = f."sectionId"
-  JOIN form_versions fv ON fv.id = f."formVersionId"
+const versions = await db.execute(sql`
+  SELECT fv.schema
+  FROM form_versions fv
   JOIN forms fm ON fm.id = fv."formId"
   WHERE fm.kode = ${KODE_FORM_BAWAAN.kunjunganRumah}
     AND fv.status = 'published'
-  ORDER BY s.nama, f.urutan
 `)
+const barisMentah = versions.flatMap((row) => {
+  const schema = row.schema as {
+    sections: Array<{
+      name: string
+      fields: Array<{
+        name: string
+        type: string
+        optionSourceKey: string | null
+      }>
+    }>
+  }
+  return schema.sections.flatMap((section) =>
+    section.fields.map((field) => ({
+      section: section.name,
+      nama: field.name,
+      tipe: field.type,
+      optionSourceKey: field.optionSourceKey,
+    })),
+  )
+})
 
 // 1. Section tetap harus lengkap. Section yang hilang berarti seluruh isian di
 //    dalamnya tidak bisa dirender dan tidak akan muncul di mana pun.

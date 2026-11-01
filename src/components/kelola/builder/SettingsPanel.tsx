@@ -109,7 +109,7 @@ export function SettingsPanel({
     : undefined
   if (!selectedItem) {
     return (
-      <div className="w-[320px] shrink-0 border-l border-line bg-surface-2 p-3 overflow-y-auto h-full min-h-0">
+      <div className="h-full min-h-0 w-[320px] shrink-0 overflow-y-auto border-l border-line bg-surface-2 p-3 max-md:w-full max-md:border-l-0">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-ink">Pengaturan</h3>
           <Button size="sm" variant="ghost" onClick={onClose}>
@@ -211,7 +211,7 @@ function SectionSettings({
   if (!section) return null
 
   return (
-    <div className="w-[320px] shrink-0 border-l border-line bg-surface-2 p-3 overflow-y-auto h-full min-h-0">
+    <div className="h-full min-h-0 w-[320px] shrink-0 overflow-y-auto border-l border-line bg-surface-2 p-3 max-md:w-full max-md:border-l-0">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-semibold text-ink flex items-center gap-1">
           <FolderOpen className="w-4 h-4" /> Section

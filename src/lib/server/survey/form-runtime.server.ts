@@ -22,13 +22,10 @@
  * Tidak ada penanganan file yang dikarang di sini supaya tidak ada jalur
  * penyimpanan yang setengah jadi.
  */
-import { and, asc, eq, inArray, sql } from 'drizzle-orm'
+import { and, asc, eq } from 'drizzle-orm'
 import { db } from '@/lib/server/db.server'
 import {
   dataWargaTable,
-  formFields,
-  formFieldOptions,
-  formSections,
   formVersions,
   forms,
   surveys,
@@ -52,6 +49,7 @@ import {
 import type { KolomWarga } from '@/lib/service/form-builder/sumber-opsi'
 import { catatAudit } from '@/lib/server/form-builder/audit.server'
 import { pastikanPetugasValid } from '@/lib/server/petugas/user-registry.server'
+import { parseFormDefinition } from '@/lib/form-builder/form-schema'
 
 type Db = typeof db
 /** Handle transaksi dari `db.transaction(...)`, sama seperti form-version.server. */
@@ -122,6 +120,7 @@ export async function daftarFormulirTerisi(): Promise<BarisFormulirTerisi[]> {
       formVersionId: formVersions.id,
       version: formVersions.version,
       publishedAt: formVersions.publishedAt,
+      schema: formVersions.schema,
     })
     .from(forms)
     .innerJoin(formVersions, eq(formVersions.formId, forms.id))
@@ -130,49 +129,16 @@ export async function daftarFormulirTerisi(): Promise<BarisFormulirTerisi[]> {
 
   if (baris.length === 0) return []
 
-  const versiIds = baris.map((b) => b.formVersionId)
-
-  const hitungSection = await db
-    .select({
-      formVersionId: formSections.formVersionId,
-      total: sql<number>`count(*)`,
-    })
-    .from(formSections)
-    .where(
-      and(
-        inArray(formSections.formVersionId, versiIds),
-        eq(formSections.aktif, true),
-      ),
-    )
-    .groupBy(formSections.formVersionId)
-
-  // Field dihitung lewat join ke section supaya field di section nonaktif tidak
-  // ikut terhitung; jumlahnya harus sama dengan yang benar-benar dirender.
-  const hitungField = await db
-    .select({
-      formVersionId: formFields.formVersionId,
-      total: sql<number>`count(*)`,
-    })
-    .from(formFields)
-    .innerJoin(formSections, eq(formFields.sectionId, formSections.id))
-    .where(
-      and(
-        inArray(formFields.formVersionId, versiIds),
-        eq(formFields.aktif, true),
-        eq(formSections.aktif, true),
-      ),
-    )
-    .groupBy(formFields.formVersionId)
-
-  const totalSection = new Map(
-    hitungSection.map((b) => [b.formVersionId, b.total]),
-  )
-  const totalField = new Map(hitungField.map((b) => [b.formVersionId, b.total]))
-
-  return baris.map((b) => ({
+  return baris.map(({ schema, ...b }) => ({
     ...b,
-    jumlahSection: totalSection.get(b.formVersionId) ?? 0,
-    jumlahField: totalField.get(b.formVersionId) ?? 0,
+    jumlahSection: schema.sections.filter((section) => section.active).length,
+    jumlahField: schema.sections
+      .filter((section) => section.active)
+      .reduce(
+        (total, section) =>
+          total + section.fields.filter((field) => field.active).length,
+        0,
+      ),
   }))
 }
 
@@ -300,6 +266,7 @@ async function muatDefinisiRuntime(
     .select({
       versionId: formVersions.id,
       version: formVersions.version,
+      schema: formVersions.schema,
       status: formVersions.status,
       publishedAt: formVersions.publishedAt,
       formId: forms.id,
@@ -330,19 +297,10 @@ async function muatDefinisiRuntime(
     )
   }
 
-  const semuaSection = await executor
-    .select({
-      id: formSections.id,
-      nama: formSections.nama,
-      deskripsi: formSections.deskripsi,
-      urutan: formSections.urutan,
-      aktif: formSections.aktif,
-    })
-    .from(formSections)
-    .where(eq(formSections.formVersionId, formVersionId))
-    .orderBy(asc(formSections.urutan))
-
-  const sections = semuaSection.filter((s) => s.aktif)
+  const definition = parseFormDefinition(baris.schema)
+  const sections = definition.sections
+    .filter((section) => section.active)
+    .sort((a, b) => a.order - b.order)
 
   if (sections.length === 0) {
     return {
@@ -362,32 +320,31 @@ async function muatDefinisiRuntime(
     }
   }
 
-  // Pakai `formVersionId` dan bukan daftar id section: FK komposit
-  // (sectionId, formVersionId) sudah menjamin keduanya selalu satu versi, jadi
-  // satu filter ini cukup.
-  const semuaField = await executor
-    .select({
-      id: formFields.id,
-      sectionId: formFields.sectionId,
-      nama: formFields.nama,
-      label: formFields.label,
-      tipe: formFields.tipe,
-      optionSourceType: formFields.optionSourceType,
-      optionSourceKey: formFields.optionSourceKey,
-      deskripsi: formFields.deskripsi,
-      placeholder: formFields.placeholder,
-      wajib: formFields.wajib,
-      urutan: formFields.urutan,
-      jumlahKolom: formFields.jumlahKolom,
-      aktif: formFields.aktif,
-    })
-    .from(formFields)
-    .where(eq(formFields.formVersionId, formVersionId))
-    .orderBy(asc(formFields.urutan))
-
-  const sectionAktifId = new Set(sections.map((s) => s.id))
-  const fields = semuaField.filter(
-    (f) => f.aktif && sectionAktifId.has(f.sectionId),
+  const fields = sections.flatMap((section) =>
+    section.fields
+      .filter((field) => field.active)
+      .sort((a, b) => a.order - b.order)
+      .map((field) => ({
+        id: field.id,
+        sectionId: section.id,
+        nama: field.name,
+        label: field.label,
+        tipe: field.type,
+        optionSourceType: field.optionSourceType,
+        optionSourceKey: field.optionSourceKey,
+        deskripsi: field.description,
+        placeholder: field.placeholder,
+        wajib: field.required,
+        urutan: field.order,
+        jumlahKolom: field.columns,
+        aktif: field.active,
+        opsi: field.options.map((option) => ({
+          value: option.value,
+          label: option.label,
+          urutan: option.order,
+          aktif: option.active,
+        })),
+      })),
   )
 
   // Dikelompokkan per section supaya penyusunan payload tidak menyaring ulang
@@ -415,42 +372,18 @@ async function muatDefinisiRuntime(
       },
       sections: sections.map((s) => ({
         id: s.id,
-        nama: s.nama,
-        deskripsi: s.deskripsi,
-        urutan: s.urutan,
+        nama: s.name,
+        deskripsi: s.description,
+        urutan: s.order,
         fields: [],
       })),
     }
   }
 
   // Satu query untuk semua pilihan jawaban, lalu dikelompokkan per field.
-  const semuaOpsi = await executor
-    .select({
-      fieldId: formFieldOptions.fieldId,
-      value: formFieldOptions.value,
-      label: formFieldOptions.label,
-      urutan: formFieldOptions.urutan,
-      aktif: formFieldOptions.aktif,
-    })
-    .from(formFieldOptions)
-    .where(
-      inArray(
-        formFieldOptions.fieldId,
-        fields.map((f) => f.id),
-      ),
-    )
-    .orderBy(asc(formFieldOptions.urutan))
-
   const opsiPerField = new Map<string, OpsiRuntime[]>()
-  for (const opsi of semuaOpsi) {
-    const list = opsiPerField.get(opsi.fieldId) ?? []
-    list.push({
-      value: opsi.value,
-      label: opsi.label,
-      urutan: opsi.urutan,
-      aktif: opsi.aktif,
-    })
-    opsiPerField.set(opsi.fieldId, list)
+  for (const field of fields) {
+    opsiPerField.set(field.id, field.opsi)
   }
 
   // Opsi dinamis di-resolve sekali per pasangan sumber yang berbeda, bukan sekali
@@ -486,6 +419,7 @@ async function muatDefinisiRuntime(
         optionSourceType: field.optionSourceType,
         optionSourceKey: field.optionSourceKey,
         fieldId: field.id,
+        options: field.opsi,
       })
       hasil = {
         opsi: resolved.opsi,
@@ -515,9 +449,9 @@ async function muatDefinisiRuntime(
     },
     sections: sections.map((section) => ({
       id: section.id,
-      nama: section.nama,
-      deskripsi: section.deskripsi,
-      urutan: section.urutan,
+      nama: section.name,
+      deskripsi: section.description,
+      urutan: section.order,
       fields: (fieldsBySection.get(section.id) ?? []).map((field) => {
         const dinamis = opsiDinamisField.get(field.id) ?? null
         return {

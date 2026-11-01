@@ -1,13 +1,7 @@
-import { and, asc, count, desc, eq, inArray, sql } from 'drizzle-orm'
+import { and, count, desc, eq, sql } from 'drizzle-orm'
 import { db } from '@/lib/server/db.server'
-import {
-  formFieldOptions,
-  formFields,
-  formSections,
-  formVersions,
-  forms,
-  surveys,
-} from '@/lib/schema/schema'
+import { formVersions, forms, surveys } from '@/lib/schema/schema'
+import { parseFormDefinition } from '@/lib/form-builder/form-schema'
 import {
   validasiEdisiVersi,
   validasiHapusDraftVersi,
@@ -37,6 +31,17 @@ export class KesalahanValidasi extends Error {
 
 function pastikan(hasil: HasilValidasi): void {
   if (!hasil.ok) throw new KesalahanValidasi(hasil)
+}
+
+function hitungStruktur(schemaValue: unknown) {
+  const schema = parseFormDefinition(schemaValue)
+  return {
+    jumlahSection: schema.sections.length,
+    jumlahField: schema.sections.reduce(
+      (total, section) => total + section.fields.length,
+      0,
+    ),
+  }
 }
 
 type Db = typeof db
@@ -224,127 +229,23 @@ async function salinStruktur(
   executor: Executor,
   formVersionIdBaru: string,
   formVersionIdAsal: string,
+  version: number,
 ): Promise<void> {
-  const asalSection = await executor
-    .select({
-      id: formSections.id,
-      nama: formSections.nama,
-      deskripsi: formSections.deskripsi,
-      urutan: formSections.urutan,
-      aktif: formSections.aktif,
-    })
-    .from(formSections)
-    .where(eq(formSections.formVersionId, formVersionIdAsal))
-    .orderBy(asc(formSections.urutan))
+  const [asal] = await executor
+    .select({ schema: formVersions.schema })
+    .from(formVersions)
+    .where(eq(formVersions.id, formVersionIdAsal))
+    .limit(1)
+  if (!asal) return
 
-  if (asalSection.length === 0) return
-
-  const baruSection = await executor
-    .insert(formSections)
-    .values(
-      asalSection.map((baris) => ({
-        formVersionId: formVersionIdBaru,
-        nama: baris.nama,
-        deskripsi: baris.deskripsi,
-        urutan: baris.urutan,
-        aktif: baris.aktif,
-      })),
-    )
-    .returning({ id: formSections.id })
-
-  // `orderBy` di query asal yang menjaga urutan: baris ke-i hasil insert
-  // adalah salinan baris ke-i versi lama.
-  const petaSection = new Map<string, string>()
-  asalSection.forEach((asal, i) => {
-    const baru = baruSection[i]
-    if (baru) petaSection.set(asal.id, baru.id)
-  })
-
-  const asalField = await executor
-    .select({
-      id: formFields.id,
-      sectionId: formFields.sectionId,
-      nama: formFields.nama,
-      label: formFields.label,
-      tipe: formFields.tipe,
-      optionSourceType: formFields.optionSourceType,
-      optionSourceKey: formFields.optionSourceKey,
-      deskripsi: formFields.deskripsi,
-      placeholder: formFields.placeholder,
-      wajib: formFields.wajib,
-      urutan: formFields.urutan,
-      jumlahKolom: formFields.jumlahKolom,
-      aktif: formFields.aktif,
-    })
-    .from(formFields)
-    .where(inArray(formFields.sectionId, [...petaSection.keys()]))
-    .orderBy(asc(formFields.urutan))
-
-  // Field yang section-nya tidak ikut tersalin (hanya mungkin kalau struktur asal
-  // sudah rusak) dilewati, supaya tidak ada field menunjuk section versi lain.
-  const fieldTersalin = asalField.flatMap((asal) => {
-    const sectionBaru = petaSection.get(asal.sectionId)
-    return sectionBaru ? [{ asal, sectionBaru }] : []
-  })
-  if (fieldTersalin.length === 0) return
-
-  const baruField = await executor
-    .insert(formFields)
-    .values(
-      fieldTersalin.map(({ asal, sectionBaru }) => ({
-        formVersionId: formVersionIdBaru,
-        sectionId: sectionBaru,
-        nama: asal.nama,
-        label: asal.label,
-        tipe: asal.tipe,
-        optionSourceType: asal.optionSourceType,
-        optionSourceKey: asal.optionSourceKey,
-        deskripsi: asal.deskripsi,
-        placeholder: asal.placeholder,
-        wajib: asal.wajib,
-        urutan: asal.urutan,
-        jumlahKolom: asal.jumlahKolom,
-        aktif: asal.aktif,
-      })),
-    )
-    .returning({ id: formFields.id })
-
-  const petaField = new Map<string, string>()
-  fieldTersalin.forEach(({ asal }, i) => {
-    const baru = baruField[i]
-    if (baru) petaField.set(asal.id, baru.id)
-  })
-
-  const asalOpsi = await executor
-    .select({
-      fieldId: formFieldOptions.fieldId,
-      value: formFieldOptions.value,
-      label: formFieldOptions.label,
-      urutan: formFieldOptions.urutan,
-      aktif: formFieldOptions.aktif,
-    })
-    .from(formFieldOptions)
-    .where(inArray(formFieldOptions.fieldId, [...petaField.keys()]))
-    .orderBy(asc(formFieldOptions.urutan))
-
-  const opsiTersalin = asalOpsi.flatMap((asal) => {
-    const fieldBaru = petaField.get(asal.fieldId)
-    return fieldBaru ? [{ asal, fieldBaru }] : []
-  })
-  if (opsiTersalin.length === 0) return
-
+  const schemaAsal = parseFormDefinition(asal.schema)
   await executor
-    .insert(formFieldOptions)
-    .values(
-      opsiTersalin.map(({ asal, fieldBaru }) => ({
-        fieldId: fieldBaru,
-        value: asal.value,
-        label: asal.label,
-        urutan: asal.urutan,
-        aktif: asal.aktif,
-      })),
-    )
-    .returning({ id: formFieldOptions.id })
+    .update(formVersions)
+    .set({
+      schema: { ...schemaAsal, version },
+      updatedAt: new Date(),
+    })
+    .where(eq(formVersions.id, formVersionIdBaru))
 }
 
 /**
@@ -373,9 +274,15 @@ export async function buatDraftBerikutnya(
       .from(formVersions)
       .where(eq(formVersions.formId, formId))
 
+    const version = (tertinggi?.maks ?? 0) + 1
     const baris = await executor
       .insert(formVersions)
-      .values({ formId, version: (tertinggi?.maks ?? 0) + 1, status: 'draft' })
+      .values({
+        formId,
+        version,
+        status: 'draft',
+        schema: { version, sections: [] },
+      })
       .returning({ id: formVersions.id })
 
     const baru = baris[0]
@@ -390,7 +297,7 @@ export async function buatDraftBerikutnya(
     // Struktur ikut disalin supaya petugas mengubah form yang sudah ada dari
     // isian yang sudah ada, bukan dari layar kosong.
     if (versiAsalId) {
-      await salinStruktur(executor, baru.id, versiAsalId)
+      await salinStruktur(executor, baru.id, versiAsalId, version)
     }
 
     return baru.id
@@ -425,14 +332,7 @@ export async function ringkasanHapusDraftVersiForm(
         select count(*)::int from ${surveys}
         where ${surveys.formVersionId} = ${formVersionId}
       )`,
-      jumlahField: sql<number>`(
-        select count(*)::int from ${formFields}
-        where ${formFields.formVersionId} = ${formVersionId}
-      )`,
-      jumlahSection: sql<number>`(
-        select count(*)::int from ${formSections}
-        where ${formSections.formVersionId} = ${formVersionId}
-      )`,
+      schema: formVersions.schema,
     })
     .from(formVersions)
     .where(eq(formVersions.id, formVersionId))
@@ -446,11 +346,7 @@ export async function ringkasanHapusDraftVersiForm(
     })
   }
 
-  return {
-    jumlahSubmit: baris.jumlahSubmit,
-    jumlahField: baris.jumlahField,
-    jumlahSection: baris.jumlahSection,
-  }
+  return { jumlahSubmit: baris.jumlahSubmit, ...hitungStruktur(baris.schema) }
 }
 
 /**
@@ -523,14 +419,7 @@ export async function hapusDraftVersiForm(
           select count(*)::int from ${surveys}
           where ${surveys.formVersionId} = ${formVersionId}
         )`,
-        jumlahField: sql<number>`(
-          select count(*)::int from ${formFields}
-          where ${formFields.formVersionId} = ${formVersionId}
-        )`,
-        jumlahSection: sql<number>`(
-          select count(*)::int from ${formSections}
-          where ${formSections.formVersionId} = ${formVersionId}
-        )`,
+        schema: formVersions.schema,
       })
       .from(formVersions)
       .where(eq(formVersions.id, formVersionId))
@@ -547,7 +436,10 @@ export async function hapusDraftVersiForm(
         pesan: 'Form versi tidak ditemukan.',
       })
     }
-    const angka = ringkasan
+    const angka = {
+      jumlahSubmit: ringkasan.jumlahSubmit,
+      ...hitungStruktur(ringkasan.schema),
+    }
 
     pastikan(
       validasiHapusDraftVersi({

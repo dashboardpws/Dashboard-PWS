@@ -29,7 +29,6 @@
 import { and, desc, eq, inArray } from 'drizzle-orm'
 import { db } from '@/lib/server/db.server'
 import {
-  formFields,
   formVersions,
   forms,
   surveys,
@@ -38,6 +37,7 @@ import {
 } from '@/lib/schema/schema'
 import { pastikanPetugasValid } from '@/lib/server/petugas/user-registry.server'
 import { KODE_FORM_BAWAAN } from '@/lib/constants'
+import { parseFormDefinition } from '@/lib/form-builder/form-schema'
 
 /** `forms.kode` untuk form kegiatan. Sama dengan yang dipakai seeder. */
 const KODE_KEGIATAN = KODE_FORM_BAWAAN.kegiatan
@@ -127,7 +127,11 @@ async function cariVersiKegiatan(): Promise<VersiKegiatan> {
   }
 
   const [versi] = await db
-    .select({ id: formVersions.id, version: formVersions.version })
+    .select({
+      id: formVersions.id,
+      version: formVersions.version,
+      schema: formVersions.schema,
+    })
     .from(formVersions)
     .where(
       and(
@@ -143,10 +147,9 @@ async function cariVersiKegiatan(): Promise<VersiKegiatan> {
     )
   }
 
-  const baris = await db
-    .select({ id: formFields.id, nama: formFields.nama })
-    .from(formFields)
-    .where(eq(formFields.formVersionId, versi.id))
+  const baris = parseFormDefinition(versi.schema).sections.flatMap((section) =>
+    section.fields.map((field) => ({ id: field.id, nama: field.name })),
+  )
   if (baris.length === 0) {
     throw new Error(
       `Versi ${versi.version} dari form kegiatan tidak punya field.`,

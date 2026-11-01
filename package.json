@@ -19,6 +19,7 @@
     "db:push": "drizzle-kit push",
     "db:pull": "drizzle-kit pull",
     "db:sql": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
     "format": "prettier --write . && eslint --fix",
     "check": "tsc --noEmit && prettier --check ."
   },
@@ -45,7 +46,8 @@
     "react-dom": "^19.2.0",
     "recharts": "^3.10.1",
     "tailwindcss": "^4.1.18",
-    "web-push": "^3.6.7"
+    "web-push": "^3.6.7",
+    "zod": "^4.6.2"
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.16",

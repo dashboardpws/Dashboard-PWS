@@ -1,7 +1,6 @@
 import {
   check,
   date,
-  foreignKey,
   index,
   integer,
   pgTable,
@@ -11,6 +10,7 @@ import {
   timestamp,
   uuid,
   jsonb,
+  unique,
   uniqueIndex,
   smallint,
 } from 'drizzle-orm/pg-core'
@@ -24,9 +24,9 @@ import {
   pekerjaan,
   pendidikanEnum,
   fasKes,
-  formFieldType,
   auditAction,
 } from './type-enum'
+import type { FormDefinition } from '@/lib/form-builder/form-schema'
 
 // WAJIB `withTimezone: true` di setiap kolom timestamp. Jangan dikembalikan jadi
 // `timestamp()` polos.
@@ -183,6 +183,7 @@ export const formVersions = pgTable(
       .notNull()
       .references(() => forms.id, { onDelete: 'cascade' }),
     version: integer().notNull(),
+    schema: jsonb('schema').$type<FormDefinition>(),
     status: varchar({ length: 20 }).notNull().default('draft'),
     publishedAt: timestamp({ withTimezone: true }),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
@@ -193,119 +194,15 @@ export const formVersions = pgTable(
     index('form_versions_form_id_status_idx').on(t.formId, t.status),
     check(
       'form_versions_status_check',
-      sql`${t.status} IN ('draft', 'published', 'archived')`,
+      sql`((status)::text = ANY ((ARRAY['draft'::character varying, 'published'::character varying, 'archived'::character varying])::text[]))`,
     ),
-    check('form_versions_version_check', sql`${t.version} >= 1`),
+    check('form_versions_version_check', sql`(version >= 1)`),
     // Versi published wajib punya publishedAt, kalau tidak rekap "ber kapan form ini
     // tayang" jadi tidak bisa dijawab.
     check(
       'form_versions_published_at_check',
-      sql`${t.status} <> 'published' or ${t.publishedAt} is not null`,
+      sql`(((status)::text <> 'published'::text) OR ("publishedAt" IS NOT NULL))`,
     ),
-  ],
-)
-
-// tabel untuk membagi form jadi beberapa bagian
-export const formSections = pgTable(
-  'form_sections',
-  {
-    id: uuid().primaryKey().defaultRandom(),
-    formVersionId: uuid()
-      .notNull()
-      .references(() => formVersions.id, { onDelete: 'cascade' }),
-    nama: varchar({ length: 100 }).notNull(),
-    deskripsi: text(),
-    urutan: integer().notNull(),
-    aktif: boolean().notNull().default(true),
-    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => [
-    // Syarat FK komposit form_fields (sectionId, formVersionId) -> (id, formVersionId).
-    // Postgres butuh kolom target punya UNIQUE persis di kombinasi itu.
-    uniqueIndex('form_sections_id_form_version_id').on(t.id, t.formVersionId),
-    index('form_sections_form_version_urutan_idx').on(
-      t.formVersionId,
-      t.urutan,
-    ),
-  ],
-)
-
-// tabel pertanyaan tiap section
-export const formFields = pgTable(
-  'form_fields',
-  {
-    id: uuid().primaryKey().defaultRandom(),
-    // formVersionId didenormalisasi dari section supaya `nama` bisa dijamin unik per
-    // versi form (lihat uniqueIndex di bawah) dan supaya validasi "field ini milik
-    // versi mana?" cukup satu join, tanpa lewat form_sections. Konsistensinya dengan
-    // section dijamin FK komposit, jadi kolom ini tidak bisa menyimpang diam-diam.
-    formVersionId: uuid()
-      .notNull()
-      .references(() => formVersions.id, { onDelete: 'cascade' }),
-    sectionId: uuid().notNull(), // selalu terhubung dengan section
-    nama: varchar({ length: 100 }).notNull(), // identifier teknis, mis. tekanan_darah
-    label: varchar({ length: 255 }).notNull(), // teks yang dilihat petugas
-    tipe: formFieldType().notNull(), // text | number | date | select | radio | checkbox | time
-    optionSourceType: varchar({ length: 30 }),
-    optionSourceKey: varchar({ length: 100 }),
-    deskripsi: text(),
-    placeholder: varchar({ length: 255 }),
-    wajib: boolean().notNull().default(false), // wajib diisi atau tidak
-    urutan: integer().notNull().default(0), // urutan tampilan
-    // Berapa kolom yang boleh diisi per baris untuk tipe 'group' (mis. 3 kolom
-    // untuk anggota keluarga: NIK, nama, hubungan). NULL untuk tipe selain
-    // 'group'. Nilai ini hanya dipakai editor dan validasi backend; database
-    // tidak menyimpan struktur kolom anak karena jawaban 'group' berupa array
-    // jsonb di `survey_entries.value`.
-    jumlahKolom: integer(),
-    aktif: boolean().notNull().default(true), // tampilkan atau tidak
-    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => [
-    // Set SEBELUM references() tunggal: composite FK ini yang memastikan field dan
-    // section-nya memang versi form yang sama. Kalau hanya FK ke sectionId, kolom
-    // formVersionId bisa diisi versi lain dan unique index di bawah jadi bohong.
-    foreignKey({
-      columns: [t.sectionId, t.formVersionId],
-      foreignColumns: [formSections.id, formSections.formVersionId],
-      name: 'form_fields_section_version_fk',
-    }).onDelete('cascade'),
-    // `nama` = identifier teknis yang dipanggil kode saat menyimpan jawaban, jadi
-    // unik per versi form. Boleh sama di dua versi berbeda karena answer lama
-    // di-pin ke formVersionId lewat survey_entries.surveyId.
-    uniqueIndex('form_fields_form_version_nama_key').on(
-      t.formVersionId,
-      t.nama,
-    ),
-    index('form_fields_section_urutan_idx').on(t.sectionId, t.urutan),
-  ],
-)
-
-// Tabel pilihan jawaban (`option`) untuk setiap field.
-//
-// Semula tabel ini juga menampung aturan visibility — "tampilkan field ini hanya
-// bila field lain bernilai X". Aturan itu dihapus: tidak pernah dipakai di data
-// mana pun, dan menambah tiga kolom (tipe, sourceFieldId, operator) plus satu
-// enum untuk sesuatu yang nol. Sekarang satu baris = satu pilihan jawaban.
-export const formFieldOptions = pgTable(
-  'form_field_options',
-  {
-    id: uuid().primaryKey().defaultRandom(),
-    fieldId: uuid()
-      .notNull()
-      .references(() => formFields.id, { onDelete: 'cascade' }), // opsi milik pertanyaan ini
-    value: text().notNull(), // yang disimpan di payload jawaban
-    label: varchar({ length: 255 }), // yang ditulis petugas, mis. "Tidak/Belum Sekolah"
-    urutan: integer().notNull().default(0), // urutan pilihan
-    aktif: boolean().notNull().default(true),
-    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => [
-    // Opsi field selalu ikut section berurutan saat form dirender.
-    index('form_field_options_field_urutan_idx').on(t.fieldId, t.urutan),
   ],
 )
 
@@ -351,11 +248,9 @@ export const surveyEntries = pgTable(
     surveyId: uuid()
       .notNull()
       .references(() => surveys.id, { onDelete: 'cascade' }), // penanda terhubung dengan survey yang mana
-    // CATATAN: FK ke form_fields hanya memastikan field-nya ADA, bukan bahwa field itu
-    // milik formVersionId milik survey. Aturan itu divalidasi di backend sebelum insert
-    fieldId: uuid()
-      .notNull()
-      .references(() => formFields.id), // penanda terhubung dengan question apa
+    // Field ditautkan lewat UUID stabil di form_versions.schema. JSONB tidak
+    // bisa menjadi target FK, jadi server memvalidasi ID terhadap versi survey.
+    fieldId: uuid().notNull(), // ID stabil dari field di `form_versions.schema`.
     value: jsonb(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
@@ -423,115 +318,16 @@ export const pinAttempts = pgTable('pin_attempts', {
     .defaultNow(),
 })
 
-export const pushSubscriptions = pgTable('push_subscriptions', {
-  id: uuid().primaryKey().defaultRandom(),
-  endpoint: text().notNull().unique(),
-  p256dh: text().notNull(),
-  auth: text().notNull(),
-  userAgent: text(),
-  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
-  lastUsedAt: timestamp({ withTimezone: true }),
-})
-
-/**
- * Aturan autofill dinamis untuk Form Builder.
- * Menghubungkan field pemicu (biasanya field dengan optionSourceType 'cari_warga')
- * ke field target dengan konfigurasi sumber data dan transformasi.
- */
-export const formFieldAutofills = pgTable(
-  'form_field_autofills',
+export const pushSubscriptions = pgTable(
+  'push_subscriptions',
   {
     id: uuid().primaryKey().defaultRandom(),
-    formVersionId: uuid()
-      .notNull()
-      .references(() => formVersions.id, { onDelete: 'cascade' }),
-    // Field yang memicu autofill
-    triggerFieldId: uuid()
-      .notNull()
-      .references(() => formFields.id, { onDelete: 'cascade' }),
-    // Field yang diisi otomatis
-    targetFieldId: uuid()
-      .notNull()
-      .references(() => formFields.id, { onDelete: 'cascade' }),
-    // Sumber data untuk mengambil nilai
-    sumber: varchar({ length: 10 }).notNull(), // 'warga' | 'anggota' | 'riwayat'
-    // Key/kolom sumber
-    kolom: varchar({ length: 50 }).notNull(),
-    // Transformasi nilai sebelum diisi
-    transform: varchar({ length: 10 }).notNull().default('teks'), // 'teks'|'nik'|'tanggal'|'opsi'|'angka'
-    // Perilaku saat mengisi
-    mode: varchar({ length: 12 }).notNull().default('isi_kosong'), // 'isi_kosong'|'timpa'
-    urutan: integer().notNull().default(0),
-    aktif: boolean().notNull().default(true),
-    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+    endpoint: text().notNull(),
+    p256dh: text().notNull(),
+    auth: text().notNull(),
+    userAgent: text(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    lastUsedAt: timestamp({ withTimezone: true }),
   },
-  (t) => [
-    index('form_field_autofills_form_version_idx').on(t.formVersionId),
-    index('form_field_autofills_trigger_idx').on(t.triggerFieldId),
-    index('form_field_autofills_target_idx').on(t.targetFieldId),
-    // Satu mapping per (trigger, target, sumber, kolom) biar tidak dobel
-    uniqueIndex('form_field_autofills_unique_idx').on(
-      t.triggerFieldId,
-      t.targetFieldId,
-      t.sumber,
-      t.kolom,
-    ),
-    check(
-      'form_field_autofills_sumber_check',
-      sql`${t.sumber} IN ('warga','anggota','riwayat')`,
-    ),
-    check(
-      'form_field_autofills_transform_check',
-      sql`${t.transform} IN ('teks','nik','tanggal','opsi','angka')`,
-    ),
-    check(
-      'form_field_autofills_mode_check',
-      sql`${t.mode} IN ('isi_kosong','timpa')`,
-    ),
-  ],
-)
-
-/**
- * Aturan visibilitas kondisional untuk field atau section.
- * Menentukan kapan suatu field/section muncul berdasarkan nilai field pemicu.
- */
-export const formFieldVisibilityRules = pgTable(
-  'form_field_visibility_rules',
-  {
-    id: uuid().primaryKey().defaultRandom(),
-    formVersionId: uuid()
-      .notNull()
-      .references(() => formVersions.id, { onDelete: 'cascade' }),
-    // Target yang dikontrol
-    targetType: varchar({ length: 8 }).notNull(), // 'field' | 'section'
-    targetId: uuid().notNull(),
-    // Field pemicu
-    triggerFieldId: uuid()
-      .notNull()
-      .references(() => formFields.id, { onDelete: 'cascade' }),
-    // Operator evaluasi
-    operator: varchar({ length: 12 }).notNull(), // 'eq'|'neq'|'in'|'nin'|'kosong'|'tidak_kosong'
-    // Nilai acuan (bisa string/number/array). Pakai jsonb biar fleksibel
-    nilaiAcuan: jsonb()
-      .notNull()
-      .default(sql`'[]'::jsonb`),
-    aktif: boolean().notNull().default(true),
-    urutan: integer().notNull().default(0),
-    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => [
-    index('form_field_vis_form_version_idx').on(t.formVersionId),
-    index('form_field_vis_target_idx').on(t.targetType, t.targetId),
-    index('form_field_vis_trigger_idx').on(t.triggerFieldId),
-    check(
-      'form_field_vis_target_type_check',
-      sql`${t.targetType} IN ('field','section')`,
-    ),
-    check(
-      'form_field_vis_operator_check',
-      sql`${t.operator} IN ('eq','neq','in','nin','kosong','tidak_kosong')`,
-    ),
-  ],
+  (t) => [unique('push_subscriptions_endpoint_unique').on(t.endpoint)],
 )

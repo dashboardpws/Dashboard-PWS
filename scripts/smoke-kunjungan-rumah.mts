@@ -265,15 +265,16 @@ async function ujiRoundTripNamaField(): Promise<void> {
     )
   )[0] as { id: number }
 
-  const sebelum = (
+  const published = (
     await db.execute(sql`
-    SELECT f.nama
-    FROM form_fields f
-    JOIN form_versions v ON v.id = f."formVersionId"
+    SELECT v.schema
+    FROM form_versions v
     WHERE v."formId" = ${formId.id} AND v.status = 'published'
-    ORDER BY f.nama
   `)
-  ).map((r) => (r as { nama: string }).nama)
+  )[0] as { schema: { sections: Array<{ fields: Array<{ name: string }> }> } }
+  const sebelum = published.schema.sections
+    .flatMap((section) => section.fields.map((field) => field.name))
+    .sort()
 
   const draft = await buatDraftBerikutnya(formId.id)
   try {
@@ -324,14 +325,14 @@ async function ujiRoundTripNamaField(): Promise<void> {
       ),
     } as Parameters<typeof buildFormVersion>[0])
 
-    const sesudah = (
+    const built = (
       await db.execute(sql`
-      SELECT f.nama
-      FROM form_fields f
-      WHERE f."formVersionId" = ${draft}
-      ORDER BY f.nama
+      SELECT schema FROM form_versions WHERE id = ${draft}
     `)
-    ).map((r) => (r as { nama: string }).nama)
+    )[0] as { schema: { sections: Array<{ fields: Array<{ name: string }> }> } }
+    const sesudah = built.schema.sections
+      .flatMap((section) => section.fields.map((field) => field.name))
+      .sort()
 
     if (sesudah.some((n) => n.includes(':::'))) {
       throw new Error('Build menambahkan prefix ganda pada nama field.')

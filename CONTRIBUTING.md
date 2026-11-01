@@ -80,7 +80,7 @@ Fitur yang ada: `survey`, `kunjungan-rumah`, `form-builder`, `kelola`, `petugas`
 
 Baca bagian ini sebelum mengubah form kunjungan rumah. Dua generasi berjalan berdampingan, dan itu disengaja.
 
-**Generasi-1: `kunjungan-rumah`.** UI kader, dipakai route `kunjungan-rumah.tsx` dan `kunjungan-rumah.$id.tsx`. Komponennya di `src/components/kunjungan-rumah/`, dan definisi field dibaca dari baris DB lewat `src/lib/kunjungan-rumah/template/`. Bucket layout disimpan sebagai prefix `bucket=` pada `form_fields.optionSourceKey`: `identitas`, `kolom`, `bools`, dan `baha`. Parser-nya ada di `parseBucket()` di `src/lib/server/kunjungan-rumah.server.ts`.
+**Generasi-1: `kunjungan-rumah`.** UI kader, dipakai route `kunjungan-rumah.tsx` dan `kunjungan-rumah.$id.tsx`. Komponennya di `src/components/kunjungan-rumah/`, dan definisi field dibaca dari dokumen `form_versions.schema` lewat `src/lib/kunjungan-rumah/template/`. Bucket layout disimpan sebagai prefix `bucket=` pada `optionSourceKey`: `identitas`, `kolom`, `bools`, dan `baha`. Parser-nya ada di `parseBucket()` di `src/lib/server/kunjungan-rumah.server.ts`.
 
 **Generasi-2: `survey`.** Form generik dari Form Builder untuk kegiatan Posyandu. `src/lib/server/survey/form-runtime.server.ts` menyusun definisi versi form, dan `src/components/survey/DynamicField.tsx` merender lima tipe field yang bisa ditampilkan UI kader.
 
@@ -101,11 +101,14 @@ Baca bagian ini sebelum mengubah form kunjungan rumah. Dua generasi berjalan ber
 
 Ada tiga kanal. Jangan dicampur.
 
-| Lokasi                        | Isi                                                        | Kapan dipakai                                                                                                                                                                 |
-| ----------------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `drizzle/<timestamp>_<nama>/` | Hasil `pnpm db:sql` (`migration.sql` dan `snapshot.json`)  | Perubahan skema biasa: edit `src/lib/schema/`, generate, lalu periksa `migration.sql` sebelum dipakai.                                                                        |
-| `drizzle/manual/`             | File `.sql` tulisan tangan, diawali tanggal                | Yang tidak bisa lewat `db:sql`: hapus kolom, ubah unique index, seed referensi, atau generate terblokir konflik histori. Contoh: `20261008_users-buang-role-dan-pinhash.sql`. |
-| `drizzle/backup/`             | Dump `pg_dump` sebelum perubahan. Tidak di-version-control | Sebelum migrasi destruktif. Jangan di-commit.                                                                                                                                 |
+| Lokasi                        | Isi                                                           | Kapan dipakai                                                                                                                                                                 |
+| ----------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `drizzle/<timestamp>_<nama>/` | Hasil `pnpm db:sql` (`migration.sql` dan `snapshot.json`)     | Perubahan skema biasa: edit `src/lib/schema/`, generate, lalu periksa `migration.sql` sebelum dipakai.                                                                        |
+| `drizzle/archive/`            | Branch migrasi lama yang tidak tercatat terapan pada DB acuan | Arsip saja; jangan dipindahkan kembali ke root `drizzle/` tanpa memeriksa riwayat DB karena dapat menghidupkan konflik snapshot lama.                                         |
+| `drizzle/manual/`             | File `.sql` tulisan tangan, diawali tanggal                   | Yang tidak bisa lewat `db:sql`: hapus kolom, ubah unique index, seed referensi, atau generate terblokir konflik histori. Contoh: `20261008_users-buang-role-dan-pinhash.sql`. |
+| `drizzle/backup/`             | Dump `pg_dump` sebelum perubahan. Tidak di-version-control    | Sebelum migrasi destruktif. Jangan di-commit.                                                                                                                                 |
+
+Untuk perubahan yang perlu mengisi data lama sebelum constraint baru dipasang, jalankan `pnpm db:sql`, periksa dan lengkapi `migration.sql`, lalu terapkan dengan `pnpm db:migrate`. `pnpm db:push` menyinkronkan struktur secara langsung dan tidak menjalankan backfill khusus; jangan gunakan untuk menambah kolom `NOT NULL` pada tabel berisi data.
 
 ## Scripts dan uji database
 
@@ -119,8 +122,9 @@ Ada tiga kanal. Jangan dicampur.
 | `pnpm db:set-non-warga`         | `scripts/set-warga-bentuk-non-warga.mts`                                           | Hanya database uji. Produksi: `drizzle/manual/20261003_form-builder-tanpa-warga-wajib.sql` |
 | `pnpm db:push`                  | `drizzle-kit push`                                                                 | Dorong skema langsung, untuk dev                                                           |
 | `pnpm db:sql`                   | `drizzle-kit generate`                                                             | Buat migration SQL                                                                         |
+| `pnpm db:migrate`               | `drizzle-kit migrate`                                                              | Terapkan migration SQL yang sudah diperiksa                                                |
 
-Skrip lain di `scripts/`: `seed-form-defaults.ts`, `seed-reference.ts`, dan `verify-form-builder-constraints.sql`.
+Skrip lain di `scripts/`: `seed-form-defaults.ts` dan `seed-reference.ts`.
 
 ### Uji terhadap database
 

@@ -26,12 +26,11 @@
  * berlaku. `pastikanPetugasValid()` menutup celah itu di sisi server, jadi form
  * yang terlanjur terbuka tidak bisa menyimpan petugas yang sudah dinonaktifkan.
  */
-import { eq, isNotNull } from 'drizzle-orm'
+import { isNotNull } from 'drizzle-orm'
 import { db } from '@/lib/server/db.server'
 import { listPetugasOpsi } from '@/lib/server/petugas/user-registry.server'
 import {
   fasilitasKesehatan,
-  formFieldOptions,
   dataWargaTable,
   wilayahKerja,
 } from '@/lib/schema/schema'
@@ -167,16 +166,15 @@ async function opsiWarga(key: string): Promise<OpsiDinamis[]> {
  * bersama form. Bedanya hanya di sisi render: sarannya shown sebagai
  * auto-complete dan tidak membatasi jawaban petugas.
  */
-async function opsiSuggest(fieldId: string | null): Promise<OpsiDinamis[]> {
-  if (!fieldId) return []
-
-  const baris = await db
-    .select({ value: formFieldOptions.value, label: formFieldOptions.label })
-    .from(formFieldOptions)
-    .where(eq(formFieldOptions.fieldId, fieldId))
-    .orderBy(formFieldOptions.urutan)
-
-  return baris.map((b) => ({ value: b.value, label: b.label || b.value }))
+function opsiSuggest(
+  options: readonly { value: string; label: string; aktif: boolean }[],
+): OpsiDinamis[] {
+  return options
+    .filter((option) => option.aktif)
+    .map((option) => ({
+      value: option.value,
+      label: option.label || option.value,
+    }))
 }
 
 /**
@@ -199,6 +197,7 @@ export async function resolveOpsiDinamis(params: {
   optionSourceKey?: string | null
   fasKesId?: number | null
   fieldId?: string | null
+  options?: readonly { value: string; label: string; aktif: boolean }[]
 }): Promise<HasilResolverOpsi> {
   const { optionSourceType, optionSourceKey, fasKesId } = params
   if (!optionSourceType) return KOSONG
@@ -227,7 +226,7 @@ export async function resolveOpsiDinamis(params: {
       opsi = await opsiWarga(optionSourceKey ?? '')
       break
     case SUMBER_SUGGEST:
-      opsi = await opsiSuggest(params.fieldId ?? null)
+      opsi = opsiSuggest(params.options ?? [])
       break
     case SUMBER_CARI_WARGA:
       // Sengaja tanpa query. Pencarian terjadi di browser tiap kali petugas

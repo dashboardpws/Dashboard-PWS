@@ -17,11 +17,12 @@ interface Props {
   onSelectField: (clientId: string) => void
   onDeselectField: () => void
   selectedFieldClientId: string | null
+  previewValues: Record<string, unknown>
+  onPreviewChange: (fieldClientId: string, value: unknown) => void
   onAddField: (sectionClientId: string) => void
   onUpdateSection: (clientId: string, patch: Partial<DraftSection>) => void
   /** undefined = form ini mengunci struktur section, jadi tombolnya disembunyikan. */
   onDeleteSection?: (clientId: string) => void
-  onUpdateField: (clientId: string, patch: Partial<DraftField>) => void
   /** undefined = field ini tidak boleh dihapus, jadi tombolnya disembunyikan. */
   onDeleteField?: (clientId: string) => void
 }
@@ -37,10 +38,11 @@ export function SectionNode({
   onSelectField,
   onDeselectField,
   selectedFieldClientId,
+  previewValues,
+  onPreviewChange,
   onAddField,
   onUpdateSection,
   onDeleteSection,
-  onUpdateField,
   onDeleteField,
 }: Props) {
   // Terima section (reorder) + field (pindah masuk) + palette (buat field baru).
@@ -65,10 +67,10 @@ export function SectionNode({
       style={{ opacity: isDragging ? 0.5 : 1 }}
     >
       <div
-        className={`flex items-center gap-2 rounded-lg border p-2.5 transition-colors ${
+        className={`flex items-center gap-2 rounded-xl border p-3 transition-colors ${
           isSelected
-            ? 'border-accent-border bg-accent-light'
-            : 'border-line hover:border-accent-border'
+            ? 'border-accent-border bg-accent-light/70'
+            : 'border-line bg-surface hover:border-accent-border'
         } ${isDropTarget ? 'bg-accent-light/50 border-accent-border' : ''}`}
         onClick={() => onSelect(section.clientId)}
       >
@@ -126,7 +128,7 @@ export function SectionNode({
         </div>
       )}
 
-      <div className="ml-6">
+      <div className="ml-3 grid gap-2 border-l border-line pl-3 sm:ml-5 sm:pl-4">
         {fields.map((f, idx) => {
           const field = fieldsByClientId.get(f.clientId)
           if (!field) return null
@@ -140,14 +142,15 @@ export function SectionNode({
               isSelected={selectedFieldClientId === f.clientId}
               onSelect={onSelectField}
               onDeselect={onDeselectField}
-              onUpdateField={onUpdateField}
               onDeleteField={onDeleteField}
+              previewValue={previewValues[f.clientId]}
+              onPreviewChange={(value) => onPreviewChange(f.clientId, value)}
             />
           )
         })}
         {fields.length === 0 && (
-          <div className="mt-2 ml-6 text-xs text-muted italic border-l border-dashed border-line pl-2 py-1">
-            Belum ada pertanyaan. Tarik dari panel kiri atau klik + Field.
+          <div className="rounded-xl border border-dashed border-line bg-surface/70 px-4 py-5 text-center text-xs text-muted">
+            Belum ada pertanyaan. Klik Komponen atau tarik field ke section ini.
           </div>
         )}
       </div>

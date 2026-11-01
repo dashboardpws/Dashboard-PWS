@@ -8,6 +8,7 @@ import {
   ChevronsRight,
   Eye,
   FlaskConical,
+  Settings,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { PeringatanBox } from '@/components/shared'
@@ -21,6 +22,11 @@ import { SimulasiPreview } from '@/components/kelola/builder/preview/SimulasiPre
 import { getOrphanFieldIds } from './tree'
 import { aturanForm } from '@/lib/form-builder/kode-bawaan'
 import type { DraftFormDocument, DraftField } from './types'
+import type {
+  PresetField,
+  TemplateField,
+} from '@/lib/service/form-builder/template-field'
+import { presetDariTemplate } from '@/lib/service/form-builder/template-field'
 import type { DefinisiVersi } from '@/hooks/kelola/use-form-builder'
 import type { useFormBuilderDraft } from '@/hooks/kelola/use-form-builder-draft'
 
@@ -80,6 +86,29 @@ export function FormBuilderWorkspace({
   const [settingsOpen, setSettingsOpen] = useState(true)
   const [previewMode, setPreviewMode] = useState(false)
   const [simulasiMode, setSimulasiMode] = useState(false)
+  const [mobilePanel, setMobilePanel] = useState<
+    'components' | 'canvas' | 'settings'
+  >('canvas')
+  const [previewState, setPreviewState] = useState<{
+    formVersionId: string
+    values: Record<string, unknown>
+  }>({ formVersionId, values: {} })
+
+  const previewValues =
+    previewState.formVersionId === formVersionId ? previewState.values : {}
+
+  const setPreviewValue = useCallback(
+    (fieldClientId: string, value: unknown) => {
+      setPreviewState((current) => ({
+        formVersionId,
+        values: {
+          ...(current.formVersionId === formVersionId ? current.values : {}),
+          [fieldClientId]: value,
+        },
+      }))
+    },
+    [formVersionId],
+  )
 
   // Bagian editor yang form bawaan tidak boleh ubah. Penegakan ada di server;
   // yang di sini hanya jangan menawarkan kontrol yang pasti ditolak.
@@ -141,6 +170,50 @@ export function FormBuilderWorkspace({
     [addField, setSelectedItem],
   )
 
+  const addFieldFromPalette = useCallback(
+    (preset: Partial<PresetField>) => {
+      if (!document) return
+
+      const selectedSection =
+        selectedItem?.type === 'section'
+          ? selectedItem.clientId
+          : selectedItem?.type === 'field'
+            ? fieldsByClientId.get(selectedItem.clientId)?.sectionClientId
+            : null
+      const targetSection =
+        selectedSection ?? document.sections[0]?.clientId ?? null
+      const sectionClientId =
+        targetSection ?? (!kunci.strukturSection ? addSection() : null)
+
+      if (!sectionClientId) return
+
+      const clientId = addField(sectionClientId, preset)
+      setSelectedItem({ type: 'field', clientId })
+      setMobilePanel('canvas')
+    },
+    [
+      addField,
+      addSection,
+      document,
+      fieldsByClientId,
+      kunci.strukturSection,
+      selectedItem,
+      setSelectedItem,
+    ],
+  )
+
+  const handleAddPaletteField = useCallback(
+    (item: (typeof palette)[number]) =>
+      addFieldFromPalette({ tipe: item.tipe }),
+    [addFieldFromPalette, palette],
+  )
+
+  const handleAddTemplate = useCallback(
+    (template: TemplateField) =>
+      addFieldFromPalette(presetDariTemplate(template)),
+    [addFieldFromPalette],
+  )
+
   const handleAddSection = useCallback(() => {
     addSection()
   }, [addSection])
@@ -198,7 +271,7 @@ export function FormBuilderWorkspace({
         {(source) => <KontenDrag source={source} document={document} />}
       </DragOverlay>
 
-      <div className="h-[calc(100vh-200px)] min-h-125 flex flex-col">
+      <div className="flex h-[calc(100vh-200px)] min-h-125 flex-col max-md:h-[68dvh] max-md:min-h-[420px]">
         <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
           <div className="flex items-center gap-2">
             {onBack && (
@@ -251,6 +324,32 @@ export function FormBuilderWorkspace({
           </div>
         </div>
 
+        <div
+          className="mb-2 grid grid-cols-3 gap-1 rounded-xl bg-surface-2 p-1 md:hidden"
+          role="tablist"
+          aria-label="Panel Form Builder"
+        >
+          {(
+            [
+              ['components', 'Komponen', FolderPlus],
+              ['canvas', 'Canvas', Eye],
+              ['settings', 'Pengaturan', Settings],
+            ] as const
+          ).map(([key, label, Icon]) => (
+            <Button
+              key={key}
+              size="sm"
+              variant={mobilePanel === key ? 'primary' : 'ghost'}
+              className="w-full px-2 text-[11px]"
+              onClick={() => setMobilePanel(key)}
+              role="tab"
+              aria-selected={mobilePanel === key}
+            >
+              <Icon className="h-3.5 w-3.5" /> {label}
+            </Button>
+          ))}
+        </div>
+
         {buildError && (
           <PeringatanBox className="mb-3" align="center">
             {buildError}
@@ -263,15 +362,22 @@ export function FormBuilderWorkspace({
           </PeringatanBox>
         )}
 
-        <div className="flex-1 flex min-h-0 overflow-hidden">
-          {paletteOpen ? (
-            <div className="relative shrink-0 flex">
-              <BlockPalette items={paletteTersedia} disabled={!bisaUbah} />
+        <div className="flex min-h-0 flex-1 overflow-hidden max-md:flex-col">
+          {paletteOpen || mobilePanel === 'components' ? (
+            <div
+              className={`relative flex shrink-0 max-md:min-h-0 max-md:flex-1 max-md:flex-col ${mobilePanel !== 'components' ? 'max-md:hidden' : ''}`}
+            >
+              <BlockPalette
+                items={paletteTersedia}
+                disabled={!bisaUbah}
+                onAddField={handleAddPaletteField}
+                onAddTemplate={handleAddTemplate}
+              />
               <button
                 type="button"
                 onClick={() => setPaletteOpen(false)}
                 title="Liput panel Komponen"
-                className="absolute top-2 -right-3 z-10 w-6 h-6 flex items-center justify-center rounded-full border border-line bg-surface text-muted hover:text-ink hover:border-accent-border shadow-sm"
+                className="absolute top-2 -right-3 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-sm hover:border-accent-border hover:text-ink max-md:hidden"
               >
                 <ChevronsLeft className="w-3.5 h-3.5" />
               </button>
@@ -293,55 +399,80 @@ export function FormBuilderWorkspace({
             </button>
           )}
 
-          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-            <div className="flex-1 overflow-y-auto p-3">
+          <div
+            className={`flex min-w-0 flex-1 flex-col overflow-hidden ${mobilePanel !== 'canvas' ? 'max-md:hidden' : ''}`}
+          >
+            <div className="flex-1 overflow-y-auto bg-surface-2/70 p-3 md:p-5">
               {document ? (
-                <>
+                <div className="mx-auto min-h-full max-w-3xl rounded-2xl border border-line bg-surface p-4 shadow-sm sm:p-6 md:p-8">
+                  <div className="mb-6 flex flex-wrap items-start justify-between gap-3 border-b border-line pb-4">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-accent">
+                        Canvas form
+                      </p>
+                      <h2 className="mt-1 text-lg font-bold text-ink">
+                        Susun pertanyaan
+                      </h2>
+                      <p className="mt-1 text-xs text-muted">
+                        Klik pertanyaan untuk memilihnya. Nilai yang dicoba di
+                        sini hanya sementara.
+                      </p>
+                    </div>
+                    <span className="rounded-full border border-accent-border bg-accent-light px-2.5 py-1 text-[10px] font-semibold text-accent">
+                      Preview interaktif
+                    </span>
+                  </div>
                   {document.sections.length === 0 ? (
-                    <div className="text-center text-muted py-12">
-                      <FolderPlus className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                      <p className="text-sm">
+                    <div className="rounded-2xl border border-dashed border-line bg-surface-2/60 px-5 py-10 text-center">
+                      <FolderPlus className="mx-auto mb-3 h-9 w-9 text-muted opacity-60" />
+                      <p className="text-sm font-semibold text-ink">
+                        Canvas masih kosong
+                      </p>
+                      <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-muted">
                         {kunci.strukturSection
-                          ? 'Form ini memakai section tetap, jadi section tidak bisa ditambah dari sini.'
-                          : 'Belum ada section. Klik "Tambah Section" atau tarik field ke area ini.'}
+                          ? 'Form ini memakai section tetap. Pilih section yang tersedia untuk menambahkan pertanyaan.'
+                          : 'Tambahkan section atau klik komponen di panel Komponen untuk mulai menyusun form.'}
                       </p>
                     </div>
                   ) : (
-                    document.sections.map((section, sectionIdx) => (
-                      <SectionNode
-                        key={section.clientId}
-                        section={section}
-                        flatTree={flatTree}
-                        index={sectionIdx}
-                        disabled={!bisaUbah}
-                        isSelected={
-                          selectedItem?.type === 'section' &&
-                          selectedItem.clientId === section.clientId
-                        }
-                        fieldsByClientId={fieldsByClientId}
-                        onSelect={(clientId) =>
-                          setSelectedItem({ type: 'section', clientId })
-                        }
-                        onSelectField={(clientId) =>
-                          setSelectedItem({ type: 'field', clientId })
-                        }
-                        onDeselectField={() => setSelectedItem(null)}
-                        selectedFieldClientId={
-                          selectedItem?.type === 'field'
-                            ? selectedItem.clientId
-                            : null
-                        }
-                        onAddField={handleAddField}
-                        onUpdateSection={updateSection}
-                        onDeleteSection={
-                          kunci.strukturSection ? undefined : deleteSection
-                        }
-                        onUpdateField={updateField}
-                        onDeleteField={hapusFieldJikaBoleh}
-                      />
-                    ))
+                    <div className="grid gap-5">
+                      {document.sections.map((section, sectionIdx) => (
+                        <SectionNode
+                          key={section.clientId}
+                          section={section}
+                          flatTree={flatTree}
+                          index={sectionIdx}
+                          disabled={!bisaUbah}
+                          isSelected={
+                            selectedItem?.type === 'section' &&
+                            selectedItem.clientId === section.clientId
+                          }
+                          fieldsByClientId={fieldsByClientId}
+                          onSelect={(clientId) =>
+                            setSelectedItem({ type: 'section', clientId })
+                          }
+                          onSelectField={(clientId) =>
+                            setSelectedItem({ type: 'field', clientId })
+                          }
+                          onDeselectField={() => setSelectedItem(null)}
+                          selectedFieldClientId={
+                            selectedItem?.type === 'field'
+                              ? selectedItem.clientId
+                              : null
+                          }
+                          previewValues={previewValues}
+                          onPreviewChange={setPreviewValue}
+                          onAddField={handleAddField}
+                          onUpdateSection={updateSection}
+                          onDeleteSection={
+                            kunci.strukturSection ? undefined : deleteSection
+                          }
+                          onDeleteField={hapusFieldJikaBoleh}
+                        />
+                      ))}
+                    </div>
                   )}
-                </>
+                </div>
               ) : (
                 <div className="text-center text-muted py-12">
                   <p className="text-sm">Memuat form…</p>
@@ -350,13 +481,15 @@ export function FormBuilderWorkspace({
             </div>
           </div>
 
-          {settingsOpen ? (
-            <div className="relative shrink-0 flex">
+          {settingsOpen || mobilePanel === 'settings' ? (
+            <div
+              className={`relative flex shrink-0 ${mobilePanel !== 'settings' ? 'max-md:hidden' : 'max-md:min-h-0 max-md:flex-1'}`}
+            >
               <button
                 type="button"
                 onClick={() => setSettingsOpen(false)}
                 title="Liput panel Pengaturan"
-                className="absolute top-2 -left-3 z-10 w-6 h-6 flex items-center justify-center rounded-full border border-line bg-surface text-muted hover:text-ink hover:border-accent-border shadow-sm"
+                className="absolute top-2 -left-3 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-sm hover:border-accent-border hover:text-ink max-md:hidden"
               >
                 <ChevronsRight className="w-3.5 h-3.5" />
               </button>
@@ -385,7 +518,7 @@ export function FormBuilderWorkspace({
               type="button"
               onClick={() => setSettingsOpen(true)}
               title="Buka panel Pengaturan"
-              className="shrink-0 w-8 flex flex-col items-center gap-2 border-l border-line bg-surface-2 py-3 text-muted hover:text-ink"
+              className="flex w-8 shrink-0 flex-col items-center gap-2 border-l border-line bg-surface-2 py-3 text-muted hover:text-ink max-md:hidden"
             >
               <ChevronsLeft className="w-4 h-4" />
               <span

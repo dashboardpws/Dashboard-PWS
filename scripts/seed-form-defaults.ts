@@ -28,15 +28,15 @@
  * daftar field ke sini secara manual pasti akan menyimpang dari template
  * lokal setelah salah satu sisipan berubah.
  */
-import { and, desc, eq } from 'drizzle-orm'
+import { and, desc, eq, sql } from 'drizzle-orm'
 import { db } from '@/lib/server/db.server'
 import {
-  formFieldOptions,
-  formFields,
-  formSections,
   formVersions,
   forms,
+  surveyEntries,
+  surveys,
 } from '@/lib/schema/schema'
+import type { FormDefinition } from '@/lib/form-builder/form-schema'
 import {
   createDefaultKunjunganRumahTemplates,
   KUNJUNGAN_RUMAH_TEMPLATE_VERSION,
@@ -296,21 +296,11 @@ export interface LaporanSeed {
  * sedang disunting di Form Builder.
  */
 async function adaDefinisiForm(formId: number): Promise<boolean> {
-  const [section] = await db
-    .select({ id: formSections.id })
-    .from(formSections)
-    .innerJoin(formVersions, eq(formSections.formVersionId, formVersions.id))
+  const versions = await db
+    .select({ schema: formVersions.schema })
+    .from(formVersions)
     .where(eq(formVersions.formId, formId))
-    .limit(1)
-  if (section) return true
-
-  const [field] = await db
-    .select({ id: formFields.id })
-    .from(formFields)
-    .innerJoin(formVersions, eq(formFields.formVersionId, formVersions.id))
-    .where(eq(formVersions.formId, formId))
-    .limit(1)
-  return field !== undefined
+  return versions.some((version) => version.schema.sections.length > 0)
 }
 
 /**
@@ -347,7 +337,6 @@ async function seedForm(params: {
   // hitungan detik. Kalau ada field yang gagal, tidak ada form setengah jadi.
   return db.transaction(async (tx) => {
     const now = new Date()
-
     let formId: number
     if (existing) {
       // Jalur perbaikan: baris `forms` sudah ada dan dipakai ulang apa adanya,
@@ -414,6 +403,61 @@ async function seedForm(params: {
       versi = terpakai
     }
 
+    const legacyEntry =
+      params.kode === KODE_FORM.kunjunganRumah && versi
+        ? await tx
+            .select({ fieldId: surveyEntries.fieldId })
+            .from(surveyEntries)
+            .innerJoin(surveys, eq(surveys.id, surveyEntries.surveyId))
+            .where(
+              and(
+                eq(surveys.formVersionId, versi.id),
+                sql`${surveyEntries.value} ? 'schemaVersion'`,
+              ),
+            )
+            .limit(1)
+        : []
+    const legacyRecordId = legacyEntry[0]?.fieldId
+    const schema: FormDefinition = {
+      version: versi?.version ?? params.nomorVersi,
+      sections: params.sections.map((section) => ({
+        id: crypto.randomUUID(),
+        name: section.nama,
+        label: section.nama,
+        description: null,
+        order: section.urutan,
+        active: true,
+        visibilityRules: [],
+        fields: section.fields.map((field) => ({
+          id:
+            field.nama === namaFieldUnik('penyimpanan', FIELD_RECORD_LEGACY) &&
+            legacyRecordId
+              ? legacyRecordId
+              : crypto.randomUUID(),
+          name: field.nama,
+          label: field.label,
+          type: field.tipe,
+          required: field.wajib,
+          active: true,
+          order: field.urutan,
+          description: null,
+          placeholder: null,
+          columns: field.jumlahKolom,
+          optionSourceType: field.optionSourceType,
+          optionSourceKey: field.optionSourceKey,
+          options: field.options.map((value, order) => ({
+            id: crypto.randomUUID(),
+            value,
+            label: value,
+            order,
+            active: true,
+          })),
+          autofill: [],
+          visibilityRules: [],
+        })),
+      })),
+    }
+
     if (versi) {
       // Status diangkat ke `published` hanya bila tidak ada satupun yang tayang,
       // jadi tidak mungkin terjadi dua versi published sekaligus.
@@ -423,6 +467,10 @@ async function seedForm(params: {
           .set({ status: 'published', publishedAt: now })
           .where(eq(formVersions.id, versi.id))
       }
+      await tx
+        .update(formVersions)
+        .set({ schema, updatedAt: now })
+        .where(eq(formVersions.id, versi.id))
     } else {
       // Status tetap langsung `published`, bukan `draft`: form bawaan harus bisa
       // dipakai petugas tanpa langkah publish manual. `publishedAt` wajib terisi
@@ -434,70 +482,12 @@ async function seedForm(params: {
           version: params.nomorVersi,
           status: 'published',
           publishedAt: now,
+          schema,
         })
         .returning()
       if (!baru)
         throw new Error(`Gagal membuat versi untuk form "${params.nama}"`)
       versi = baru
-    }
-
-    for (const s of params.sections) {
-      const [section] = await tx
-        .insert(formSections)
-        .values({
-          formVersionId: versi.id,
-          nama: s.nama,
-          urutan: s.urutan,
-        })
-        .returning()
-      if (!section) throw new Error(`Gagal membuat section "${s.nama}"`)
-      if (s.fields.length === 0) continue
-
-      // Field satu section di-insert sekaligus. Insert per field dengan
-      // `.returning()` berarti satu round trip per field; section sasaran punya
-      // puluhan field dan satu round trip lewat pooler Supabase(~0,3 detik),
-      // jadi Form Kunjungan Rumah akan memakan waktu lama sekali.
-      const kolom = await tx
-        .insert(formFields)
-        .values(
-          s.fields.map((f) => ({
-            formVersionId: versi.id,
-            sectionId: section.id,
-            nama: f.nama,
-            label: f.label,
-            tipe: f.tipe,
-            wajib: f.wajib,
-            urutan: f.urutan,
-            optionSourceType: f.optionSourceType,
-            optionSourceKey: f.optionSourceKey,
-            jumlahKolom: f.jumlahKolom,
-          })),
-        )
-        .returning({ id: formFields.id, nama: formFields.nama })
-      if (kolom.length !== s.fields.length) {
-        throw new Error(
-          `Field section "${s.nama}": hope ${s.fields.length}, tersimpan ${kolom.length}.`,
-        )
-      }
-
-      // Semua opsi di seluruh section di-insert sekaligus. `form_field_options`
-      // tidak butuh id balikan per opsi, jadi ini cukup satu round trip.
-      // Opsi statis di seluruh section di-insert sekaligus, jadi cukup satu
-      // round trip. Field dengan `optionSourceType` (mis. daftar petugas dari
-      // `users`) sengaja TIDAK ditulis di sini: opsinya dibaca dari database
-      // saat render dan saat validasi, jadi menambah petugas di /kelola tidak
-      // butuh seeding ulang dan tidak bisa basi.
-      const opsiRows = kolom.flatMap((col) => {
-        const f = s.fields.find((x) => x.nama === col.nama)
-        if (!f || f.optionSourceType || f.options.length === 0) return []
-        return f.options.map((value, i) => ({
-          fieldId: col.id,
-          value,
-          urutan: i,
-        }))
-      })
-      if (opsiRows.length > 0)
-        await tx.insert(formFieldOptions).values(opsiRows)
     }
 
     return {

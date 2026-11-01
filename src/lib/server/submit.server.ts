@@ -4,12 +4,9 @@
  */
 
 import { db } from './db.server'
-import { eq, inArray, sql } from 'drizzle-orm'
-import {
-  formFieldOptions,
-  formFields,
-  surveyEntries,
-} from '@/lib/schema/schema'
+import { eq, sql } from 'drizzle-orm'
+import { formVersions, surveyEntries, surveys } from '@/lib/schema/schema'
+import { parseFormDefinition } from '@/lib/form-builder/form-schema'
 
 /** Baris isian form yang dipakai dashboard, laporan, dan detail sasaran. */
 export interface BarisIsianForm {
@@ -112,7 +109,7 @@ export interface BarisJawabanSubmit {
   urutan: number
   /** Bentuk jsonb apa adanya; diformat di klien lewat `formatNilaiJawapan`. */
   value: JsonNilai
-  /** Baris `form_field_options`, untuk memetakan value ke label. */
+  /** Opsi definisi form untuk memetakan value ke label. */
   opsi: Array<{ value: string; label: string | null }>
 }
 
@@ -168,54 +165,48 @@ export async function queryRiwayatSubmit(params: {
 export async function queryJawabanSubmit(
   surveyId: string,
 ): Promise<BarisJawabanSubmit[]> {
+  const [submission] = await db
+    .select({ formVersionId: surveys.formVersionId })
+    .from(surveys)
+    .where(eq(surveys.id, surveyId))
+    .limit(1)
+  if (!submission) return []
+  const [version] = await db
+    .select({ schema: formVersions.schema })
+    .from(formVersions)
+    .where(eq(formVersions.id, submission.formVersionId))
+    .limit(1)
+  if (!version) return []
+  const definition = parseFormDefinition(version.schema)
+  const metadata = new Map(
+    definition.sections.flatMap((section) =>
+      section.fields.map((field) => [field.id, field] as const),
+    ),
+  )
   const jawaban = await db
     .select({
       fieldId: surveyEntries.fieldId,
-      nama: formFields.nama,
-      label: formFields.label,
-      tipe: formFields.tipe,
-      urutan: formFields.urutan,
       value: surveyEntries.value,
     })
     .from(surveyEntries)
-    .innerJoin(formFields, eq(formFields.id, surveyEntries.fieldId))
     .where(eq(surveyEntries.surveyId, surveyId))
 
   if (jawaban.length === 0) return []
-
-  const opsi = await db
-    .select({
-      fieldId: formFieldOptions.fieldId,
-      value: formFieldOptions.value,
-      label: formFieldOptions.label,
-    })
-    .from(formFieldOptions)
-    .where(
-      inArray(
-        formFieldOptions.fieldId,
-        jawaban.map((j) => j.fieldId),
-      ),
-    )
-
-  const opsiByField = new Map<
-    string,
-    Array<{ value: string; label: string | null }>
-  >()
-  for (const o of opsi) {
-    const list = opsiByField.get(o.fieldId) ?? []
-    list.push({ value: o.value, label: o.label })
-    opsiByField.set(o.fieldId, list)
-  }
-
-  return jawaban.map((j) => ({
-    fieldId: j.fieldId,
-    nama: j.nama,
-    label: j.label,
-    tipe: j.tipe,
-    urutan: j.urutan,
-    value: j.value as JsonNilai,
-    opsi: opsiByField.get(j.fieldId) ?? [],
-  }))
+  return jawaban.flatMap((j) => {
+    const field = metadata.get(j.fieldId)
+    if (!field) return []
+    return [
+      {
+        fieldId: field.id,
+        nama: field.name,
+        label: field.label,
+        tipe: field.type,
+        urutan: field.order,
+        value: j.value as JsonNilai,
+        opsi: field.options.map(({ value, label }) => ({ value, label })),
+      },
+    ]
+  })
 }
 
 /**
