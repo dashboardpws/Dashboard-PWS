@@ -1,37 +1,63 @@
-import {
-  Bell,
-  ClipboardCheck,
-  ClipboardList,
-  FileText,
-  LayoutDashboard,
-  ScrollText,
-  Settings,
-} from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
+import { DashboardOutlined, Dashboard, DescriptionOutlined, Description, AssignmentTurnedInOutlined,
+  AssignmentTurnedIn, AssignmentOutlined, Assignment, ArticleOutlined, Article,
+  NotificationsOutlined, Notifications, SettingsOutlined, Settings, } from '@mui/icons-material'
+import type { SvgIconProps } from '@mui/material/SvgIcon'
 
 export interface NavItem {
   label: string
   /** Label ringkas untuk nav bawah yang sempit. Falls back ke `label` kalau kosong. */
   shortLabel?: string
   to?: string
-  Icon: LucideIcon
+  Icon: React.ComponentType<SvgIconProps>
+  IconFilled?: React.ComponentType<SvgIconProps>
   children?: NavItem[]
   isDropdownTrigger?: boolean
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard', to: '/', Icon: LayoutDashboard },
-  { label: 'Data Sasaran', to: '/sasaran', Icon: FileText },
-  { label: 'Kunjungan Rumah', to: '/kunjungan-rumah', Icon: ClipboardCheck },
+  {
+    label: 'Dashboard',
+    to: '/',
+    Icon: DashboardOutlined,
+    IconFilled: Dashboard,
+  },
+  {
+    label: 'Data Sasaran',
+    to: '/sasaran',
+    Icon: DescriptionOutlined,
+    IconFilled: Description,
+  },
+  {
+    label: 'Kunjungan Rumah',
+    to: '/kunjungan-rumah',
+    Icon: AssignmentTurnedInOutlined,
+    IconFilled: AssignmentTurnedIn,
+  },
   {
     label: 'Formulir',
-    Icon: ClipboardList,
+    Icon: AssignmentOutlined,
+    IconFilled: Assignment,
     isDropdownTrigger: true,
     children: [],
   },
-  { label: 'Laporan', to: '/laporan', Icon: ScrollText },
-  { label: 'Notifikasi', to: '/notifikasi', Icon: Bell },
-  { label: 'Kelola', to: '/kelola', Icon: Settings },
+  {
+    label: 'Laporan',
+    to: '/laporan',
+    Icon: ArticleOutlined,
+    IconFilled: Article,
+  },
+  {
+    label: 'Notifikasi',
+    to: '/notifikasi',
+    Icon: NotificationsOutlined,
+    IconFilled: Notifications,
+  },
+  {
+    label: 'Kelola',
+    to: '/kelola',
+    Icon: SettingsOutlined,
+    IconFilled: Settings,
+  },
 ] as const
 
 let dynamicFormChildren: NavItem[] = []
@@ -51,14 +77,6 @@ function mergeDynamicChildren(items: NavItem[]): NavItem[] {
 
 /**
  * Semua pengguna melihat menu yang sama.
- *
- * Sebelumnya ada `adminOnly` + `filterAdminOnly` yang menyaring berdasarkan
- * `isAdminUser`. Karena profil sesi konstan dengan role "Admin", saringan itu
- * selalu lolos untuk setiap item — tidak pernah menyembunyikan apa pun. Para
- * pemanggilnya sudah kehilangan akses ke user: nav tidak lagi bergantung pada
- * siapa yang login. Kolom `users.role` yang dulu dimaksudkan sebagai sumber
- * saringan itu juga sudah dihapus dari skema, jadi tidak ada bahan lain untuk
- * menyaring tanpa mengubah keputusan "semua sesi valid setara".
  */
 export function navItemsForUser(): NavItem[] {
   return mergeDynamicChildren(NAV_ITEMS)

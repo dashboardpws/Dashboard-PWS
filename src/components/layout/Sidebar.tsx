@@ -1,6 +1,13 @@
 import { Link } from '@tanstack/react-router'
-import { ChevronDown, ClipboardList, LogOut } from 'lucide-react'
+import {
+  ExpandMore,
+  Assignment,
+  AssignmentOutlined,
+  Logout,
+  LogoutOutlined,
+} from '@mui/icons-material'
 import { useCallback, useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 import { APP_BRAND } from '@/lib/constants'
 import { navItemsForUser, setDynamicFormChildren } from '@/lib/nav/nav'
 import type { NavItem } from '@/lib/nav/nav'
@@ -12,28 +19,121 @@ import brandIcon from '@/assets/brandIcon.png'
 
 export interface SidebarProps {
   collapsed?: boolean
+  onToggleCollapsed?: () => void
 }
 
-/*
- * Kelas berulang navigasi. Ditarik ke konstanta karena empat bentuk item
- * (link daun, dropdown induk, dropdown Formulir, dan anak-anaknya) menulis
- * string yang sama dengan selisih kecil — dan bug bisu pertamanya sudah
- * terjadi: rgba() acak di activeProps induk.
+/**
+ * Mendeteksi dark mode berdasarkan class pada elemen <html>.
+ */
+function useIsDarkMode() {
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof window === 'undefined') return false
+
+    return document.documentElement.classList.contains('dark')
+  })
+
+  useEffect(() => {
+    const checkDark = () => {
+      setIsDark(document.documentElement.classList.contains('dark'))
+    }
+
+    checkDark()
+
+    const observer = new MutationObserver(checkDark)
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class', 'data-theme'],
+    })
+
+    return () => observer.disconnect()
+  }, [])
+
+  return isDark
+}
+
+/**
+ * Standar layout navigasi.
+ *
+ * Item utama:
+ * - Tinggi minimum 40px.
+ * - Ikon dan teks berada dalam satu flex row.
+ *
+ * Item anak:
+ * - Tinggi minimum 36px.
+ * - Menggunakan standar ikon dan tipografi yang sama.
  */
 const LINK_KELAS =
-  'flex items-center rounded-lg px-3 py-2.5 text-[13px] font-medium transition-all duration-400 ease-in-out hover:bg-surface-2'
+  'flex min-h-10 items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-200 ease-in-out hover:bg-surface-2'
+
 const LINK_KELAS_TERLIPAT = 'justify-center gap-0 px-0'
-// Token `accent-border` menggantikan rgba(79,214,205,0.45); nilai yang
-// dekatnya tetap, tapi warna kini ikut tema gelap seperti elemen lain.
-const AKTIF_INDUK = 'border border-accent-border bg-accent-light font-semibold'
+
+const AKTIF_INDUK =
+  'border border-accent-border bg-accent-light font-semibold'
+
 const LINK_ANAK =
-  'flex items-center rounded-lg px-3 py-2 text-[12px] font-medium transition-colors hover:bg-surface-2 gap-2.5'
+  'flex min-h-9 items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-surface-2'
+
 const AKTIF_ANAK = 'bg-accent-light text-accent font-semibold'
 
 /**
- * Kepala dropdown: tombol lebar penuh + chevron (item statis) atau tanpa
- * chevron (Formulir, yang anak-anaknya dinamis dan tetap bisa dibuka-tutup
- * tombol itu sendiri).
+ * Standar tipografi seluruh label navigasi.
+ *
+ * Ukuran font 14px dengan line-height 20px.
+ * Tinggi line box disamakan dengan kotak ikon.
+ */
+const NAV_LABEL_KELAS =
+  'block min-w-0 truncate text-sm leading-5 font-medium'
+
+/**
+ * Wrapper ikon navigasi.
+ *
+ * Semua ikon mendapatkan area yang sama, yaitu 20x20px.
+ * SVG ditempatkan di tengah area tersebut dengan ukuran 18px.
+ *
+ * Wrapper ini menormalkan geometri layout tanpa mengubah
+ * bentuk asli ikon Material UI.
+ */
+function SidebarIcon({
+  children,
+  className,
+}: {
+  children: ReactNode
+  className?: string
+}) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        'inline-flex h-5 w-5 shrink-0 items-center justify-center',
+        className,
+      )}
+    >
+      {children}
+    </span>
+  )
+}
+
+/**
+ * Komponen ikon Material UI dengan ukuran standar.
+ */
+function SidebarSvgIcon({
+  children,
+  className,
+}: {
+  children: ReactNode
+  className?: string
+}) {
+  return (
+    <SidebarIcon className={className}>
+      {children}
+    </SidebarIcon>
+  )
+}
+
+/**
+ * Kepala dropdown:
+ * tombol selebar container, ikon, label, dan chevron opsional.
  */
 function DropdownTrigger({
   label,
@@ -45,61 +145,105 @@ function DropdownTrigger({
   label: string
   isOpen: boolean
   onToggle: () => void
-  icon: React.ReactNode
+  icon: ReactNode
   showChevron?: boolean
 }) {
   return (
     <button
       type="button"
       onClick={onToggle}
+      aria-expanded={showChevron ? isOpen : undefined}
       className={cn(LINK_KELAS, 'w-full gap-2.5')}
     >
-      {icon}
-      <span className={cn('truncate text-ink-2', showChevron && 'flex-1')}>
+      <SidebarIcon>{icon}</SidebarIcon>
+
+      <span
+        className={cn(
+          NAV_LABEL_KELAS,
+          'text-ink-2',
+          showChevron && 'flex-1',
+        )}
+      >
         {label}
       </span>
-      {showChevron ? (
-        <ChevronDown
-          size={14}
-          className={cn(
-            'shrink-0 text-muted transition-transform duration-200',
-            isOpen && 'rotate-180',
-          )}
-        />
-      ) : null}
+
+      {showChevron && (
+        <SidebarSvgIcon>
+          <ExpandMore
+            sx={{
+              fontSize: 18,
+              display: 'block',
+            }}
+            className={cn(
+              'text-muted transition-transform duration-200',
+              isOpen && 'rotate-180',
+            )}
+          />
+        </SidebarSvgIcon>
+      )}
     </button>
   )
 }
 
-function DropdownDaftar({ children }: { children: React.ReactNode }) {
+/**
+ * Daftar item di dalam dropdown.
+ */
+function DropdownDaftar({
+  children,
+}: {
+  children: ReactNode
+}) {
   return (
-    <ul className="mt-1 ml-6 space-y-1 animate-slide-down" role="menu">
+    <ul
+      className="mt-1 ml-6 space-y-1 animate-slide-down"
+      role="menu"
+    >
       {children}
     </ul>
   )
 }
 
+/**
+ * Link navigasi biasa.
+ */
 function NavItemLink({
   item,
   collapsed,
+  isDark,
 }: {
   item: NavItem
   collapsed: boolean
+  isDark: boolean
 }) {
-  const Icon = item.Icon
+  const IconComponent = isDark
+    ? (item.IconFilled ?? item.Icon)
+    : item.Icon
 
   return (
     <Link
-      key={item.to}
       to={item.to}
       activeOptions={{ exact: item.to === '/' }}
-      className={cn(LINK_KELAS, collapsed ? LINK_KELAS_TERLIPAT : 'gap-2.5')}
-      activeProps={{ className: AKTIF_INDUK }}
+      className={cn(
+        LINK_KELAS,
+        collapsed ? LINK_KELAS_TERLIPAT : 'gap-2.5',
+      )}
+      activeProps={{
+        className: AKTIF_INDUK,
+      }}
     >
-      <Icon size={16} className="shrink-0" />
+      <SidebarSvgIcon>
+        <IconComponent
+          sx={{
+            fontSize: 18,
+            display: 'block',
+          }}
+        />
+      </SidebarSvgIcon>
+
       <span
         className={cn(
-          'truncate text-ink-2 transition-opacity duration-200',
+          NAV_LABEL_KELAS,
+          'text-ink-2 transition-opacity duration-200',
           collapsed ? 'w-0 opacity-0' : 'opacity-100',
         )}
       >
@@ -109,87 +253,164 @@ function NavItemLink({
   )
 }
 
+/**
+ * Navigasi dengan dropdown.
+ */
 function NavItemDropdown({
   item,
   collapsed,
   openDropdown,
   setOpenDropdown,
+  isDark,
 }: {
   item: NavItem
   collapsed: boolean
   openDropdown: string | null
   setOpenDropdown: (key: string | null) => void
+  isDark: boolean
 }) {
-  const Icon = item.Icon
+  const IconComponent = isDark
+    ? (item.IconFilled ?? item.Icon)
+    : item.Icon
+
   const isOpen = openDropdown === item.to
   const dropdownKey = item.to ?? item.label
 
+  /**
+   * Pada mode collapsed, dropdown diarahkan langsung ke halaman induk.
+   */
   if (collapsed) {
     return (
       <Link
-        key={item.to}
         to={item.to}
         activeOptions={{ exact: item.to === '/' }}
         className={cn(LINK_KELAS, LINK_KELAS_TERLIPAT)}
-        activeProps={{ className: AKTIF_INDUK }}
+        activeProps={{
+          className: AKTIF_INDUK,
+        }}
+        aria-label={item.label}
+        title={item.label}
       >
-        <Icon size={16} className="shrink-0" />
+        <SidebarSvgIcon>
+          <IconComponent
+            sx={{
+              fontSize: 18,
+              display: 'block',
+            }}
+          />
+        </SidebarSvgIcon>
       </Link>
     )
   }
 
   return (
-    <div key={item.to}>
+    <div>
       <DropdownTrigger
         label={item.label}
         isOpen={isOpen}
-        onToggle={() => setOpenDropdown(isOpen ? null : dropdownKey)}
+        onToggle={() => {
+          setOpenDropdown(isOpen ? null : dropdownKey)
+        }}
         showChevron
-        icon={<Icon size={16} className="shrink-0" />}
+        icon={
+          <IconComponent
+            sx={{
+              fontSize: 18,
+              display: 'block',
+            }}
+          />
+        }
       />
+
       {isOpen && (
         <DropdownDaftar>
-          {(item.children ?? []).map((child) => (
-            <li key={child.to} role="none">
-              <Link
-                to={child.to}
-                activeOptions={{ exact: child.to === '/' }}
-                className={LINK_ANAK}
-                activeProps={{ className: AKTIF_ANAK }}
-              >
-                <child.Icon size={14} className="shrink-0 text-muted" />
-                <span className="text-ink-2">{child.label}</span>
-              </Link>
-            </li>
-          ))}
+          {(item.children ?? []).map((child) => {
+            const ChildIcon = isDark
+              ? (child.IconFilled ?? child.Icon)
+              : child.Icon
+
+            return (
+              <li key={child.to} role="none">
+                <Link
+                  to={child.to}
+                  activeOptions={{
+                    exact: child.to === '/',
+                  }}
+                  className={LINK_ANAK}
+                  activeProps={{
+                    className: AKTIF_ANAK,
+                  }}
+                >
+                  <SidebarSvgIcon>
+                    <ChildIcon
+                      sx={{
+                        fontSize: 18,
+                        display: 'block',
+                      }}
+                    />
+                  </SidebarSvgIcon>
+
+                  <span
+                    className={cn(
+                      NAV_LABEL_KELAS,
+                      'text-ink-2',
+                    )}
+                  >
+                    {child.label}
+                  </span>
+                </Link>
+              </li>
+            )
+          })}
         </DropdownDaftar>
       )}
     </div>
   )
 }
 
+/**
+ * Dropdown formulir dinamis.
+ */
 function FormulirDropdownTrigger({
   collapsed,
   openDropdown,
   setOpenDropdown,
   forms,
+  isDark,
 }: {
   collapsed: boolean
   openDropdown: string | null
   setOpenDropdown: (key: string | null) => void
   forms: BarisFormulirTerisi[]
+  isDark: boolean
 }) {
   const isOpen = openDropdown === 'formulir'
   const dropdownKey = 'formulir'
 
+  const FormIcon = isDark
+    ? Assignment
+    : AssignmentOutlined
+
+  /**
+   * Pada mode collapsed, ikon mengarah langsung ke halaman formulir.
+   */
   if (collapsed) {
     return (
       <Link
         to="/form"
         search={{ jenis: '' }}
         className={cn(LINK_KELAS, LINK_KELAS_TERLIPAT)}
+        aria-label="Formulir"
+        title="Formulir"
       >
-        <ClipboardList size={16} className="shrink-0" />
+        <SidebarSvgIcon>
+          <FormIcon
+            sx={{
+              fontSize: 18,
+              display: 'block',
+            }}
+          />
+        </SidebarSvgIcon>
       </Link>
     )
   }
@@ -199,14 +420,30 @@ function FormulirDropdownTrigger({
       <DropdownTrigger
         label="Formulir"
         isOpen={isOpen}
-        onToggle={() => setOpenDropdown(isOpen ? null : dropdownKey)}
-        icon={<ClipboardList size={16} className="shrink-0 text-accent" />}
+        onToggle={() => {
+          setOpenDropdown(isOpen ? null : dropdownKey)
+        }}
+        icon={
+          <FormIcon
+            sx={{
+              fontSize: 18,
+              display: 'block',
+            }}
+            className="text-accent"
+          />
+        }
       />
+
       {isOpen && (
         <DropdownDaftar>
           {forms.length === 0 ? (
             <li role="none">
-              <span className="flex items-center px-3 py-2 text-[12px] font-medium text-muted">
+              <span
+                className={cn(
+                  NAV_LABEL_KELAS,
+                  'px-3 py-2 text-muted',
+                )}
+              >
                 Belum ada form kustom
               </span>
             </li>
@@ -215,11 +452,22 @@ function FormulirDropdownTrigger({
               <li key={form.formVersionId} role="none">
                 <Link
                   to="/isi/$formVersionId"
-                  params={{ formVersionId: form.formVersionId }}
+                  params={{
+                    formVersionId: form.formVersionId,
+                  }}
                   className={LINK_ANAK}
-                  activeProps={{ className: AKTIF_ANAK }}
+                  activeProps={{
+                    className: AKTIF_ANAK,
+                  }}
                 >
-                  <span className="text-ink-2 truncate">{form.nama}</span>
+                  <span
+                    className={cn(
+                      NAV_LABEL_KELAS,
+                      'text-ink-2',
+                    )}
+                  >
+                    {form.nama}
+                  </span>
                 </Link>
               </li>
             ))
@@ -230,38 +478,70 @@ function FormulirDropdownTrigger({
   )
 }
 
-export function Sidebar({ collapsed = false }: SidebarProps) {
+/**
+ * Sidebar utama aplikasi.
+ */
+export function Sidebar({
+  collapsed = false,
+  onToggleCollapsed,
+}: SidebarProps) {
   const { logout } = useAuth()
+
   const items = navItemsForUser()
-  const [openDropdown, setOpenDropdown] = useState<string | null>(null)
-  const [navForms, setNavForms] = useState<BarisFormulirTerisi[]>([])
+  const isDark = useIsDarkMode()
+
+  const [openDropdown, setOpenDropdown] = useState<string | null>(
+    null,
+  )
+
+  const [navForms, setNavForms] = useState<BarisFormulirTerisi[]>(
+    [],
+  )
+
   const [loadingForms, setLoadingForms] = useState(true)
 
+  const LogoutIconComponent = isDark
+    ? Logout
+    : LogoutOutlined
+
+  const DynamicAssignmentIcon = isDark
+    ? Assignment
+    : AssignmentOutlined
+
+  /**
+   * Memuat formulir dinamis dan mendaftarkan item navigasinya.
+   */
   const loadForms = useCallback(() => {
     let cancelled = false
+
     getNavForms().then((data) => {
-      if (!cancelled) {
-        setNavForms(data)
-        setLoadingForms(false)
-        setDynamicFormChildren(
-          data.map((form) => ({
-            label: form.nama,
-            to: `/isi/${form.formVersionId}`,
-            Icon: ClipboardList,
-          })),
-        )
-      }
+      if (cancelled) return
+
+      setNavForms(data)
+      setLoadingForms(false)
+
+      setDynamicFormChildren(
+        data.map((form) => ({
+          label: form.nama,
+          to: `/isi/${form.formVersionId}`,
+          Icon: DynamicAssignmentIcon,
+          IconFilled: Assignment,
+        })),
+      )
     })
+
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [DynamicAssignmentIcon])
 
   useEffect(() => {
     const cleanup = loadForms()
+
     const unsubscribe = onNavFormsChange(() => {
       loadForms()
     })
+
     return () => {
       cleanup()
       unsubscribe()
@@ -271,13 +551,20 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
   return (
     <aside
       className={cn(
-        'sticky top-0 hidden h-screen flex-none flex-col overflow-hidden border-r border-line bg-surface-warm transition-[width] duration-400 ease-in-out md:flex print:hidden',
+        'sticky top-0 hidden h-screen flex-none flex-col overflow-hidden border-r border-line bg-surface-warm transition-[width] duration-300 ease-in-out md:flex print:hidden',
         collapsed ? 'w-16' : 'w-52.5',
       )}
     >
-      <div
+      {/* Brand */}
+      <button
+        type="button"
+        onClick={onToggleCollapsed}
+        aria-label={
+          collapsed ? 'Perluas sidebar' : 'Lipat sidebar'
+        }
+        aria-expanded={!collapsed}
         className={cn(
-          'm-3 flex items-center rounded-lg bg-brand',
+          'm-3 flex shrink-0 items-center rounded-lg bg-brand transition-colors hover:opacity-90',
           collapsed ? 'justify-center' : 'justify-start',
         )}
       >
@@ -289,27 +576,38 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
         >
           <img
             src={brandIcon}
-            alt="logo puskesmas"
-            className="h-7 object-cover"
+            alt="Logo Puskesmas"
+            className="block h-7 w-auto shrink-0 object-contain"
           />
+
           <div
             className={cn(
               'overflow-hidden whitespace-nowrap text-white font-extrabold leading-tight transition-all duration-200 ease-in-out',
-              collapsed ? 'w-0 opacity-0' : 'w-auto opacity-100',
+              collapsed
+                ? 'w-0 opacity-0'
+                : 'w-auto opacity-100',
             )}
           >
-            <h1 className="text-[0.65rem]">{APP_BRAND.name}</h1>
-            <p className="text-[0.6rem]">{APP_BRAND.region}</p>
+            <h1 className="text-[0.65rem]">
+              {APP_BRAND.name}
+            </h1>
+
+            <p className="text-left text-[0.6rem]">
+              {APP_BRAND.region}
+            </p>
           </div>
         </div>
-      </div>
+      </button>
+
+      {/* Navigasi utama */}
       <nav
-        className="flex flex-1 flex-col gap-1 px-3 pb-4 pt-4"
+        className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 pb-4 pt-4"
         aria-label="Navigasi utama"
       >
         {items.map((item) => {
           if (item.isDropdownTrigger) {
             if (loadingForms) return null
+
             return (
               <FormulirDropdownTrigger
                 key="formulir"
@@ -317,9 +615,11 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
                 openDropdown={openDropdown}
                 setOpenDropdown={setOpenDropdown}
                 forms={navForms}
+                isDark={isDark}
               />
             )
           }
+
           if (item.children && item.children.length > 0) {
             return (
               <NavItemDropdown
@@ -328,30 +628,56 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
                 collapsed={collapsed}
                 openDropdown={openDropdown}
                 setOpenDropdown={setOpenDropdown}
+                isDark={isDark}
               />
             )
           }
-          return <NavItemLink key={item.to} item={item} collapsed={collapsed} />
+
+          return (
+            <NavItemLink
+              key={item.to}
+              item={item}
+              collapsed={collapsed}
+              isDark={isDark}
+            />
+          )
         })}
       </nav>
-      {/* `cn` di repo ini bukan tailwind-merge, jadi class px-3 vs px-0 tidak
-          bisa ditimpa andal. Collapse dibranch eksplisit, bukan override. */}
-      <div className="border-t border-line p-3">
+
+      {/* Logout */}
+      <div className="shrink-0 border-t border-line p-3">
         <button
           type="button"
           onClick={() => void logout()}
           aria-label="Keluar"
+          title={collapsed ? 'Keluar' : undefined}
           className={cn(
-            'flex w-full items-center rounded-lg py-2 text-[13px] font-medium text-danger transition-colors hover:bg-danger/10',
-            collapsed ? 'justify-center' : 'gap-2 px-3',
+            'flex min-h-10 w-full items-center rounded-lg py-2.5 text-sm font-medium text-danger transition-colors hover:bg-danger/10',
+            collapsed
+              ? 'justify-center'
+              : 'gap-2.5 px-3',
           )}
         >
-          <LogOut size={16} className="shrink-0" />
-          {collapsed ? (
-            <span className="sr-only">Keluar</span>
-          ) : (
-            <span className="truncate">Keluar</span>
-          )}
+          <SidebarSvgIcon>
+            <LogoutIconComponent
+              sx={{
+                fontSize: 18,
+                display: 'block',
+              }}
+            />
+          </SidebarSvgIcon>
+
+          <span
+            className={cn(
+              NAV_LABEL_KELAS,
+              'text-danger transition-opacity duration-200',
+              collapsed
+                ? 'sr-only'
+                : 'opacity-100',
+            )}
+          >
+            Keluar
+          </span>
         </button>
       </div>
     </aside>

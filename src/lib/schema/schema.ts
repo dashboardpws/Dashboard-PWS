@@ -183,7 +183,7 @@ export const formVersions = pgTable(
       .notNull()
       .references(() => forms.id, { onDelete: 'cascade' }),
     version: integer().notNull(),
-    schema: jsonb('schema').$type<FormDefinition>(),
+    schema: jsonb('schema').$type<FormDefinition>().notNull(),
     status: varchar({ length: 20 }).notNull().default('draft'),
     publishedAt: timestamp({ withTimezone: true }),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),

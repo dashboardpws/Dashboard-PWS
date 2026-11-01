@@ -300,7 +300,11 @@ async function adaDefinisiForm(formId: number): Promise<boolean> {
     .select({ schema: formVersions.schema })
     .from(formVersions)
     .where(eq(formVersions.formId, formId))
-  return versions.some((version) => version.schema.sections.length > 0)
+  return versions.some(
+    (version) =>
+      Array.isArray(version.schema.sections) &&
+      version.schema.sections.length > 0,
+  )
 }
 
 /**
