@@ -111,7 +111,6 @@ export function KunjunganRumahFormScene({ record }: Props) {
     <AppShell>
       <PageHeader
         title={editMode ? 'Edit Kunjungan Rumah' : 'Kunjungan Rumah'}
-        description="Kunjungan Rumah — form fleksibel diatur Admin di Kelola. Tersimpan di database."
       />
       <Stepper steps={steps} />
       <FillBar pct={fillPercent} />

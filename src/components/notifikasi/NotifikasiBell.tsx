@@ -74,7 +74,7 @@ export function NotifikasiBell() {
           aria-expanded={open}
           aria-haspopup="menu"
           onClick={() => setOpen((o) => !o)}
-          color="var(--color-accent)"
+          color="var(--lagoon-deep)"
           variant="light"
           size="lg"
           radius="xl"

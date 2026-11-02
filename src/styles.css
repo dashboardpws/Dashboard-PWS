@@ -358,7 +358,7 @@ pre code {
 .mantine-Button-root[data-variant='export'] {
   border-color: var(--color-accent);
   background-color: var(--color-accent);
-  color: var(--color-ink);
+  color: whitesmoke;
 }
 .mantine-Button-root[data-variant='primary']:hover,
 .mantine-Button-root[data-variant='export']:hover {
