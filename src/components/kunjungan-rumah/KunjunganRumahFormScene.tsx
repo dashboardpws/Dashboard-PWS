@@ -14,17 +14,76 @@ import { ButtonLink, SaveBar } from '@/components/ui'
 import { useToast } from '@/providers/toast'
 import { useKunjunganRumahForm } from '@/hooks/kunjungan-rumah/use-kunjungan-rumah-form'
 import type { KunjunganRumahRecord } from '@/lib/kunjungan-rumah/types'
+import type { KunjunganRumahSectionTemplate } from '@/lib/kunjungan-rumah/template/kunjungan-rumah-templates'
 import { KeluargaInfoSection } from './KeluargaInfoSection'
 import { AnggotaSection } from './AnggotaSection'
 import { SanitasiSection } from './SanitasiSection'
 import { SasaranListSection } from './SasaranListSection'
 import { MasalahSection } from './MasalahSection'
 import { HasilSection } from './HasilSection'
+import { GenericSection } from './GenericSection'
 import { HistorySection } from './HistorySection'
 
 interface Props {
   /** Record yang sedang diedit. null/kosong = mode input baru. */
   record?: KunjunganRumahRecord | null
+}
+
+interface SectionBlock {
+  key: string
+  sections: KunjunganRumahSectionTemplate[]
+}
+
+/**
+ * Kelompokkan section DB menjadi blok kartu.
+ *
+ * Section sasaran tidak ada di `templates.sections`; kartunya disisipkan pada
+ * `sasaranOrder`. Section generik mendapat kartu sendiri, sedangkan section
+ * bawaan yang berurutan tetap menyatu seperti sebelumnya supaya tampilan kader
+ * tidak berubah hanya karena metadata baru.
+ */
+function buildBlocks(
+  sections: KunjunganRumahSectionTemplate[],
+  sasaranOrder: number,
+): SectionBlock[] {
+  const visible = sections
+    .filter((s) => s.active && s.kind !== 'penyimpanan' && s.kind !== 'sasaran')
+    .sort((a, b) => a.order - b.order)
+
+  const blocks: SectionBlock[] = []
+  let sasaranDisisipkan = false
+
+  for (const section of visible) {
+    // Definisi lama menaruh section sasaran SETELAH masalah (urutan DB 5+),
+    // sementara layout kader selalu menaruh kartu sasaran sebelum kartu hasil.
+    // Karena itu kartu sasaran juga disisipkan begitu section hasil/masalah
+    // pertama muncul, bukan hanya saat urutan DB melewati `sasaranOrder`.
+    if (
+      !sasaranDisisipkan &&
+      (section.order > sasaranOrder ||
+        section.kind === 'masalah' ||
+        section.kind === 'hasil')
+    ) {
+      blocks.push({ key: 'sasaran', sections: [] })
+      sasaranDisisipkan = true
+    }
+
+    const key =
+      section.kind === 'keluarga' ||
+      section.kind === 'anggota' ||
+      section.kind === 'sanitasi'
+        ? 'data-keluarga'
+        : section.kind === 'masalah' || section.kind === 'hasil'
+          ? 'hasil'
+          : `generik:${section.name}`
+
+    const last = blocks[blocks.length - 1]
+    if (last?.key === key) last.sections.push(section)
+    else blocks.push({ key, sections: [section] })
+  }
+
+  if (!sasaranDisisipkan) blocks.push({ key: 'sasaran', sections: [] })
+  return blocks
 }
 
 export function KunjunganRumahFormScene({ record }: Props) {
@@ -107,6 +166,8 @@ export function KunjunganRumahFormScene({ record }: Props) {
       .catch(() => toast('Gagal menghapus. Coba lagi.'))
   }
 
+  const blocks = buildBlocks(templates.sections, templates.sasaranOrder)
+
   return (
     <AppShell>
       <PageHeader
@@ -115,57 +176,114 @@ export function KunjunganRumahFormScene({ record }: Props) {
       <Stepper steps={steps} />
       <FillBar pct={fillPercent} />
 
-      <SectionCard
-        title="1. Data Keluarga & Anggota"
-        sub="Informasi tempat, KK, anggota keluarga, pilih sasaran tiap anggota, dan sanitasi/lingkungan rumah."
-      >
-        <KeluargaInfoSection
-          state={state}
-          templates={templates}
-          dispatch={dispatch}
-          onWargaSelected={handleWargaSelected}
-        />
-        <AnggotaSection
-          state={state}
-          templates={templates}
-          dispatch={dispatch}
-        />
-        <SanitasiSection
-          state={state}
-          templates={templates}
-          dispatch={dispatch}
-        />
-      </SectionCard>
-
-      <SectionCard
-        title="2. Form Sasaran"
-        sub="Isi identitas, hasil pemeriksaan, kondisi teramati, dan tanda bahaya sesuai Definisi Operasional."
-        actions={
-          <span className="text-xs text-muted">
-            {state.penilaian.length} penilaian · {bahaCount} tanda bahaya
-            dicentang
-          </span>
+      {blocks.map((block) => {
+        if (block.key === 'data-keluarga') {
+          return (
+            <SectionCard
+              key={block.key}
+              title="1. Data Keluarga & Anggota"
+              sub="Informasi tempat, KK, anggota keluarga, pilih sasaran tiap anggota, dan sanitasi/lingkungan rumah."
+            >
+              {block.sections.map((section) => {
+                if (section.kind === 'keluarga')
+                  return (
+                    <KeluargaInfoSection
+                      key={section.name}
+                      state={state}
+                      templates={templates}
+                      dispatch={dispatch}
+                      onWargaSelected={handleWargaSelected}
+                    />
+                  )
+                if (section.kind === 'anggota')
+                  return (
+                    <AnggotaSection
+                      key={section.name}
+                      state={state}
+                      templates={templates}
+                      dispatch={dispatch}
+                    />
+                  )
+                return (
+                  <SanitasiSection
+                    key={section.name}
+                    state={state}
+                    templates={templates}
+                    dispatch={dispatch}
+                  />
+                )
+              })}
+            </SectionCard>
+          )
         }
-      >
-        <SasaranListSection
-          state={state}
-          templates={templates}
-          dispatch={dispatch}
-          bahaCount={bahaCount}
-        />
-      </SectionCard>
 
-      <SectionCard
-        title="3. Hasil, Prioritas & Tindak Lanjut"
-        sub="Label prioritas program, masalah ditemukan, hasil kunjungan rumah, dan tanda tangan kader."
-      >
-        <MasalahSection
-          state={state}
-          templates={templates}
-          dispatch={dispatch}
-        />
-        <HasilSection state={state} templates={templates} dispatch={dispatch} />
-      </SectionCard>
+        if (block.key === 'sasaran') {
+          return (
+            <SectionCard
+              key={block.key}
+              title="2. Form Sasaran"
+              sub="Isi identitas, hasil pemeriksaan, kondisi teramati, dan tanda bahaya sesuai Definisi Operasional."
+              actions={
+                <span className="text-xs text-muted">
+                  {state.penilaian.length} penilaian · {bahaCount} tanda bahaya
+                  dicentang
+                </span>
+              }
+            >
+              <SasaranListSection
+                state={state}
+                templates={templates}
+                dispatch={dispatch}
+                bahaCount={bahaCount}
+              />
+            </SectionCard>
+          )
+        }
+
+        if (block.key === 'hasil') {
+          return (
+            <SectionCard
+              key={block.key}
+              title="3. Hasil, Prioritas & Tindak Lanjut"
+              sub="Label prioritas program, masalah ditemukan, hasil kunjungan rumah, dan tanda tangan kader."
+            >
+              {block.sections.map((section) =>
+                section.kind === 'masalah' ? (
+                  <MasalahSection
+                    key={section.name}
+                    state={state}
+                    templates={templates}
+                    dispatch={dispatch}
+                  />
+                ) : (
+                  <HasilSection
+                    key={section.name}
+                    state={state}
+                    templates={templates}
+                    dispatch={dispatch}
+                  />
+                ),
+              )}
+            </SectionCard>
+          )
+        }
+
+        const section = block.sections[0]
+        if (!section) return null
+        return (
+          <SectionCard
+            key={block.key}
+            title={section.label || section.name}
+            sub={section.description ?? 'Bagian tambahan dari definisi form.'}
+          >
+            <GenericSection
+              section={section}
+              state={state}
+              dispatch={dispatch}
+            />
+          </SectionCard>
+        )
+      })}
 
       <SectionCard
         title="4. Dokumentasi Kegiatan"

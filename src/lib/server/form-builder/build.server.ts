@@ -7,7 +7,10 @@ import {
 } from '@/lib/form-builder/form-schema'
 import type { FormDefinition } from '@/lib/form-builder/form-schema'
 import { validasiFieldPenuh } from '@/lib/service/form-builder/validasi'
-import type { HasilValidasi } from '@/lib/service/form-builder/validasi'
+import type {
+  HasilValidasi,
+  TipeField,
+} from '@/lib/service/form-builder/validasi'
 import { KesalahanValidasi, assertVersiBisaDiubah } from './form-version.server'
 import {
   aturanForm,
@@ -38,6 +41,7 @@ type ExistingField = {
   id: string
   sectionId: string
   nama: string
+  tipe: TipeField
   optionSourceKey: string | null
 }
 
@@ -142,6 +146,7 @@ function bentukSchema(
   rulesAutofill: BuildFormVersionInput['rulesAutofill'],
   rulesVisibilitas: BuildFormVersionInput['rulesVisibilitas'],
   bawaan: boolean,
+  oldSchema: FormDefinition,
 ): FormDefinition {
   const sectionIdByClientId = new Map(
     sections.map((section) => [
@@ -151,6 +156,23 @@ function bentukSchema(
   )
   const fieldIdByClientId = new Map(
     fields.map((field) => [field.clientId, field.id ?? field.clientId]),
+  )
+  /**
+   * Metadata yang tidak punya kontrol di editor tetap dipertahankan.
+   *
+   * `sectionKind`, `layoutGroups`, dan `layoutGroup` menentukan renderer dan
+   * namespace isian. Kalau build menulis ulang schema tanpa tiga hal ini,
+   * setiap kali admin menyimpan draft section generik akan berubah jadi section
+   * biasa yang tidak dikenali. Untuk section/field baru nilainya null, dan
+   * pembaca menyimpulkannya sebagai generik.
+   */
+  const sectionLamaById = new Map(
+    oldSchema.sections.map((section) => [section.id, section]),
+  )
+  const fieldLamaById = new Map(
+    oldSchema.sections.flatMap((section) =>
+      section.fields.map((field) => [field.id, field] as const),
+    ),
   )
 
   const autofill = rulesAutofill.map((rule, urutan) => {
@@ -183,6 +205,7 @@ function bentukSchema(
 
   const sectionDefinitions = sections.map((section, sectionOrder) => {
     const sectionId = sectionIdByClientId.get(section.clientId)!
+    const lama = sectionLamaById.get(sectionId)
     const fieldsInSection = fields.filter(
       (field) => field.sectionClientId === section.clientId,
     )
@@ -190,10 +213,12 @@ function bentukSchema(
     return {
       id: sectionId,
       name: section.nama.trim(),
-      label: section.nama.trim(),
+      label: lama?.label || section.nama.trim(),
       description: section.deskripsi?.trim() ?? null,
       order: sectionOrder,
       active: section.aktif,
+      sectionKind: lama?.sectionKind ?? null,
+      layoutGroups: lama?.layoutGroups ?? [],
       visibilityRules: visibilitas.filter(
         (rule) => rule.targetType === 'section' && rule.targetId === sectionId,
       ),
@@ -212,7 +237,10 @@ function bentukSchema(
           order: fieldOrder,
           description: field.deskripsi?.trim() ?? null,
           placeholder: field.placeholder?.trim() ?? null,
-          columns: field.tipe === 'group' ? field.jumlahKolom : null,
+          columns:
+            fieldLamaById.get(fieldId)?.columns ??
+            (field.tipe === 'group' ? field.jumlahKolom : null),
+          layoutGroup: fieldLamaById.get(fieldId)?.layoutGroup ?? null,
           optionSourceType: field.optionSourceType,
           optionSourceKey: field.optionSourceKey,
           options: field.opsi.map((option, optionOrder) => ({
@@ -275,6 +303,7 @@ export async function buildFormVersion(
       id: field.id,
       sectionId: section.id,
       nama: field.name,
+      tipe: field.type,
       optionSourceKey: field.optionSourceKey,
     })),
   )
@@ -368,6 +397,9 @@ export async function buildFormVersion(
       sections: sections.map((section) => ({
         id: section.id ?? section.clientId,
         nama: section.nama,
+        sectionKind:
+          oldSchema.sections.find((old) => old.id === section.id)
+            ?.sectionKind ?? (section.id ? null : 'form_generik'),
       })),
       fields: fields.map((field) => ({
         id: field.id ?? field.clientId,
@@ -389,6 +421,7 @@ export async function buildFormVersion(
     input.rulesAutofill,
     input.rulesVisibilitas,
     bawaan,
+    oldSchema,
   )
   const validatedSchema = formDefinitionSchema.safeParse(schema)
   if (!validatedSchema.success) {

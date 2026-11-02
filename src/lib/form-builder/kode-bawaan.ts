@@ -21,12 +21,18 @@ import type {
   TipeField,
 } from '@/lib/service/form-builder/validasi'
 
-/** Section form kunjungan rumah di luar daftar sasaran. */
+/**
+ * Section bawaan form kunjungan rumah di luar daftar sasaran.
+ *
+ * `hasil` hanya wadah untuk field hasil/TTD yang dirender widget sendiri; field
+ * isiannya memang tidak berasal dari baris `form_fields`.
+ */
 const SECTION_PLAIN = [
   'keluargaInfo',
   'anggota',
   'sanitasi',
   'masalah',
+  'hasil',
 ] as const
 
 /**
@@ -84,6 +90,7 @@ export const TIPE_KADER: ReadonlySet<string> = new Set([
 export interface SectionBawaan {
   id: string | null
   nama: string
+  sectionKind?: string | null
 }
 
 export interface FieldBawaan {
@@ -110,6 +117,7 @@ export interface DraftBawaan {
     id: string
     sectionId: string
     nama: string
+    tipe: TipeField
     optionSourceKey: string | null
   }[]
 }
@@ -152,36 +160,42 @@ function validasiKunjunganRumah({
   sectionsLama,
   fieldsLama,
 }: DraftBawaan): HasilValidasi {
-  // --- Section: nama tetap, tidak boleh rename, tambah, atau hapus ---
+  // --- Section: nama bawaan terkunci, section generik baru boleh ditambah ---
   const namaSectionBaru = new Map<string, string>()
   for (const s of sections) {
     const nama = s.nama.trim()
-    if (!SECTION_TERLINDUNGI.has(nama)) {
-      return gagal(
-        `Section "${nama}" tidak dikenal pada form kunjungan rumah. Form ini punya section tetap: ${[...SECTION_TERLINDUNGI].join(', ')}. Section baru akan diabaikan form kader.`,
-      )
+    const lama = s.id ? sectionsLama.find((x) => x.id === s.id) : undefined
+    if (!nama) {
+      return gagal('Nama section wajib diisi.')
+    }
+    if (
+      !lama &&
+      (SECTION_TERLINDUNGI.has(nama) || s.sectionKind !== 'form_generik')
+    ) {
+      // Section bawaan hanya boleh datang dari definisi yang sudah ada. Kalau
+      // id-nya tidak dikenal, draft ini mencoba menyisipkan section bawaan baru
+      // atau membawa id dari versi lain.
+      return gagal(`Section baru "${nama}" hanya boleh bertipe form_generik.`)
     }
     if (namaSectionBaru.has(nama)) {
       return gagal(`Section "${nama}" muncul lebih dari sekali.`)
     }
     namaSectionBaru.set(nama, s.id ?? '')
 
-    if (s.id) {
-      const lama = sectionsLama.find((x) => x.id === s.id)
-      if (!lama) {
-        return gagal(
-          `Section "${nama}" bukan bagian dari versi ini. Muat ulang definisi form lalu coba lagi.`,
-        )
-      }
-      if (lama.nama !== nama) {
-        return gagal(
-          `Section "${lama.nama}" tidak bisa diubah nama menjadi "${nama}". Nama section form kunjungan rumah dipetakan ke form kader secara langsung.`,
-        )
-      }
+    if (lama && lama.nama !== nama) {
+      // Rename section generik pun ditolak: nama section adalah namespace kunci
+      // isian (`${section}::${fieldId}`) yang sudah tersimpan di record.
+      return gagal(
+        `Section "${lama.nama}" tidak bisa diubah nama menjadi "${nama}". Nama section form kunjungan rumah dipetakan ke form kader secara langsung.`,
+      )
     }
   }
 
   for (const lama of sectionsLama) {
+    // Section generik boleh dihapus; section bawaan tidak, karena renderer
+    // mencarinya berdasarkan nama. Menonaktifkan section generik lebih aman:
+    // isian lama tetap tersimpan di record.
+    if (!SECTION_TERLINDUNGI.has(lama.nama)) continue
     const masihAda = sections.some((s) => s.id === lama.id)
     if (!masihAda) {
       return gagal(
@@ -193,7 +207,7 @@ function validasiKunjunganRumah({
   // --- Field: nama terkunci, section terkunci, tipe & bucket terkunci ---
   const fieldsLamaById = new Map(fieldsLama.map((f) => [f.id, f]))
   const sectionIdKeNama = new Map<string, string>()
-  for (const lama of sectionsLama) sectionIdKeNama.set(lama.id, lama.nama)
+  for (const s of sections) sectionIdKeNama.set(s.id ?? '', s.nama)
 
   for (const f of fields) {
     const label = namaTanpaPrefix(f.nama.trim())
@@ -205,9 +219,6 @@ function validasiKunjunganRumah({
     if (f.id) {
       const lama = fieldsLamaById.get(f.id)
       if (lama) {
-        // Kedua sisi dinormalisasi dulu: database menyimpan `<section>::<id>`
-        // sedangkan editor boleh mengirim bentuk itu atau bentuk pendeknya.
-        // Bandingkan setelah dibuka prefixnya supaya dua bentuk itu dianggap sama.
         if (namaTanpaPrefix(lama.nama) !== label) {
           return gagal(
             `Nama field "${lama.nama}" tidak bisa diubah menjadi "${label}". Nama field adalah kunci data isian yang sudah tersimpan.`,
@@ -220,6 +231,12 @@ function validasiKunjunganRumah({
         }
         if (lama.optionSourceKey !== f.optionSourceKey) {
           return gagal(`Bucket field "${label}" tidak bisa diubah.`)
+        }
+        // [Iterasi 3 Guard] Kunci tipe field lama agar tidak mengubah tipe data record_legacy
+        if (lama.tipe !== f.tipe) {
+          return gagal(
+            `Tipe field "${label}" (${lama.tipe}) tidak bisa diubah menjadi "${f.tipe}". Perubahan tipe field lama dilarang untuk menjaga integritas data histori.`,
+          )
         }
       }
     }
@@ -317,7 +334,8 @@ const BEBAS_BUTUH_DIEDIT: KunciEditor = {
 
 const KUNCI_KUNJUNGAN_RUMAH: KunciEditor = {
   namaSection: true,
-  strukturSection: true,
+  // Section generik baru boleh ditambahkan/diatur strukturnya, tetapi section bawaan tetap dilindungi server
+  strukturSection: false,
   optionSource: true,
   tipe: TIPE_KADER,
   namaFieldTidakBolehDihapus: (nama) =>

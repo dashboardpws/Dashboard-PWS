@@ -25,6 +25,8 @@ export interface KunjunganRumahRecord {
   jadwal: string
   ttd: string
   fotos: KunjunganRumahFoto[]
+  /** Isian section generik, kunci `${section}::${fieldId}`. */
+  tambahan?: Record<string, string>
 }
 
 export function createRecordId(): string {
@@ -68,6 +70,22 @@ function makeInfo(raw: unknown): KeluargaInfo {
     if (typeof src[k] === 'string') base[k] = src[k]
   }
   return base
+}
+
+/**
+ * Isian section generik: hanya string yang disimpan.
+ *
+ * Nilai checkbox tetap string `"true"`/`"false"` (bentuk yang dipakai
+ * `FieldCell`). Record lama tanpa bagian ini mendapat objek kosong, jadi
+ * membuka record lama tidak pernah menghapus isian baru yang sudah ada.
+ */
+function makeTambahan(raw: unknown): Record<string, string> {
+  const out: Record<string, string> = {}
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof v === 'string') out[k] = v
+  }
+  return out
 }
 
 function makeSanitasi(raw: unknown): Sanitasi {
@@ -129,5 +147,6 @@ export function sanitizeRecord(raw: unknown): KunjunganRumahRecord | null {
     jadwal: typeof o.jadwal === 'string' ? o.jadwal : '',
     ttd: typeof o.ttd === 'string' ? o.ttd : '',
     fotos: Array.isArray(o.fotos) ? (o.fotos as KunjunganRumahFoto[]) : [],
+    tambahan: makeTambahan(o.tambahan),
   }
 }

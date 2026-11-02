@@ -223,6 +223,21 @@ describe('aksi sederhana', () => {
     expect(air.sanitasi.jenisAir).toBe('sumur')
   })
 
+  it('SET_TAMBAHAN_FIELD menyimpan isian section generik di namespace sendiri', () => {
+    const dasar = initialKunjunganRumahState()
+    const sesudah = dispatch(dasar, {
+      type: 'SET_TAMBAHAN_FIELD',
+      key: 'catatanTambahan::catatan',
+      value: 'Rumah sudah dibersihkan',
+    })
+    expect(sesudah.tambahan['catatanTambahan::catatan']).toBe(
+      'Rumah sudah dibersihkan',
+    )
+    // Tidak bocor ke info: field generik tidak boleh menimpa isian bawaan.
+    expect('catatan' in sesudah.info).toBe(false)
+    expect(sesudah.tambahan).not.toBe(dasar.tambahan)
+  })
+
   it('SET_HASIL, SET_JADWAL, SET_TTD', () => {
     let state = initialKunjunganRumahState()
     state = dispatch(state, { type: 'SET_HASIL', value: 'Kontrol ulang' })
@@ -871,6 +886,29 @@ describe('LOAD_RECORD dan RESET', () => {
     expect(sesudah.anggota[0]).not.toBe(asli.anggota[0])
   })
 
+  it('memuat isian section generik dari record', () => {
+    const record = {
+      ...recordUji(),
+      tambahan: { 'catatanTambahan::catatan': 'sudah dicek' },
+    }
+    const sesudah = dispatch(initialKunjunganRumahState(), {
+      type: 'LOAD_RECORD',
+      record,
+    })
+    expect(sesudah.tambahan).toEqual({
+      'catatanTambahan::catatan': 'sudah dicek',
+    })
+    expect(sesudah.tambahan).not.toBe(record.tambahan)
+  })
+
+  it('record lama tanpa tambahan tetap terbaca dengan objek kosong', () => {
+    const sesudah = dispatch(initialKunjunganRumahState(), {
+      type: 'LOAD_RECORD',
+      record: recordUji(),
+    })
+    expect(sesudah.tambahan).toEqual({})
+  })
+
   it('RESET mengembalikan state awal yang baru', () => {
     const terisi = stateDenganIsi()
     const sesudah = dispatch(terisi, { type: 'RESET' })
@@ -925,8 +963,12 @@ describe('penilaianPrefill', () => {
 })
 
 describe('reducer tidak pernah memutasi state yang diberikan', () => {
-  it('seluruh 26 action jalan pada state yang dibekukan', () => {
+  it('seluruh action jalan pada state yang dibekukan', () => {
     const semua: KunjunganRumahAction[] = [
+      {
+        type: 'REPLACE_STATE',
+        state: initialKunjunganRumahState(),
+      },
       { type: 'SET_FIELD', key: 'alamat', value: 'x' },
       { type: 'SET_SAN_FIELD', key: 'jkn', value: true },
       { type: 'ADD_ANGGOTA' },
@@ -949,6 +991,7 @@ describe('reducer tidak pernah memutasi state yang diberikan', () => {
       { type: 'SET_HASIL', value: 'x' },
       { type: 'SET_JADWAL', value: 'x' },
       { type: 'SET_TTD', value: 'x' },
+      { type: 'SET_TAMBAHAN_FIELD', key: 'tambahan::x', value: 'x' },
       { type: 'APPLY_SASARAN', row: suggestion() },
       { type: 'SET_INVALID', invalid: { nik: true } },
       {
@@ -966,13 +1009,19 @@ describe('reducer tidak pernah memutasi state yang diberikan', () => {
       { type: 'REMOVE_FOTO', index: 0 },
       { type: 'RESET' },
       { type: 'LOAD_RECORD', record: recordUji() },
+      { type: 'ISI_ANGGOTA_KELUARGA', rows: [suggestion()] },
+      {
+        type: 'ISI_SANITASI_DARI_RIWAYAT',
+        sanitasi: initialKunjunganRumahState().sanitasi,
+      },
       { type: 'FILL_DEMO' },
       { type: 'MISTERIUS' } as unknown as KunjunganRumahAction,
     ]
-    // 25 = anggota union `KunjunganRumahAction`. Kalau action baru ditambah di
-    // reducer tanpa ditambah di sini, tes ini gagal dan assertion-nya yang perlu
-    // ditinjau — bukan angka yang diturunkan diam-diam.
-    expect(semua).toHaveLength(26)
+    // 30 = seluruh union `KunjunganRumahAction` + satu action tak dikenal.
+    // Kalau action baru ditambah di reducer tanpa ditambah di sini, tes ini
+    // gagal dan assertion-nya yang perlu ditinjau — bukan angka yang diturunkan
+    // diam-diam.
+    expect(semua).toHaveLength(30)
 
     // `beku` menggagalkan test ini kalau reducer menulis ke state lama: modul
     // ES berjalan dalam mode strict, jadi penulisan ke properti beku melempar.

@@ -28,6 +28,20 @@ export const aturanVisibilitasSchema = z.object({
   urutan: z.number().int().nonnegative(),
 })
 
+/**
+ * Kelompok layout di dalam satu section.
+ *
+ * Section sasaran dan generik mengelompokkan field lewat `layoutGroup` pada field
+ * dan daftar ini pada section. Label dan urutan kelompok sengaja eksplisit, bukan
+ * disimpulkan dari nama field: form kunjungan rumah sudah punya field bernama
+ * sama di beberapa section, jadi konvensi nama tidak cukup aman.
+ */
+export const layoutGroupSchema = z.object({
+  key: z.string().min(1),
+  label: z.string(),
+  order: z.number().int().nonnegative(),
+})
+
 const opsiSchema = z.object({
   id: idSchema,
   value: z.string(),
@@ -47,6 +61,11 @@ const fieldSchema = z.object({
   description: z.string().nullable(),
   placeholder: z.string().nullable(),
   columns: z.number().int().positive().nullable(),
+  /**
+   * Kunci kelompok layout di dalam section. Null/absen = tidak berkelompok.
+   * Hanya dipakai renderer generik; section bawaan tetap memakai widget sendiri.
+   */
+  layoutGroup: z.string().nullable().optional(),
   optionSourceType: z.string().nullable(),
   optionSourceKey: z.string().nullable(),
   options: z.array(opsiSchema),
@@ -61,6 +80,12 @@ const sectionSchema = z.object({
   description: z.string().nullable(),
   order: z.number().int().nonnegative(),
   active: z.boolean(),
+  /**
+   * Peran section di form kunjungan rumah. Absen = section lama yang belum
+   * punya metadata; pembaca menyimpulkannya dari nama section bawaan.
+   */
+  sectionKind: z.string().min(1).nullable().optional(),
+  layoutGroups: z.array(layoutGroupSchema).optional(),
   fields: z.array(fieldSchema),
   visibilityRules: z.array(aturanVisibilitasSchema),
 })

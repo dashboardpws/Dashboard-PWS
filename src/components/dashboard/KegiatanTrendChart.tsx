@@ -68,7 +68,7 @@ export function KegiatanTrendChart({ data, loading }: KegiatanTrendChartProps) {
           tick: { fill: 'var(--color-ink-2)', fontSize: 12 },
         }}
         xAxisProps={{
-          tick: { fill: 'var(--color-ink-2)', fontSize: 12 }, 
+          tick: { fill: 'var(--color-ink-2)', fontSize: 12 },
         }}
         series={[
           {

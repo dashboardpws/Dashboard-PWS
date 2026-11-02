@@ -48,7 +48,7 @@ describe('buttonClass', () => {
     // ButtonLink merakit kelas yang sama tanpa lewat komponen `Button`, jadi
     // penguncian di sini menjaga keduanya tetap identik.
     expect(buttonClass('primary', 'md')).toBe(
-      'border-accent bg-accent text-on-accent hover:bg-accent-hover min-h-10 px-5 py-2.5 text-[13px]',
+      'border-accent bg-accent text-ink-2 hover:bg-accent-hover min-h-10 px-5 py-2.5 text-sm',
     )
     expect(buttonClass('danger', 'sm')).toBe(
       'border-[var(--color-danger-border)] bg-surface text-danger hover:bg-[var(--color-danger-soft)] min-h-8 px-3 py-1 text-xs',

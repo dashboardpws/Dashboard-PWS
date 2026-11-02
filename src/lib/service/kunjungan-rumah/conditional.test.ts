@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { buildConditionalMap, isConditionalActive } from './conditional'
+import {
+  buildConditionalMap,
+  fieldSasaranAktif,
+  isConditionalActive,
+} from './conditional'
 import type { ConditionalRule } from '@/lib/kunjungan-rumah/template/kunjungan-rumah-form'
 
 const checksRule: ConditionalRule = {
@@ -57,5 +61,48 @@ describe('buildConditionalMap', () => {
     expect(m.get('skriningJiwaTanggal')).toBe(checksRule)
     expect(m.get('konselingBerhenti')).toBe(valueRule)
     expect(m.get('tidak-ada')).toBeUndefined()
+  })
+})
+
+describe('fieldSasaranAktif', () => {
+  it('mengikuti visibility metadata dan tidak menghapus nilai field tersembunyi', () => {
+    const fields = [
+      {
+        id: 'pemicu',
+        label: 'Pemicu',
+        kind: 'text' as const,
+        section: 'sasaran:kolom',
+        required: false,
+        active: true,
+        order: 0,
+      },
+      {
+        id: 'detail',
+        label: 'Detail',
+        kind: 'text' as const,
+        section: 'sasaran:kolom',
+        required: true,
+        active: true,
+        order: 1,
+        visibilityRules: [
+          {
+            id: 'rule-1',
+            targetType: 'field' as const,
+            targetId: 'detail',
+            triggerFieldId: 'pemicu',
+            operator: 'eq' as const,
+            nilaiAcuan: 'Ya',
+            aktif: true,
+            urutan: 0,
+          },
+        ],
+      },
+    ]
+    expect(fieldSasaranAktif(fields, { pemicu: 'Ya' }, {})).toEqual(
+      new Set(['pemicu', 'detail']),
+    )
+    expect(fieldSasaranAktif(fields, { pemicu: 'Tidak' }, {})).toEqual(
+      new Set(['pemicu']),
+    )
   })
 })

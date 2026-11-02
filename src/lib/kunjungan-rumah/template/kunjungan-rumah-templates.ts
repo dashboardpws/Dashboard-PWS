@@ -1,13 +1,21 @@
 import { HASIL_KUNJUNGAN_RUMAH } from '@/lib/constants'
 import { SASARAN_DEFS, SASARAN_KEYS } from './kunjungan-rumah-form'
-import type { SasaranKey } from './kunjungan-rumah-form'
+import type { ConditionalRule, SasaranKey } from './kunjungan-rumah-form'
+import type { NilaiJSON } from '@/lib/form-builder/engine/types'
 
 export const KUNJUNGAN_RUMAH_TEMPLATE_VERSION = 17 as const
 
 // ── Tipe ──
 export type KunjunganRumahFieldKind =
   'text' | 'number' | 'date' | 'select' | 'checkbox'
-export type KunjunganRumahSection =
+
+/**
+ * Section UI. Nama section generik bebas, jadi tipenya string; nilai bawaan
+ * tetap didokumentasikan di {@link KunjunganRumahSectionNama}.
+ */
+export type KunjunganRumahSection = string
+
+export type KunjunganRumahSectionNama =
   | 'keluargaInfo'
   | 'anggota'
   | 'sanitasi'
@@ -17,6 +25,52 @@ export type KunjunganRumahSection =
   | 'sasaran:baha'
   | 'masalah'
   | 'hasil'
+
+/**
+ * Peran section di form kunjungan rumah.
+ *
+ * Renderer memilih widget dari nilai ini, bukan dari nama field. Section lama
+ * yang belum punya metadata disimpulkan dari nama bawaan (lihat
+ * `resolveSectionKind`).
+ */
+export type KunjunganRumahSectionKind =
+  | 'keluarga'
+  | 'anggota'
+  | 'sanitasi'
+  | 'sasaran'
+  | 'masalah'
+  | 'hasil'
+  | 'penyimpanan'
+  | 'form_generik'
+
+export const KUNJUNGAN_RUMAH_SECTION_KINDS: readonly KunjunganRumahSectionKind[] =
+  [
+    'keluarga',
+    'anggota',
+    'sanitasi',
+    'sasaran',
+    'masalah',
+    'hasil',
+    'penyimpanan',
+    'form_generik',
+  ]
+
+export interface KunjunganRumahLayoutGroup {
+  key: string
+  label: string
+  order: number
+}
+
+export interface KunjunganRumahVisibilityRule {
+  id: string
+  targetType: 'field'
+  targetId: string
+  triggerFieldId: string
+  operator: 'eq' | 'neq' | 'in' | 'nin' | 'kosong' | 'tidak_kosong'
+  nilaiAcuan: NilaiJSON
+  aktif: boolean
+  urutan: number
+}
 
 export interface KunjunganRumahTemplateField {
   id: string
@@ -33,12 +87,126 @@ export interface KunjunganRumahTemplateField {
   order: number
   options?: string[]
   hint?: string
+  /** Placeholder dari Form Builder; null/absen = pakai placeholder bawaan. */
+  placeholder?: string
+  /** Lebar field dalam jumlah kolom grid. */
+  columns?: number
+  /** Kunci kelompok layout di dalam section. */
+  layoutGroup?: string
+  visibilityRules?: KunjunganRumahVisibilityRule[]
+}
+
+export interface KunjunganRumahSectionTemplate {
+  name: string
+  label: string
+  description: string | null
+  kind: KunjunganRumahSectionKind
+  order: number
+  active: boolean
+  fields: KunjunganRumahTemplateField[]
+  layoutGroups: KunjunganRumahLayoutGroup[]
+  /** ID section database; tidak ada pada definisi fallback lokal. */
+  runtimeId?: string
 }
 
 export interface KunjunganRumahSasaranTemplate {
   label: string
   fields: KunjunganRumahTemplateField[]
+  layoutGroups: KunjunganRumahLayoutGroup[]
   prioritasDefault: string[]
+}
+
+/**
+ * Kelompok awal agar form yang sudah berjalan tetap punya susunan familiar.
+ * Setelah disimpan di schema, renderer hanya membaca metadata ini; field baru
+ * bisa memakai kelompok yang sama tanpa menambah aturan pada komponen.
+ */
+function grupAwalSasaran(key: SasaranKey, fieldId: string): string | undefined {
+  if (/^k[1-6](Tempat|Tanggal|Petugas)$/.test(fieldId))
+    return 'kunjungan-antenatal'
+  if (fieldId.startsWith('edukasiNakes')) return 'edukasi-nakes'
+  if (fieldId.startsWith('skriningJiwa')) return 'skrining-jiwa'
+  if (fieldId.startsWith('kelasIbu')) return 'kelas-ibu'
+  if (
+    /^kf[1-4](Tempat|Tanggal|Petugas)$/.test(fieldId) ||
+    fieldId === 'vitATanggal'
+  )
+    return 'nifas'
+  if (/^kn[0-3](Tanggal|Tempat|Petugas)$/.test(fieldId)) return 'neonatal'
+  if (
+    [
+      'obatCacingTanggal',
+      'vitA6_11Bulan',
+      'vitA12Bulan',
+      'mtKepatuhan',
+    ].includes(fieldId)
+  )
+    return 'suplementasi'
+  if (/^(td|gd)Periksa/.test(fieldId)) return 'pemeriksaan-rutin'
+  if (
+    ['aksTempat', 'aksTanggal', 'skilasTempat', 'skilasTanggal'].includes(
+      fieldId,
+    )
+  )
+    return 'skrining-geriatri'
+  if (key === 'tbc' && fieldId === 'kontakEratJenis') return 'kontak-erat'
+  return undefined
+}
+
+const LABEL_GRUP_SASARAN: Record<string, string> = {
+  'kunjungan-antenatal': 'Pemeriksaan kehamilan (K1–K6)',
+  'edukasi-nakes': 'Edukasi kunjungan nakes',
+  'skrining-jiwa': 'Skrining kesehatan jiwa',
+  'kelas-ibu': 'Kelas ibu hamil',
+  nifas: 'Kunjungan nifas & vitamin A',
+  neonatal: 'Pelayanan neonatal (KN0–KN3)',
+  suplementasi: 'Suplementasi balita',
+  'pemeriksaan-rutin': 'Pemeriksaan rutin',
+  'skrining-geriatri': 'Skrining geriatri',
+  'kontak-erat': 'Kontak erat',
+}
+
+function layoutAwalSasaran(
+  key: SasaranKey,
+  fields: KunjunganRumahTemplateField[],
+): KunjunganRumahLayoutGroup[] {
+  const keys = [
+    ...new Set(
+      fields
+        .map((field) => grupAwalSasaran(key, field.id))
+        .filter((group): group is string => !!group),
+    ),
+  ]
+  return keys.map((group, order) => ({
+    key: group,
+    label: LABEL_GRUP_SASARAN[group] ?? group,
+    order,
+  }))
+}
+
+export function aturanVisibilitasWarisan(
+  key: SasaranKey,
+  conditionals: ConditionalRule[] = [],
+): KunjunganRumahVisibilityRule[] {
+  return conditionals.flatMap((rule, index) =>
+    rule.dependents.map((targetId) => ({
+      id: `legacy-${key}-${index}-${targetId}`,
+      targetType: 'field' as const,
+      targetId,
+      triggerFieldId: rule.trigger,
+      operator:
+        rule.kind === 'checks'
+          ? ('eq' as const)
+          : rule.whenNonEmpty
+            ? ('tidak_kosong' as const)
+            : rule.when !== undefined
+              ? ('eq' as const)
+              : ('tidak_kosong' as const),
+      nilaiAcuan: rule.kind === 'checks' ? true : (rule.when ?? null),
+      aktif: true,
+      urutan: index,
+    })),
+  )
 }
 
 export interface KunjunganRumahTemplates {
@@ -48,7 +216,60 @@ export interface KunjunganRumahTemplates {
   sanitasi: KunjunganRumahTemplateField[]
   sasaran: Record<SasaranKey, KunjunganRumahSasaranTemplate>
   masalah: KunjunganRumahTemplateField[]
+  /** Section non-sasaran dan non-penyimpanan, terurut sesuai DB. */
+  sections: KunjunganRumahSectionTemplate[]
+  /** Urutan DB section sasaran; dipakai scene menempatkan kartu Form Sasaran. */
+  sasaranOrder: number
   hasilOpsi: string[]
+  hasilWajib: boolean
+}
+
+const NAMA_SECTION_BAWAAN: Record<
+  string,
+  { kind: KunjunganRumahSectionKind; label: string }
+> = {
+  keluargaInfo: { kind: 'keluarga', label: 'Data Keluarga' },
+  anggota: { kind: 'anggota', label: 'Anggota Keluarga' },
+  sanitasi: { kind: 'sanitasi', label: 'Sanitasi & Lingkungan' },
+  masalah: { kind: 'masalah', label: 'Masalah & Tindak Lanjut' },
+  hasil: { kind: 'hasil', label: 'Hasil Kunjungan' },
+}
+
+const KIND_SECTION_BAWAAN: Record<string, KunjunganRumahSectionKind> =
+  Object.fromEntries(
+    Object.entries(NAMA_SECTION_BAWAAN).map(([nama, def]) => [nama, def.kind]),
+  )
+
+export function isKunjunganRumahSectionKind(
+  value: unknown,
+): value is KunjunganRumahSectionKind {
+  return (
+    typeof value === 'string' &&
+    (KUNJUNGAN_RUMAH_SECTION_KINDS as readonly string[]).includes(value)
+  )
+}
+
+/**
+ * Tentukan peran section.
+ *
+ * Nama bawaan selalu menang supaya section lama tanpa metadata tetap dirender
+ * widget aslinya. Selain itu metadata eksplisit dipakai; absen = generik.
+ */
+export function resolveSectionKind(
+  nama: string,
+  declared?: string | null,
+): KunjunganRumahSectionKind {
+  const bawaan = KIND_SECTION_BAWAAN[nama]
+  if (bawaan) return bawaan
+  if ((SASARAN_KEYS as readonly string[]).includes(nama)) return 'sasaran'
+  if (nama === 'penyimpanan') return 'penyimpanan'
+  if (isKunjunganRumahSectionKind(declared)) return declared
+  return 'form_generik'
+}
+
+/** Label default saat section lama tidak membawa label dari DB. */
+export function labelSectionBawaan(nama: string): string {
+  return NAMA_SECTION_BAWAAN[nama]?.label ?? nama
 }
 
 // ── Default ──
@@ -270,6 +491,7 @@ export function createDefaultKunjunganRumahTemplates(): KunjunganRumahTemplates 
       })
     }
     for (const f of def.kolom) {
+      const layoutGroup = grupAwalSasaran(def.key, f.key)
       fields.push({
         id: f.key,
         label: f.label,
@@ -280,6 +502,7 @@ export function createDefaultKunjunganRumahTemplates(): KunjunganRumahTemplates 
         active: true,
         order: order++,
         options: f.options,
+        ...(layoutGroup ? { layoutGroup } : {}),
       })
     }
     for (const b of def.bools) {
@@ -306,12 +529,53 @@ export function createDefaultKunjunganRumahTemplates(): KunjunganRumahTemplates 
         order: order++,
       })
     }
+    const legacyRules = aturanVisibilitasWarisan(def.key, def.conditionals)
+    for (const field of fields) {
+      field.visibilityRules = legacyRules.filter(
+        (rule) => rule.targetId === field.id,
+      )
+    }
     sasaran[def.key] = {
       label: def.label,
       fields,
+      layoutGroups: layoutAwalSasaran(def.key, fields),
       prioritasDefault: [...def.prioritasDefault],
     }
   }
+
+  const section = (
+    name: string,
+    order: number,
+    fields: KunjunganRumahTemplateField[],
+  ): KunjunganRumahSectionTemplate => ({
+    name,
+    label: labelSectionBawaan(name),
+    description: null,
+    kind: resolveSectionKind(name),
+    order,
+    active: true,
+    fields,
+    layoutGroups: [],
+  })
+
+  const sections: KunjunganRumahSectionTemplate[] = [
+    section('keluargaInfo', 0, keluargaInfo),
+    section('anggota', 1, anggota),
+    section('sanitasi', 2, sanitasi),
+    section('masalah', 4, masalah),
+    section('hasil', 5, [
+      {
+        id: 'hasil',
+        label: 'Hasil Kunjungan Rumah',
+        kind: 'select',
+        section: 'hasil',
+        required: true,
+        active: true,
+        order: 0,
+        options: [...HASIL_KUNJUNGAN_RUMAH],
+      },
+    ]),
+  ]
 
   return {
     version: KUNJUNGAN_RUMAH_TEMPLATE_VERSION,
@@ -320,7 +584,10 @@ export function createDefaultKunjunganRumahTemplates(): KunjunganRumahTemplates 
     sanitasi,
     sasaran,
     masalah,
+    sections,
+    sasaranOrder: 3,
     hasilOpsi: [...HASIL_KUNJUNGAN_RUMAH],
+    hasilWajib: true,
   }
 }
 
@@ -330,17 +597,6 @@ const KUNJUNGAN_RUMAH_KINDS: KunjunganRumahFieldKind[] = [
   'date',
   'select',
   'checkbox',
-]
-const KUNJUNGAN_RUMAH_SECTIONS: KunjunganRumahSection[] = [
-  'keluargaInfo',
-  'anggota',
-  'sanitasi',
-  'sasaran:identitas',
-  'sasaran:kolom',
-  'sasaran:bools',
-  'sasaran:baha',
-  'masalah',
-  'hasil',
 ]
 
 function isTemplateField(
@@ -358,8 +614,9 @@ function isTemplateField(
     return false
   if (!KUNJUNGAN_RUMAH_KINDS.includes(o.kind as KunjunganRumahFieldKind))
     return false
-  if (!KUNJUNGAN_RUMAH_SECTIONS.includes(o.section as KunjunganRumahSection))
-    return false
+  // Section generik boleh bernama apa saja; section bawaan tetap dicocokkan
+  // lewat `expectedSection` oleh pemanggil.
+  if (typeof o.section !== 'string' || !o.section) return false
   if (expectedSection && o.section !== expectedSection) return false
   if (typeof o.required !== 'boolean' || typeof o.active !== 'boolean')
     return false
@@ -368,16 +625,72 @@ function isTemplateField(
     const opts: unknown = o.options
     if (!Array.isArray(opts) || !opts.every((x) => typeof x === 'string'))
       return false
-    // select wajib punya opsi; non-select tidak boleh bawa opsi
+    // select wajib punya opsi; checkbox boleh boolean atau multi-pilihan.
     if (o.kind === 'select' && opts.length === 0) return false
-    if (o.kind !== 'select' && opts.length > 0) return false
+    if (o.kind !== 'select' && o.kind !== 'checkbox' && opts.length > 0)
+      return false
   }
   if (o.hint !== undefined && typeof o.hint !== 'string') return false
+  if (o.placeholder !== undefined && typeof o.placeholder !== 'string')
+    return false
+  if (o.columns !== undefined && typeof o.columns !== 'number') return false
+  if (o.layoutGroup !== undefined && typeof o.layoutGroup !== 'string')
+    return false
+  if (
+    o.visibilityRules !== undefined &&
+    (!Array.isArray(o.visibilityRules) ||
+      !o.visibilityRules.every((rule) => {
+        if (!rule || typeof rule !== 'object') return false
+        const value = rule as Record<string, unknown>
+        return (
+          value.targetType === 'field' &&
+          typeof value.targetId === 'string' &&
+          typeof value.triggerFieldId === 'string' &&
+          typeof value.operator === 'string' &&
+          typeof value.aktif === 'boolean' &&
+          typeof value.urutan === 'number'
+        )
+      }))
+  )
+    return false
   if (
     o.sasaranKey !== undefined &&
     !SASARAN_KEYS.includes(o.sasaranKey as SasaranKey)
   )
     return false
+  return true
+}
+
+function isLayoutGroup(g: unknown): g is KunjunganRumahLayoutGroup {
+  if (!g || typeof g !== 'object') return false
+  const o = g as Record<string, unknown>
+  return (
+    typeof o.key === 'string' &&
+    !!o.key &&
+    typeof o.label === 'string' &&
+    typeof o.order === 'number' &&
+    Number.isFinite(o.order)
+  )
+}
+
+function isSectionTemplate(
+  s: unknown,
+  expectedName?: string,
+): s is KunjunganRumahSectionTemplate {
+  if (!s || typeof s !== 'object') return false
+  const o = s as Record<string, unknown>
+  if (typeof o.name !== 'string' || !o.name) return false
+  if (expectedName && o.name !== expectedName) return false
+  if (typeof o.label !== 'string') return false
+  if (!isKunjunganRumahSectionKind(o.kind)) return false
+  if (typeof o.order !== 'number' || !Number.isFinite(o.order)) return false
+  if (typeof o.active !== 'boolean') return false
+  if (!Array.isArray(o.layoutGroups) || !o.layoutGroups.every(isLayoutGroup))
+    return false
+  if (!Array.isArray(o.fields)) return false
+  if (!o.fields.every((f) => isTemplateField(f) && f.section === o.name))
+    return false
+  if (!hasUniqueIds(o.fields)) return false
   return true
 }
 
@@ -413,6 +726,16 @@ export function validateKunjunganRumahTemplates(
   if (!hasUniqueIds(o.anggota)) return false
   if (!hasUniqueIds(o.sanitasi)) return false
   if (!hasUniqueIds(o.masalah)) return false
+  if (!Array.isArray(o.sections)) return false
+  if (!o.sections.every((s) => isSectionTemplate(s))) return false
+  const sectionNames = new Set<string>()
+  for (const s of o.sections) {
+    if (s.kind === 'sasaran' || s.kind === 'penyimpanan') return false
+    if (sectionNames.has(s.name)) return false
+    sectionNames.add(s.name)
+  }
+  if (typeof o.sasaranOrder !== 'number' || !Number.isFinite(o.sasaranOrder))
+    return false
   if (typeof o.sasaran !== 'object' || o.sasaran === null) return false
   const sas = o.sasaran as Record<string, unknown>
   for (const key of SASARAN_KEYS) {
@@ -425,16 +748,23 @@ export function validateKunjunganRumahTemplates(
       return false
     if (!hasUniqueIds(fields)) return false
     if (
+      !Array.isArray(entry.layoutGroups) ||
+      !entry.layoutGroups.every(isLayoutGroup)
+    )
+      return false
+    if (
       !Array.isArray(entry.prioritasDefault) ||
       !entry.prioritasDefault.every((x) => typeof x === 'string')
     )
       return false
   }
+  // [Iterasi 3 Fix] hasilOpsi wajib berupa array non-kosong berisi string
   if (
     !Array.isArray(o.hasilOpsi) ||
     o.hasilOpsi.length === 0 ||
-    !o.hasilOpsi.every((x) => typeof x === 'string')
+    !o.hasilOpsi.every((x) => typeof x === 'string' && x.trim() !== '')
   )
     return false
+  if (typeof o.hasilWajib !== 'boolean') return false
   return true
 }

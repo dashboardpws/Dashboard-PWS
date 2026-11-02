@@ -1,4 +1,3 @@
-import { sasaranDef } from '@/lib/kunjungan-rumah/template/kunjungan-rumah-form'
 import { hasilKind } from '@/lib/kunjungan-rumah/hasil'
 import { isValidNik } from '@/lib/utils'
 import type { KunjunganRumahTemplates } from '@/lib/kunjungan-rumah/template/kunjungan-rumah-templates'
@@ -9,7 +8,7 @@ import type {
   MasalahTindak,
   PenilaianForm,
 } from '@/lib/kunjungan-rumah/models'
-import { buildConditionalMap, isConditionalActive } from './conditional'
+import { fieldSasaranAktif } from './conditional'
 import {
   anggotaKepalaKeluarga,
   kePekerjaan,
@@ -25,6 +24,8 @@ export interface ValidateInput {
   ttd: string
   fotos: KunjunganRumahFoto[]
   templates: KunjunganRumahTemplates
+  /** Isian section generik; opsional supaya pemanggil lama tetap valid. */
+  tambahan?: Record<string, string>
 }
 
 export function validateKunjunganRumah(input: ValidateInput): {
@@ -42,6 +43,7 @@ export function validateKunjunganRumah(input: ValidateInput): {
     fotos,
     templates,
   } = input
+  const tambahan = input.tambahan ?? {}
   const nextInvalid: Record<string, boolean> = {}
   let ok = true
 
@@ -148,17 +150,13 @@ export function validateKunjunganRumah(input: ValidateInput): {
     ok = false
   } else {
     for (const p of penilaian) {
-      const def = sasaranDef(p.sasaran)
-      const ruleMap = buildConditionalMap(def.conditionals ?? [])
-      const fields = templates.sasaran[p.sasaran].fields.filter(
-        (f) => f.active && f.required,
+      const allFields = templates.sasaran[p.sasaran].fields.filter(
+        (field) => field.active,
       )
+      const visibleFields = fieldSasaranAktif(allFields, p.values, p.checks)
+      const fields = allFields.filter((f) => f.active && f.required)
       for (const f of fields) {
-        const r = ruleMap.get(f.id)
-        if (r) {
-          const active = isConditionalActive(r, p.values, p.checks)
-          if (!active) continue
-        }
+        if (!visibleFields.has(f.id)) continue
         if (f.kind === 'checkbox') {
           if (!p.checks[f.id]) {
             nextInvalid[`${p.id}:${f.id}`] = true
@@ -191,8 +189,39 @@ export function validateKunjunganRumah(input: ValidateInput): {
     }
   }
 
+  // Section generik dari Form Builder. Field wajib di section nonaktif tidak
+  // ditagih, dan record lama tanpa `tambahan` tidak pernah dianggap invalid.
+  for (const section of templates.sections) {
+    if (!section.active || section.kind !== 'form_generik') continue
+    for (const f of section.fields.filter((x) => x.active && x.required)) {
+      const key = `${section.name}::${f.id}`
+      const v = tambahan[key] ?? ''
+      let terisi = !!v.trim()
+      if (f.kind === 'checkbox') {
+        if (f.options?.length) {
+          try {
+            const selected: unknown = JSON.parse(v || '[]')
+            terisi = Array.isArray(selected) && selected.length > 0
+          } catch {
+            terisi = false
+          }
+        } else {
+          terisi = v === 'true'
+        }
+      }
+      if (!terisi) {
+        nextInvalid[key] = true
+        ok = false
+      }
+    }
+  }
+
   const hasilOpsi = templates.hasilOpsi
-  if (hasilOpsi.length > 0 && !hasilOpsi.includes(hasil)) {
+  if (
+    templates.hasilWajib &&
+    hasilOpsi.length > 0 &&
+    !hasilOpsi.includes(hasil)
+  ) {
     nextInvalid.hasil = true
     ok = false
   }

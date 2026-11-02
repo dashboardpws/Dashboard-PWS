@@ -38,9 +38,9 @@
  */
 import 'dotenv/config'
 import { and, eq, isNull } from 'drizzle-orm'
-import { db } from '@/lib/server/db.server'
-import { forms } from '@/lib/schema/schema'
-import { pastikanDatabaseUji } from '@/lib/uji/database-uji'
+import { db } from '../src/lib/server/db.server'
+import { forms } from '../src/lib/schema/schema'
+import { pastikanDatabaseUji } from '../src/lib/uji/database-uji'
 
 async function hitung(): Promise<
   Array<{ nama: string; kode: string | null; wajib: boolean }>

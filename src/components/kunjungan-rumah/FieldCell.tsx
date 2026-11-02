@@ -26,6 +26,7 @@ export function FieldCell({
 }) {
   const errorId = `${field.id}-error`
   const getPlaceholder = (f: KunjunganRumahTemplateField): string => {
+    if (f.placeholder) return f.placeholder
     if (f.id.includes('Tempat')) return 'contoh: Puskesmas Trajeng'
     if (f.id.includes('Petugas')) return 'contoh: Bidan Siti'
     if (f.id.includes('Materi')) return 'contoh: Penyuluhan gizi ibu hamil'
@@ -69,6 +70,49 @@ export function FieldCell({
     )
   }
   if (field.kind === 'checkbox') {
+    if (field.options?.length) {
+      let selected: string[] = []
+      try {
+        const parsed: unknown = JSON.parse(value || '[]')
+        if (Array.isArray(parsed))
+          selected = parsed.filter(
+            (item): item is string => typeof item === 'string',
+          )
+      } catch {
+        selected = []
+      }
+      return (
+        <FormField
+          label={field.label}
+          required={field.required}
+          invalid={invalid}
+          error="Pilih setidaknya satu opsi."
+          hint={field.hint}
+          errorId={errorId}
+        >
+          <span className="grid gap-2">
+            {field.options.map((option) => (
+              <span
+                key={option}
+                className="flex items-center gap-2 font-normal"
+              >
+                <Checkbox
+                  checked={selected.includes(option)}
+                  onChange={(event) => {
+                    const next = event.target.checked
+                      ? [...selected, option]
+                      : selected.filter((item) => item !== option)
+                    onChange(JSON.stringify(next))
+                  }}
+                  aria-describedby={invalid ? errorId : undefined}
+                />
+                {option}
+              </span>
+            ))}
+          </span>
+        </FormField>
+      )
+    }
     return (
       <FormField
         label={field.label}

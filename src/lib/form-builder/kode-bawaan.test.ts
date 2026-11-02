@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { SEMUA_TIPE_FIELD } from '@/lib/service/form-builder/validasi'
+import type { TipeField } from '@/lib/service/form-builder/validasi'
 import {
   FIELD_RECORD_LEGACY,
   kunciBucket,
@@ -47,7 +48,7 @@ function draftKr(ubah: (d: Draft) => void = () => {}): Draft & Snap {
       id: 'f-nik',
       sectionId: S1,
       nama: 'keluargaInfo::nik',
-      tipe: 'text',
+      tipe: 'text' as const,
       optionSourceType: null,
       optionSourceKey: null,
     },
@@ -80,6 +81,7 @@ interface Snap {
     id: string
     sectionId: string
     nama: string
+    tipe: TipeField
     optionSourceKey: string | null
   }[]
 }
@@ -91,6 +93,7 @@ function snapshot(d: Draft): Snap {
       id: f.id ?? '',
       sectionId: f.sectionId ?? '',
       nama: f.nama,
+      tipe: f.tipe,
       optionSourceKey: f.optionSourceKey,
     })),
   }
@@ -129,18 +132,43 @@ describe('aturanForm(...).validasiDraft', () => {
   })
 
   describe('section', () => {
-    it('menolak section baru yang tidak dikenal', () => {
+    it('menerima section generik baru dari Form Builder', () => {
       const d = draftKr((x) =>
-        x.sections.push({ id: 's-baru', nama: 'tambahan' }),
+        x.sections.push({
+          id: 's-baru',
+          nama: 'tambahan',
+          sectionKind: 'form_generik',
+        }),
       )
-      expect(pesanDari(jalankan(d))).toMatch(/tidak dikenal/)
+      expect(jalankan(d)).toEqual({ ok: true })
     })
 
-    it('menolak rename section ke nama di luar daftar yang dilindungi', () => {
+    it('menerima field baru di section generik', () => {
+      const d = draftKr((x) => {
+        x.sections.push({
+          id: 's-baru',
+          nama: 'tambahan',
+          sectionKind: 'form_generik',
+        })
+        x.fields.push({
+          id: null,
+          sectionId: 's-baru',
+          nama: 'tambahan::catatan',
+          tipe: 'text',
+          optionSourceType: null,
+          optionSourceKey: null,
+        })
+      })
+      expect(jalankan(d)).toEqual({ ok: true })
+    })
+
+    it('menolak rename section ke nama generik lain', () => {
+      // Rename tetap ditolak: nama section adalah namespace kunci isian yang
+      // sudah tersimpan di record.
       const d = draftKr((x) => {
         x.sections[0]!.nama = 'infoKeluarga'
       })
-      expect(pesanDari(jalankan(d))).toMatch(/tidak dikenal/)
+      expect(pesanDari(jalankan(d))).toMatch(/tidak bisa diubah nama/)
     })
 
     it('menolak rename section ke nama section lain yang dilindungi', () => {
@@ -157,26 +185,75 @@ describe('aturanForm(...).validasiDraft', () => {
       expect(pesanDari(jalankan(d))).toMatch(/tidak bisa dihapus/)
     })
 
-    it('menolak section target yang bukan bagian dari versi ini', () => {
+    it('menerima penghapusan section generik', () => {
+      const d = draftKr((x) => {
+        x.sections.push({
+          id: 's-baru',
+          nama: 'tambahan',
+          sectionKind: 'form_generik',
+        })
+      })
+      // Snapshot lama harus memuat section generik itu supaya yang diuji benar-
+      // benar penghapusan section, bukan penambahan section baru.
+      const hasil = jalankan({
+        ...d,
+        sectionsLama: [...d.sectionsLama, { id: 's-baru', nama: 'tambahan' }],
+        sections: d.sections.filter((s) => s.id !== 's-baru'),
+      })
+      expect(hasil).toEqual({ ok: true })
+    })
+
+    it('menolak section bawaan baru yang bukan bagian dari versi ini', () => {
       const d = draftKr((x) => {
         x.sections[0]!.id = 'id-dari-versi-lain'
       })
-      expect(pesanDari(jalankan(d))).toMatch(/bukan bagian dari versi ini/)
+      expect(pesanDari(jalankan(d))).toMatch(/hanya boleh bertipe form_generik/)
     })
+
+    it('menolak nama section bawaan baru meski diklaim generik', () => {
+      const d = draftKr((x) =>
+        x.sections.push({
+          id: null,
+          nama: 'keluargaInfo',
+          sectionKind: 'form_generik',
+        }),
+      )
+      expect(pesanDari(jalankan(d))).toMatch(/hanya boleh bertipe form_generik/)
+    })
+
+    it.each(['sasaran', 'keluarga', 'hasil', 'penyimpanan'] as const)(
+      'menolak section baru bertipe %s',
+      (sectionKind) => {
+        const d = draftKr((x) =>
+          x.sections.push({ id: null, nama: 'bagian-baru', sectionKind }),
+        )
+        expect(pesanDari(jalankan(d))).toMatch(
+          /hanya boleh bertipe form_generik/,
+        )
+      },
+    )
 
     it('memuat seluruh section yang seed buat', () => {
       expect(SECTION_TERLINDUNGI.has('penyimpanan')).toBe(true)
       expect(SECTION_TERLINDUNGI.has('keluargaInfo')).toBe(true)
+      expect(SECTION_TERLINDUNGI.has('hasil')).toBe(true)
       for (const key of SASARAN_KEYS)
         expect(SECTION_TERLINDUNGI.has(key)).toBe(true)
-      expect(SECTION_TERLINDUNGI.size).toBe(5 + SASARAN_KEYS.length)
+      expect(SECTION_TERLINDUNGI.size).toBe(6 + SASARAN_KEYS.length)
     })
   })
 
   describe('field', () => {
     it('menolak tipe di luar yang bisa dirender form kader', () => {
       const d = draftKr((x) => {
-        x.fields[0]!.tipe = 'textarea'
+        x.fields.push({
+          id: null,
+          sectionId: S1,
+          nama: 'keluargaInfo::catatanExtra',
+          tipe: 'textarea' as const,
+          optionSourceType: null,
+          optionSourceKey: null,
+        })
       })
       expect(pesanDari(jalankan(d))).toMatch(/hanya bisa diisi dengan tipe/)
     })
@@ -321,7 +398,7 @@ describe('aturanForm(...).validasiDraft', () => {
     it('mengunci seluruh struktur form kunjungan rumah', () => {
       const k = kunci(KODE_FORM_BAWAAN.kunjunganRumah)
       expect(k.namaSection).toBe(true)
-      expect(k.strukturSection).toBe(true)
+      expect(k.strukturSection).toBe(false)
       expect(k.optionSource).toBe(true)
       expect([...(k.tipe ?? [])].sort()).toEqual([
         'checkbox',

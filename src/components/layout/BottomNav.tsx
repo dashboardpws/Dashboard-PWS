@@ -23,7 +23,7 @@ export function BottomNav() {
             className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.75 rounded-lg py-1.5 px-0.5 text-[10px] font-semibold text-muted transition-colors"
             activeProps={{ className: 'bg-accent-light text-accent' }}
           >
-            <Icon size={20} strokeWidth={1.7} />
+            <Icon sx={{ fontSize: 20 }} />
             <span className="w-full truncate text-center">
               {item.shortLabel ?? item.label}
             </span>

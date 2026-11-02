@@ -30,13 +30,16 @@
  */
 import 'dotenv/config'
 import { sql } from 'drizzle-orm'
-import { db } from '@/lib/server/db.server'
-import { getKunjunganRumahTemplateRows } from '@/lib/server/kunjungan-rumah.server'
+import { db } from '../src/lib/server/db.server'
+import { getKunjunganRumahTemplateRows } from '../src/lib/server/kunjungan-rumah.server.ts'
 import { templateFromRows } from '../src/lib/kunjungan-rumah/template/template-from-rows.ts'
 import { createDefaultKunjunganRumahTemplates } from '../src/lib/kunjungan-rumah/template/kunjungan-rumah-templates.ts'
-import type { KunjunganRumahTemplateField } from '../src/lib/kunjungan-rumah/template/kunjungan-rumah-templates.ts'
+import type {
+  KunjunganRumahSectionTemplate,
+  KunjunganRumahTemplateField,
+} from '../src/lib/kunjungan-rumah/template/kunjungan-rumah-templates.ts'
 import { SASARAN_KEYS } from '../src/lib/kunjungan-rumah/template/kunjungan-rumah-form.ts'
-import { KODE_FORM_BAWAAN } from '@/lib/constants'
+import { KODE_FORM_BAWAAN } from '../src/lib/constants.ts'
 import {
   BUCKET_SASARAN,
   FIELD_RECORD_LEGACY,
@@ -97,15 +100,30 @@ const barisMentah = versions.flatMap((row) => {
 })
 
 // 1. Section tetap harus lengkap. Section yang hilang berarti seluruh isian di
-//    dalamnya tidak bisa dirender dan tidak akan muncul di mana pun.
-const sectionAda = new Set(barisMentah.map((b) => b.section))
+//    dalamnya tidak bisa dirender dan tidak akan muncul di mana pun. Section
+//    generik dari Form Builder boleh ada; yang dijaga hanya section bawaan.
+//    `hasil` boleh kosong pada schema lama; mapper menyediakan opsi fallback
+//    agar record lama tetap bisa dibuka.
+const SECTION_TANPA_FIELD_DB = new Set(['hasil'])
+const sectionMeta = new Map(
+  (rows.sections ?? []).map((section) => [section.nama, section]),
+)
+const sectionAda = new Set<string>([
+  ...(rows.sections ?? []).map((section) => section.nama),
+  ...barisMentah.map((b) => b.section),
+])
 for (const nama of SECTION_TERLINDUNGI) {
+  if (SECTION_TANPA_FIELD_DB.has(nama)) continue
   if (!sectionAda.has(nama))
     lap(`section "${nama}" tidak ada di versi published`)
 }
 for (const nama of sectionAda) {
-  if (!SECTION_TERLINDUNGI.has(nama))
-    lap(`section "${nama}" tidak dikenal form kunjungan rumah`)
+  if (SECTION_TERLINDUNGI.has(nama)) continue
+  const kind = sectionMeta.get(nama)?.sectionKind
+  if (kind && kind !== 'form_generik')
+    lap(
+      `section custom "${nama}" punya sectionKind "${kind}" yang tidak valid (wajib "form_generik")`,
+    )
 }
 
 // 2. Field penyimpan data wajib ada. Tanpa ini seluruh data kunjungan lama tidak
@@ -186,11 +204,15 @@ try {
 }
 
 if (template) {
+  const fieldGenerik = template.sections
+    .filter((section) => section.kind === 'form_generik')
+    .flatMap((section) => section.fields)
   const totalField =
     template.keluargaInfo.length +
     template.anggota.length +
     template.sanitasi.length +
     template.masalah.length +
+    fieldGenerik.length +
     SASARAN_KEYS.reduce(
       (a, k) => a + (template!.sasaran[k]?.fields.length ?? 0),
       0,
@@ -200,6 +222,7 @@ if (template) {
     template.anggota.filter((f) => !f.active).length +
     template.sanitasi.filter((f) => !f.active).length +
     template.masalah.filter((f) => !f.active).length +
+    fieldGenerik.filter((f) => !f.active).length +
     SASARAN_KEYS.reduce(
       (a, k) => a + template!.sasaran[k].fields.filter((f) => !f.active).length,
       0,
@@ -235,6 +258,8 @@ if (modeBaseline) {
     'active',
     'order',
     'hint',
+    'placeholder',
+    'layoutGroup',
   ] as const
 
   function bandingField(
@@ -270,6 +295,33 @@ if (modeBaseline) {
     for (let i = 0; i < a.length; i++)
       bandingField(a[i]!, b[i]!, `${lokasi}[${i}]`)
   }
+
+  function bandingSection(
+    a: KunjunganRumahSectionTemplate,
+    b: KunjunganRumahSectionTemplate,
+  ) {
+    for (const k of ['name', 'label', 'kind', 'order', 'active'] as const) {
+      if (a[k] !== b[k])
+        lap(`baseline section ${a.name}.${k}: DB "${a[k]}" vs kode "${b[k]}"`)
+    }
+    if (JSON.stringify(a.layoutGroups) !== JSON.stringify(b.layoutGroups)) {
+      lap(`baseline section ${a.name}.layoutGroups berbeda dari kode`)
+    }
+    bandingDaftar(a.fields, b.fields, `section ${a.name}`)
+  }
+
+  if (template.sections.length !== dariKode.sections.length) {
+    lap(
+      `baseline sections: jumlah DB ${template.sections.length} vs kode ${dariKode.sections.length}`,
+    )
+  } else {
+    for (let i = 0; i < template.sections.length; i++)
+      bandingSection(template.sections[i]!, dariKode.sections[i]!)
+  }
+  if (template.sasaranOrder !== dariKode.sasaranOrder)
+    lap(
+      `baseline sasaranOrder: DB ${template.sasaranOrder} vs kode ${dariKode.sasaranOrder}`,
+    )
 
   bandingDaftar(template.keluargaInfo, dariKode.keluargaInfo, 'keluargaInfo')
   bandingDaftar(template.anggota, dariKode.anggota, 'anggota')

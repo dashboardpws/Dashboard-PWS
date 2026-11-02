@@ -19,14 +19,14 @@
  * uji coba: warga dummy lama dengan NIK sintetis dibuat ulang dari awal.
  */
 import { eq, inArray, sql } from 'drizzle-orm'
-import { db } from '@/lib/server/db.server'
+import { db } from '../src/lib/server/db.server'
 import {
   dataWargaTable,
   fasilitasKesehatan,
   surveys,
   users,
-} from '@/lib/schema/schema'
-import { pastikanDatabaseUji } from '@/lib/uji/database-uji'
+} from '../src/lib/schema/schema'
+import { pastikanDatabaseUji } from '../src/lib/uji/database-uji'
 
 const NIK_DUMMY = ['9000000000000001', '9000000000000002'] as const
 

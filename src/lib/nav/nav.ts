@@ -1,6 +1,19 @@
-import { DashboardOutlined, Dashboard, DescriptionOutlined, Description, AssignmentTurnedInOutlined,
-  AssignmentTurnedIn, AssignmentOutlined, Assignment, ArticleOutlined, Article,
-  NotificationsOutlined, Notifications, SettingsOutlined, Settings, } from '@mui/icons-material'
+import {
+  DashboardOutlined,
+  Dashboard,
+  DescriptionOutlined,
+  Description,
+  AssignmentTurnedInOutlined,
+  AssignmentTurnedIn,
+  AssignmentOutlined,
+  Assignment,
+  ArticleOutlined,
+  Article,
+  NotificationsOutlined,
+  Notifications,
+  SettingsOutlined,
+  Settings,
+} from '@mui/icons-material'
 import type { SvgIconProps } from '@mui/material/SvgIcon'
 
 export interface NavItem {

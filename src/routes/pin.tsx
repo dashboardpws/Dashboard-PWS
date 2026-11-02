@@ -140,7 +140,7 @@ function RouteComponent() {
                 // 3. Mengubah warna ikon mata (visibility toggle)
                 visibilityToggle: {
                   color: 'var(--color-ink-2)',
-                  backgroundColor: 'transparent'
+                  backgroundColor: 'transparent',
                 },
               }}
             />

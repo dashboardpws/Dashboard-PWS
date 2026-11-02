@@ -85,13 +85,6 @@ function kunciBucket(bucket: string | null): string | null {
 }
 
 /** `section` UI sudah persis nama section di database, jadi tidak perlu dipetakan. */
-const SECTION_UI_PLAIN = [
-  'keluargaInfo',
-  'anggota',
-  'sanitasi',
-  'masalah',
-] as const
-
 interface BarisField {
   nama: string
   label: string
@@ -103,11 +96,17 @@ interface BarisField {
   optionSourceKey: string | null
   options: string[]
   jumlahKolom: number | null
+  placeholder?: string | null
+  layoutGroup?: string | null
 }
 
 interface BarisSection {
   nama: string
+  label?: string
   urutan: number
+  /** Peran section bagi renderer; null = disimpulkan dari nama saat dibaca. */
+  sectionKind?: string | null
+  layoutGroups?: { key: string; label: string; order: number }[]
   fields: BarisField[]
 }
 
@@ -116,6 +115,12 @@ export const FIELD_RECORD_LEGACY = 'record_legacy'
 
 /**
  * Bangun section + field Form Kunjungan Rumah dari template lokal.
+ *
+ * Urutan section mengikuti `t.sections`, lalu section sasaran disisipkan pada
+ * `sasaranOrder` supaya kartu Form Sasaran tetap berada di tengah. Section
+ * bawaan membawa `sectionKind` eksplisit: renderer boleh menyimpulkannya dari
+ * nama, tapi metadata ini yang membuat section generik baru tidak perlu
+ * ditafsirkan ulang dari namanya.
  *
  * Bucket diambil dari `field.section` (`sasaran:identitas` → `identitas`),
  * karena `templateFromRows()` memetakannya kembali dengan BUCKET_TO_SECTION.
@@ -139,23 +144,71 @@ function sectionsKunjunganRumah(): BarisSection[] {
       optionSourceType: null,
       optionSourceKey: kunciBucket(bucket),
       options: f.options ?? [],
-      jumlahKolom: null,
+      jumlahKolom: f.columns ?? null,
+      placeholder: f.placeholder ?? null,
+      layoutGroup: f.layoutGroup ?? null,
     })
   }
 
-  ;(SECTION_UI_PLAIN as readonly string[]).forEach((nama, i) => {
-    const fields = t[nama as (typeof SECTION_UI_PLAIN)[number]]
+  let urutan = 0
+
+  const pushSasaran = (): void => {
+    for (const key of SASARAN_KEYS) {
+      const def = t.sasaran[key]
+      const list: BarisField[] = []
+      for (const f of def.fields) {
+        const bucket = f.section.startsWith('sasaran:')
+          ? f.section.slice('sasaran:'.length)
+          : null
+        if (bucket === null) {
+          throw new Error(
+            `Field sasaran "${f.id}" tidak punya bucket yang bisa dibaca; section-nya "${f.section}".`,
+          )
+        }
+        pushField(list, f, key, bucket)
+      }
+      sections.push({
+        nama: key,
+        label: def.label,
+        urutan: urutan++,
+        sectionKind: 'sasaran',
+        layoutGroups: def.layoutGroups,
+        fields: list,
+      })
+    }
+  }
+
+  const pushSection = (section: (typeof t.sections)[number]): void => {
     const list: BarisField[] = []
-    fields.forEach((f) => pushField(list, f, nama, null))
-    sections.push({ nama, urutan: i, fields: list })
-  })
+    for (const f of section.fields) pushField(list, f, section.name, null)
+    sections.push({
+      nama: section.name,
+      label: section.label,
+      urutan: urutan++,
+      sectionKind: section.kind,
+      layoutGroups: section.layoutGroups,
+      fields: list,
+    })
+  }
+
+  const sectionsTerurut = [...t.sections].sort((a, b) => a.order - b.order)
+  for (const section of sectionsTerurut) {
+    if (section.order < t.sasaranOrder) pushSection(section)
+  }
+  pushSasaran()
+  for (const section of sectionsTerurut) {
+    if (section.order >= t.sasaranOrder) pushSection(section)
+  }
 
   // Field `record_legacy` tidak ada di template lokal: ia adalah tempat
   // penyimpanan payload, bukan pertanyaan yang dilihat petugas. Ditambahkan di
   // section terakhir supaya tidak menggeser urutan field yang lain.
   sections.push({
     nama: 'penyimpanan',
-    urutan: sections.length,
+    label: 'Penyimpanan',
+    urutan: urutan++,
+    sectionKind: 'penyimpanan',
+    layoutGroups: [],
     fields: [
       {
         nama: namaFieldUnik('penyimpanan', FIELD_RECORD_LEGACY),
@@ -169,23 +222,6 @@ function sectionsKunjunganRumah(): BarisSection[] {
         jumlahKolom: null,
       },
     ],
-  })
-
-  SASARAN_KEYS.forEach((key, i) => {
-    const def = t.sasaran[key]
-    const list: BarisField[] = []
-    for (const f of def.fields) {
-      const bucket = f.section.startsWith('sasaran:')
-        ? f.section.slice('sasaran:'.length)
-        : null
-      if (bucket === null) {
-        throw new Error(
-          `Field sasaran "${f.id}" tidak punya bucket yang bisa dibaca; section-nya "${f.section}".`,
-        )
-      }
-      pushField(list, f, key, bucket)
-    }
-    sections.push({ nama: key, urutan: sections.length + i, fields: list })
   })
 
   return sections
@@ -427,10 +463,12 @@ async function seedForm(params: {
       sections: params.sections.map((section) => ({
         id: crypto.randomUUID(),
         name: section.nama,
-        label: section.nama,
+        label: section.label ?? section.nama,
         description: null,
         order: section.urutan,
         active: true,
+        sectionKind: section.sectionKind ?? null,
+        layoutGroups: section.layoutGroups ?? [],
         visibilityRules: [],
         fields: section.fields.map((field) => ({
           id:
@@ -445,8 +483,9 @@ async function seedForm(params: {
           active: true,
           order: field.urutan,
           description: null,
-          placeholder: null,
+          placeholder: field.placeholder ?? null,
           columns: field.jumlahKolom,
+          layoutGroup: field.layoutGroup ?? null,
           optionSourceType: field.optionSourceType,
           optionSourceKey: field.optionSourceKey,
           options: field.options.map((value, order) => ({

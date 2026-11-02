@@ -217,6 +217,7 @@ export function useKunjunganRumahForm(opts?: UseKunjunganRumahFormOptions) {
           jadwal: state.jadwal,
           ttd: state.ttd,
           fotos: fotos.map((f) => ({ ...f })),
+          tambahan: { ...state.tambahan },
         }
         const saved = editingId
           ? await updateRecord(rec)

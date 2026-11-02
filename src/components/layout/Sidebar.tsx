@@ -70,8 +70,7 @@ const LINK_KELAS =
 
 const LINK_KELAS_TERLIPAT = 'justify-center gap-0 px-0'
 
-const AKTIF_INDUK =
-  'border border-accent-border bg-accent-light font-semibold'
+const AKTIF_INDUK = 'border border-accent-border bg-accent-light font-semibold'
 
 const LINK_ANAK =
   'flex min-h-9 items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-surface-2'
@@ -84,8 +83,7 @@ const AKTIF_ANAK = 'bg-accent-light text-accent font-semibold'
  * Ukuran font 14px dengan line-height 20px.
  * Tinggi line box disamakan dengan kotak ikon.
  */
-const NAV_LABEL_KELAS =
-  'block min-w-0 truncate text-sm leading-5 font-medium'
+const NAV_LABEL_KELAS = 'block min-w-0 truncate text-sm leading-5 font-medium'
 
 /**
  * Wrapper ikon navigasi.
@@ -126,11 +124,7 @@ function SidebarSvgIcon({
   children: ReactNode
   className?: string
 }) {
-  return (
-    <SidebarIcon className={className}>
-      {children}
-    </SidebarIcon>
-  )
+  return <SidebarIcon className={className}>{children}</SidebarIcon>
 }
 
 /**
@@ -160,11 +154,7 @@ function DropdownTrigger({
       <SidebarIcon>{icon}</SidebarIcon>
 
       <span
-        className={cn(
-          NAV_LABEL_KELAS,
-          'text-ink-2',
-          showChevron && 'flex-1',
-        )}
+        className={cn(NAV_LABEL_KELAS, 'text-ink-2', showChevron && 'flex-1')}
       >
         {label}
       </span>
@@ -190,16 +180,9 @@ function DropdownTrigger({
 /**
  * Daftar item di dalam dropdown.
  */
-function DropdownDaftar({
-  children,
-}: {
-  children: ReactNode
-}) {
+function DropdownDaftar({ children }: { children: ReactNode }) {
   return (
-    <ul
-      className="mt-1 ml-6 space-y-1 animate-slide-down"
-      role="menu"
-    >
+    <ul className="mt-1 ml-6 space-y-1 animate-slide-down" role="menu">
       {children}
     </ul>
   )
@@ -217,18 +200,13 @@ function NavItemLink({
   collapsed: boolean
   isDark: boolean
 }) {
-  const IconComponent = isDark
-    ? (item.IconFilled ?? item.Icon)
-    : item.Icon
+  const IconComponent = isDark ? (item.IconFilled ?? item.Icon) : item.Icon
 
   return (
     <Link
       to={item.to}
       activeOptions={{ exact: item.to === '/' }}
-      className={cn(
-        LINK_KELAS,
-        collapsed ? LINK_KELAS_TERLIPAT : 'gap-2.5',
-      )}
+      className={cn(LINK_KELAS, collapsed ? LINK_KELAS_TERLIPAT : 'gap-2.5')}
       activeProps={{
         className: AKTIF_INDUK,
       }}
@@ -271,9 +249,7 @@ function NavItemDropdown({
   setOpenDropdown: (key: string | null) => void
   isDark: boolean
 }) {
-  const IconComponent = isDark
-    ? (item.IconFilled ?? item.Icon)
-    : item.Icon
+  const IconComponent = isDark ? (item.IconFilled ?? item.Icon) : item.Icon
 
   const isOpen = openDropdown === item.to
   const dropdownKey = item.to ?? item.label
@@ -352,12 +328,7 @@ function NavItemDropdown({
                     />
                   </SidebarSvgIcon>
 
-                  <span
-                    className={cn(
-                      NAV_LABEL_KELAS,
-                      'text-ink-2',
-                    )}
-                  >
+                  <span className={cn(NAV_LABEL_KELAS, 'text-ink-2')}>
                     {child.label}
                   </span>
                 </Link>
@@ -389,9 +360,7 @@ function FormulirDropdownTrigger({
   const isOpen = openDropdown === 'formulir'
   const dropdownKey = 'formulir'
 
-  const FormIcon = isDark
-    ? Assignment
-    : AssignmentOutlined
+  const FormIcon = isDark ? Assignment : AssignmentOutlined
 
   /**
    * Pada mode collapsed, ikon mengarah langsung ke halaman formulir.
@@ -440,12 +409,7 @@ function FormulirDropdownTrigger({
         <DropdownDaftar>
           {forms.length === 0 ? (
             <li role="none">
-              <span
-                className={cn(
-                  NAV_LABEL_KELAS,
-                  'px-3 py-2 text-muted',
-                )}
-              >
+              <span className={cn(NAV_LABEL_KELAS, 'px-3 py-2 text-muted')}>
                 Belum ada form kustom
               </span>
             </li>
@@ -462,12 +426,7 @@ function FormulirDropdownTrigger({
                     className: AKTIF_ANAK,
                   }}
                 >
-                  <span
-                    className={cn(
-                      NAV_LABEL_KELAS,
-                      'text-ink-2',
-                    )}
-                  >
+                  <span className={cn(NAV_LABEL_KELAS, 'text-ink-2')}>
                     {form.nama}
                   </span>
                 </Link>
@@ -519,23 +478,15 @@ export function Sidebar({
   const items = navItemsForUser()
   const isDark = useIsDarkMode()
 
-  const [openDropdown, setOpenDropdown] = useState<string | null>(
-    null,
-  )
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null)
 
-  const [navForms, setNavForms] = useState<BarisFormulirTerisi[]>(
-    [],
-  )
+  const [navForms, setNavForms] = useState<BarisFormulirTerisi[]>([])
 
   const [loadingForms, setLoadingForms] = useState(true)
 
-  const LogoutIconComponent = isDark
-    ? Logout
-    : LogoutOutlined
+  const LogoutIconComponent = isDark ? Logout : LogoutOutlined
 
-  const DynamicAssignmentIcon = isDark
-    ? Assignment
-    : AssignmentOutlined
+  const DynamicAssignmentIcon = isDark ? Assignment : AssignmentOutlined
 
   /**
    * Memuat formulir dinamis dan mendaftarkan item navigasinya.
@@ -588,9 +539,7 @@ export function Sidebar({
       <button
         type="button"
         onClick={onToggleCollapsed}
-        aria-label={
-          collapsed ? 'Perluas sidebar' : 'Lipat sidebar'
-        }
+        aria-label={collapsed ? 'Perluas sidebar' : 'Lipat sidebar'}
         aria-expanded={!collapsed}
         className={cn(
           'm-3 flex shrink-0 items-center rounded-lg bg-brand transition-colors hover:opacity-90',
@@ -612,18 +561,12 @@ export function Sidebar({
           <div
             className={cn(
               'overflow-hidden whitespace-nowrap text-white font-extrabold leading-tight transition-all duration-200 ease-in-out',
-              collapsed
-                ? 'w-0 opacity-0'
-                : 'w-auto opacity-100',
+              collapsed ? 'w-0 opacity-0' : 'w-auto opacity-100',
             )}
           >
-            <h1 className="text-[0.65rem]">
-              {APP_BRAND.name}
-            </h1>
+            <h1 className="text-[0.65rem]">{APP_BRAND.name}</h1>
 
-            <p className="text-left text-[0.6rem]">
-              {APP_BRAND.region}
-            </p>
+            <p className="text-left text-[0.6rem]">{APP_BRAND.region}</p>
           </div>
         </div>
       </button>
@@ -682,9 +625,7 @@ export function Sidebar({
           title={collapsed ? 'Keluar' : undefined}
           className={cn(
             'flex min-h-10 w-full items-center rounded-lg py-2.5 text-sm font-medium text-danger transition-colors hover:bg-danger/10',
-            collapsed
-              ? 'justify-center'
-              : 'gap-2.5 px-3',
+            collapsed ? 'justify-center' : 'gap-2.5 px-3',
           )}
         >
           <SidebarSvgIcon>
@@ -700,16 +641,14 @@ export function Sidebar({
             className={cn(
               NAV_LABEL_KELAS,
               'text-danger transition-opacity duration-200',
-              collapsed
-                ? 'sr-only'
-                : 'opacity-100',
+              collapsed ? 'sr-only' : 'opacity-100',
             )}
           >
             Keluar
           </span>
         </button>
       </div>
-      
+
       <Modal
         opened={logoutOpened}
         onClose={closeLogout}
@@ -728,7 +667,7 @@ export function Sidebar({
           header: {
             backgroundColor: 'var(--color-surface)',
             color: 'var(--color-ink)',
-            fontWeight: 'bolder'
+            fontWeight: 'bolder',
           },
         }}
         // className='bg-surface!'

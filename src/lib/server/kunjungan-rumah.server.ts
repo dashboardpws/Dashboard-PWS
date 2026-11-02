@@ -3,7 +3,10 @@
  * Warga sasaran yang ikut tersimpan diurus di `sasaran.server.ts`.
  */
 
-import type { TemplateQuestionRow } from '@/lib/kunjungan-rumah/template/template-from-rows'
+import type {
+  TemplateQuestionRow,
+  TemplateSectionRow,
+} from '@/lib/kunjungan-rumah/template/template-from-rows'
 import { KODE_FORM_BAWAAN } from '@/lib/constants'
 import { PEMBATAS_NAMA_FIELD } from '@/lib/kunjungan-rumah/template/template-from-rows'
 import { and, desc, eq, inArray } from 'drizzle-orm'
@@ -119,10 +122,28 @@ export async function getKunjunganRumahTemplateRows() {
   if (!version) return null
   const definition = parseFormDefinition(version.schema)
   const sectionRows = definition.sections
+  const sections: TemplateSectionRow[] = sectionRows.map((section) => ({
+    sectionId: section.id,
+    nama: section.name,
+    label: section.label || section.name,
+    description: section.description,
+    urutan: section.order,
+    aktif: section.active,
+    sectionKind: section.sectionKind ?? null,
+    layoutGroups: section.layoutGroups ?? [],
+  }))
+  const kodeById = new Map(
+    sectionRows.flatMap((section) =>
+      section.fields.map(
+        (field) => [field.id, namaFieldTanpaPrefix(field.name)] as const,
+      ),
+    ),
+  )
   if (sectionRows.length === 0)
     return {
       formVersionId: form.formVersionId,
       versiDefinisi: form.version,
+      sections: [],
       questions: {},
     }
   const bySection: Record<string, TemplateQuestionRow[]> = {}
@@ -142,6 +163,18 @@ export async function getKunjunganRumahTemplateRows() {
         opsi: field.options
           .filter((option) => option.active)
           .map((option) => option.value),
+        placeholder: field.placeholder,
+        columns: field.columns,
+        layoutGroup: field.layoutGroup ?? null,
+        visibilityRules: field.visibilityRules.flatMap((rule) => {
+          if (rule.targetType !== 'field') return []
+          const triggerFieldId = kodeById.get(rule.triggerFieldId)
+          const targetId = kodeById.get(rule.targetId)
+          if (!triggerFieldId || !targetId) return []
+          return [
+            { ...rule, targetType: 'field' as const, targetId, triggerFieldId },
+          ]
+        }),
       }
       const list = bySection[section.name]
       if (list) list.push(entry)
@@ -152,6 +185,7 @@ export async function getKunjunganRumahTemplateRows() {
   return {
     formVersionId: form.formVersionId,
     versiDefinisi: form.version,
+    sections,
     questions: bySection,
   }
 }

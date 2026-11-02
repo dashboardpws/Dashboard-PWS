@@ -32,6 +32,13 @@ export interface KunjunganRumahState {
   jadwal: string
   ttd: string
   fotos: KunjunganRumahFoto[]
+  /**
+   * Isian section generik, dengan kunci `${section}::${fieldId}`.
+   *
+   * Dipisah dari `info`/`sanitasi` supaya field baru tidak bisa menabrak field
+   * bawaan yang namanya sama, dan supaya record lama tetap terbaca tanpa migrasi.
+   */
+  tambahan: Record<string, string>
   invalid: Record<string, boolean>
 }
 
@@ -144,6 +151,7 @@ export function initialKunjunganRumahState(): KunjunganRumahState {
     jadwal: '',
     ttd: '',
     fotos: [],
+    tambahan: {},
     invalid: {},
   }
 }
@@ -186,6 +194,7 @@ export type KunjunganRumahAction =
   | { type: 'SET_HASIL'; value: string }
   | { type: 'SET_JADWAL'; value: string }
   | { type: 'SET_TTD'; value: string }
+  | { type: 'SET_TAMBAHAN_FIELD'; key: string; value: string }
   | { type: 'APPLY_SASARAN'; row: SasaranSuggestion }
   | { type: 'SET_INVALID'; invalid: Record<string, boolean> }
   | { type: 'ADD_FOTOS'; fotos: KunjunganRumahFoto[] }
@@ -359,6 +368,11 @@ export function kunjunganRumahReducer(
       return { ...state, jadwal: action.value }
     case 'SET_TTD':
       return { ...state, ttd: action.value }
+    case 'SET_TAMBAHAN_FIELD':
+      return {
+        ...state,
+        tambahan: { ...state.tambahan, [action.key]: action.value },
+      }
     case 'APPLY_SASARAN': {
       // Isi form dengan baris `data_warga_import` yang dipilih user. Kolom
       // pencarian (`nik` dan `namaKK`) selalu disinkronkan ke pilihan yang pasti;
@@ -450,6 +464,7 @@ export function kunjunganRumahReducer(
         jadwal: r.jadwal,
         ttd: r.ttd,
         fotos: r.fotos.map((f) => ({ ...f })),
+        tambahan: { ...(r.tambahan ?? {}) },
       }
     }
     case 'FILL_DEMO': {

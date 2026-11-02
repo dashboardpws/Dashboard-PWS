@@ -12,11 +12,9 @@
  *
  * Jalankan: npx tsx scripts/smoke-notifikasi.mts
  */
-import {
-  queryKelurahanStats,
-  listKunjunganRumahRecords,
-} from '../src/lib/utils.server'
-import { buildWarnings } from '../src/features/dashboard/warning'
+import { queryKelurahanStats } from '../src/lib/server/dashboard.server.ts'
+import { listKunjunganRumahRecords } from '../src/lib/server/kunjungan-rumah.server.ts'
+import { buildWarnings } from '../src/lib/dashboard/warning'
 import {
   keVisitRecord,
   deriveJadwal,

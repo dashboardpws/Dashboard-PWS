@@ -98,9 +98,7 @@ function Dashboard() {
 
   return (
     <AppShell>
-      <PageHeader
-        title="Dashboard PWS"
-      />
+      <PageHeader title="Dashboard PWS" />
       <p className="mt-1 text-xs text-muted">
         Periode {fmtDate(period.startDate)} – {fmtDate(period.endDate)} ·{' '}
         {period.daysRemaining} hari tersisa ·{' '}
