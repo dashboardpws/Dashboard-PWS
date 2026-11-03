@@ -391,6 +391,24 @@ export function useFormRuntime({
     [allFields, answers, rulesAutofill],
   )
 
+  const autofillDariField = useCallback(
+    (triggerFieldId: string, row: SasaranSuggestion) => {
+      setAnswers((prev) => {
+        const hasil = terapkanAutofill({
+          answers: prev,
+          rules: rulesAutofill,
+          konteks: {
+            wargaTerpilih: { ...row },
+            riwayat: [],
+          },
+          triggerFieldId,
+        })
+        return hasil.changed ? hasil.answersBaru : prev
+      })
+    },
+    [rulesAutofill],
+  )
+
   /**
    * NIK ditulis manual di kotak pencarian tanpa memilih suggestion. Pilihan warga
    * yang sebelumnya terisi ikut dibuang, karena NIK baru belum tentu warga yang sama.
@@ -508,6 +526,7 @@ export function useFormRuntime({
     ketikWargaNik,
     warga,
     pilihWarga,
+    autofillDariField,
     cariWarga,
     setCariWarga,
     saranWarga,

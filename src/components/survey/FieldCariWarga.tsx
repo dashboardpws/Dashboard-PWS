@@ -63,6 +63,7 @@ export interface FieldCariWargaProps {
   invalid?: boolean
   placeholder?: string
   required?: boolean
+  onWargaDipilih?: (row: SasaranSuggestion) => void
 }
 
 export function FieldCariWarga({
@@ -75,6 +76,7 @@ export function FieldCariWarga({
   invalid,
   placeholder,
   required,
+  onWargaDipilih,
 }: FieldCariWargaProps) {
   const [rows, setRows] = useState<SasaranSuggestion[]>(BARIS_KOSONG)
   const [busy, setBusy] = useState(false)
@@ -140,8 +142,9 @@ export function FieldCariWarga({
       // NIK: nilainya string kosong, jadi `onChange("")` dan petugas bisa ketik
       // sendiri. Tipe barisnya sudah `string`, jadi tidak perlu penjaga null.
       onChange(row[PROPERTI_KOLOM[kolom]])
+      onWargaDipilih?.(row)
     },
-    [kolom, onChange],
+    [kolom, onChange, onWargaDipilih],
   )
 
   const tutup = useCallback(() => setTerbuka(null), [])

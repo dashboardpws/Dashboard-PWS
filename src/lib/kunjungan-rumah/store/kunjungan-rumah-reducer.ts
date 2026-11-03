@@ -21,6 +21,8 @@ import {
   opsiHubKK,
 } from '@/lib/kunjungan-rumah/sasaran/warga-row'
 import type { SasaranSuggestion } from '@/lib/kunjungan-rumah/sasaran/warga-row'
+import { getMemberKeys } from '@/lib/kunjungan-rumah/penilaian-riwayat'
+import type { PenilaianRiwayat } from '@/lib/kunjungan-rumah/penilaian-riwayat'
 
 export interface KunjunganRumahState {
   info: KeluargaInfo
@@ -196,6 +198,7 @@ export type KunjunganRumahAction =
   | { type: 'SET_TTD'; value: string }
   | { type: 'SET_TAMBAHAN_FIELD'; key: string; value: string }
   | { type: 'APPLY_SASARAN'; row: SasaranSuggestion }
+  | { type: 'RESET_DATA_SASARAN' }
   | { type: 'SET_INVALID'; invalid: Record<string, boolean> }
   | { type: 'ADD_FOTOS'; fotos: KunjunganRumahFoto[] }
   | { type: 'SET_FOTO_CAPTION'; index: number; caption: string }
@@ -206,6 +209,10 @@ export type KunjunganRumahAction =
       type: 'ISI_ANGGOTA_KELUARGA'
       rows: SasaranSuggestion[]
       templates?: KunjunganRumahTemplates
+    }
+  | {
+      type: 'ISI_PENILAIAN_DARI_RIWAYAT'
+      penilaianByKey: Record<string, PenilaianRiwayat[]>
     }
   | { type: 'ISI_SANITASI_DARI_RIWAYAT'; sanitasi: Sanitasi }
   | { type: 'FILL_DEMO' }
@@ -428,6 +435,8 @@ export function kunjunganRumahReducer(
 
       return { ...state, info, anggota, invalid: {} }
     }
+    case 'RESET_DATA_SASARAN':
+      return { ...state, anggota: [], penilaian: [], masalah: [] }
     case 'SET_INVALID':
       return { ...state, invalid: action.invalid }
     case 'ADD_FOTOS':
@@ -611,7 +620,24 @@ export function kunjunganRumahReducer(
           },
         ]
       })
-      return { ...state, anggota: mappedRows }
+      return { ...state, anggota: mappedRows, penilaian: [], masalah: [] }
+    }
+    case 'ISI_PENILAIAN_DARI_RIWAYAT': {
+      const penilaian = state.anggota.flatMap((anggota) => {
+        const key = getMemberKeys(anggota).find(
+          (candidate) => action.penilaianByKey[candidate]?.length,
+        )
+        if (!key) return []
+        return (action.penilaianByKey[key] ?? []).map((row) => ({
+          ...row,
+          id: createRecordId(),
+          anggotaId: anggota.id,
+          values: { ...row.values },
+          checks: { ...row.checks },
+          prioritas: [...row.prioritas],
+        }))
+      })
+      return { ...state, penilaian }
     }
     case 'ISI_SANITASI_DARI_RIWAYAT': {
       return { ...state, sanitasi: action.sanitasi }

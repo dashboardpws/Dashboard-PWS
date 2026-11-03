@@ -271,11 +271,11 @@ export function FormBuilderWorkspace({
         {(source) => <KontenDrag source={source} document={document} />}
       </DragOverlay>
 
-      <div className="flex h-[calc(100vh-200px)] min-h-125 flex-col max-md:h-[68dvh] max-md:min-h-[420px]">
+      <div className="flex h-[calc(100vh-200px)] min-h-125 flex-col max-md:h-[68dvh] max-md:min-h-48">
         <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
           <div className="flex items-center gap-2">
             {onBack && (
-              <Button size="sm" variant="ghost" onClick={onBack}>
+              <Button size="sm" variant="ghost" onClick={onBack} >
                 <RotateCcw className="w-4 h-4" /> Kembali
               </Button>
             )}

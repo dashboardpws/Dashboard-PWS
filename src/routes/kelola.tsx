@@ -53,26 +53,36 @@ function Kelola() {
   return (
     <AppShell>
       <PageHeader
-        title="Kelola Master Data"
-        description="Admin menyusun form, dan akun staff/kader. Perubahan langsung sinkron ke form kader."
+        title="Kelola Aplikasi"
       />
 
-      {registryError ? (
-        <p className="mt-3 text-sm text-destructive">{registryError}</p>
-      ) : null}
-      {registryLoading ? (
-        <p className="mt-3 text-sm text-muted-foreground">
-          Memuat daftar kader…
-        </p>
-      ) : null}
-      {templateError ? (
-        <p className="mt-3 text-sm text-destructive">{templateError}</p>
-      ) : null}
-      {templateLoading ? (
-        <p className="mt-3 text-sm text-muted-foreground">
-          Menghitung field aktif…
-        </p>
-      ) : null}
+      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm pointer-events-none">
+        {registryLoading && (
+          <div className="pointer-events-auto flex items-center gap-3 rounded-lg bg-surface-2 px-4 py-3 text-sm text-ink-1 shadow-lg backdrop-blur transition-all duration-300 animate-in fade-in slide-in-from-bottom-3 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:slide-out-to-bottom-3">
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <p>Memuat daftar kader…</p>
+          </div>
+        )}
+      
+        {templateLoading && (
+          <div className="pointer-events-auto flex items-center gap-3 rounded-lg bg-surface-2 px-4 py-3 text-sm text-ink-1 shadow-lg backdrop-blur transition-all duration-300 animate-in fade-in slide-in-from-bottom-3 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:slide-out-to-bottom-3">
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <p>Menghitung field aktif…</p>
+          </div>
+        )}
+      
+        {registryError && (
+          <div className="pointer-events-auto flex items-center gap-3 rounded-lg bg-surface-2 px-4 py-3 text-sm text-destructive shadow-lg backdrop-blur transition-all duration-300 animate-in fade-in slide-in-from-bottom-3 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:slide-out-to-bottom-3">
+            <p>{registryError}</p>
+          </div>
+        )}
+      
+        {templateError && (
+          <div className="pointer-events-auto flex items-center gap-3 rounded-lg bg-surface-2 px-4 py-3 text-sm text-destructive shadow-lg backdrop-blur transition-all duration-300 animate-in fade-in slide-in-from-bottom-3 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:slide-out-to-bottom-3">
+            <p>{templateError}</p>
+          </div>
+        )}
+      </div>
 
       <div className="mt-4 grid grid-cols-2 gap-3 max-md:grid-cols-1">
         <StatCard

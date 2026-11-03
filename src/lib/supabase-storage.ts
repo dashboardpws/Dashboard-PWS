@@ -29,14 +29,16 @@ export class StorageUploadError extends Error {
 /** Ambil env var. `import.meta.env` hanya di-fill Vite untuk akses statis
  *  (`import.meta.env.X`), sedangkan akses dinamis `env[name]` kosong di luar
  *  dev server — jadi `process.env` (yang dipakai Vitest) jadi cadangan. */
-function env(name: string): string {
-  const meta = import.meta as unknown as {
-    env?: Record<string, string | undefined>
-  }
-  const v = meta.env?.[name] ?? process.env[name]
-  if (!v) throw new Error(`${name} belum diisi`)
-  return v
-}
+ function env(name: 'VITE_SUPABASE_URL' | 'VITE_SUPABASE_PUBLISHABLE_KEY'): string {
+   const values: Record<string, string | undefined> = {
+     VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL ?? (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_URL : undefined),
+     VITE_SUPABASE_PUBLISHABLE_KEY: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_PUBLISHABLE_KEY : undefined),
+   }
+ 
+   const v = values[name]
+   if (!v) throw new Error(`${name} belum diisi`)
+   return v
+ }
 
 /** Ambil pesan relevan dari body error Supabase. Tahan terhadap JSON tidak valid. */
 function extractDetail(raw: string, statusText: string): string {

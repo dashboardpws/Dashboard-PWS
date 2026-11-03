@@ -7,6 +7,15 @@
 import type { RuleAutofill, KonteksAutofill, TransformAutofill } from './types'
 import { getNestedValue, setNestedValue } from './nested'
 
+const KOLOM_WARGA_RUNTIME: Record<string, string> = {
+  nama_art: 'namaArt',
+  nama_kk: 'namaKk',
+  tgl_lahir: 'tglLahir',
+  jenis_kelamin: 'jenisKelamin',
+  status_kawin: 'statusKawin',
+  kota: 'kabKota',
+}
+
 function nilaiKosongUntukAutofill(value: unknown): boolean {
   if (value === null || value === undefined) return true
   if (typeof value === 'string') return value.trim() === ''
@@ -18,7 +27,10 @@ function ambilDariKonteks(rule: RuleAutofill, ctx: KonteksAutofill): unknown {
   switch (rule.sumber) {
     case 'warga': {
       if (!ctx.wargaTerpilih) return undefined
-      return ctx.wargaTerpilih[rule.kolom]
+      return (
+        ctx.wargaTerpilih[rule.kolom] ??
+        ctx.wargaTerpilih[KOLOM_WARGA_RUNTIME[rule.kolom] ?? rule.kolom]
+      )
     }
     case 'anggota': {
       const first = ctx.anggotaKeluarga?.[0]

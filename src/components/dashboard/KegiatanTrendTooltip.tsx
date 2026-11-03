@@ -18,7 +18,8 @@ export function KegiatanTooltip({
   const entry = payload[0]?.payload as MonthlyKegiatanStat | undefined
   if (!entry) return null
 
-  const { totalKegiatan, byJenis } = entry
+  // Fallback ke array kosong jika byJenis undefined/null dari backend atau fill item
+  const { totalKegiatan = 0, byJenis = [] } = entry
 
   return (
     <div

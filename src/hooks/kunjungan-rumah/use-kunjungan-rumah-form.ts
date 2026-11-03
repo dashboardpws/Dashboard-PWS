@@ -83,7 +83,10 @@ export function useKunjunganRumahForm(opts?: UseKunjunganRumahFormOptions) {
 
   const handleWargaSelected = useCallback(
     (row: SasaranSuggestion) => {
-      const stateWithWarga = kunjunganRumahReducer(state, {
+      const stateKosong = kunjunganRumahReducer(state, {
+        type: 'RESET_DATA_SASARAN',
+      })
+      const stateWithWarga = kunjunganRumahReducer(stateKosong, {
         type: 'APPLY_SASARAN',
         row,
       })

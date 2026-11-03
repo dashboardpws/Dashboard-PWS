@@ -45,6 +45,7 @@ import {
 import { MAX_BARIS_GROUP } from '@/lib/service/form-builder/validasi'
 import { FieldCariWarga } from './FieldCariWarga'
 import type { FieldRuntime } from '@/lib/server/survey/form-runtime.server'
+import type { SasaranSuggestion } from '@/lib/kunjungan-rumah/sasaran/warga-row'
 import { cn } from '@/lib/utils'
 import { daftarTeks, teksNilai } from '@/lib/survey/format-jawaban'
 
@@ -64,6 +65,8 @@ export interface DynamicFieldProps {
   onChange: (value: unknown) => void
   /** Tandai field wajib yang kosong. UX saja — server yang menolak. */
   invalid?: boolean
+  /** Jalankan rule lintas field setelah suggestion warga dipilih. */
+  onWargaDipilih?: (row: SasaranSuggestion) => void
   /**
    * Tampilkan bentuk field tanpa bisa diisi. Dipakai pratinjau di Form Builder:
    * field digambar persis seperti di halaman isi, tapi tidak menerima ketikan
@@ -252,6 +255,7 @@ function DynamicFieldImpl({
   value,
   onChange,
   invalid = false,
+  onWargaDipilih,
   readOnly = false,
 }: DynamicFieldProps) {
   const placeholder = field.placeholder ?? undefined
@@ -405,6 +409,7 @@ function DynamicFieldImpl({
             invalid={invalid}
             placeholder={placeholder}
             required={field.wajib}
+            onWargaDipilih={onWargaDipilih}
           />
         )
       }

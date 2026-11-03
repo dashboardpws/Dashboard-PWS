@@ -6,6 +6,7 @@ import { Select } from '@/components/ui/Select'
 import { FormField } from '@/components/ui/FormField'
 import {
   cariAnggotaKeluarga,
+  cariPenilaianKunjunganRumahTerakhir,
   cariRiwayatKs,
   cariSasaranWarga,
 } from '@/lib/api/server-fns'
@@ -127,8 +128,8 @@ export function KeluargaInfoSection({
     else dispatch({ type: 'APPLY_SASARAN', row })
     setSaran(null)
 
-    // Dua fetch jalan bersamaan lalu dipasang bareng: keduanya baca data yang
-    // sama dan tidak saling bergantung, jadi tidak perlu di-await satu per satu.
+    // Semua riwayat dibaca paralel; penilaian KR dipasang setelah anggota baru
+    // selesai dimuat agar relasi lokal `anggotaId` memakai ID yang baru.
     // Alamat dan `jumlah_art` ikut dikirim — tanpa keduanya pencarian satu nama
     // KK bisa menarik puluhan keluarga yang kebetulan sama namanya (sudah
     // pernah terjadi: 53 baris untuk satu pilihan). `jumlah_art` hanya ada di
@@ -144,13 +145,23 @@ export function KeluargaInfoSection({
       jumlahArt: row.jumlahArt ?? null,
     }
     const bolehCari = !!kunci.namaKk.trim() || !!kunci.nik.trim()
-    const [hasilAnggota, hasilRiwayat] = await Promise.all([
+    const [hasilAnggota, hasilRiwayat, hasilPenilaian] = await Promise.all([
       bolehCari
         ? cariAnggotaKeluarga({ data: kunci }).catch(() => null)
         : Promise.resolve(null),
       cariRiwayatKs({ data: { rawId: row.rawId, nik: row.nik } }).catch(
         () => null,
       ),
+      cariPenilaianKunjunganRumahTerakhir({
+        data: {
+          nik: row.nik,
+          namaKk: row.namaKk,
+          kelurahan: row.kelurahan,
+          kecamatan: row.kecamatan,
+          rt: row.rt,
+          rw: row.rw,
+        },
+      }).catch(() => null),
     ])
     // Syarat stale dicek SEBELUM `finally` yang membuka loader: kalau pilihan
     // sudah diganti, loader milik permintaan yang lebih baru yang harus tetap
@@ -162,6 +173,12 @@ export function KeluargaInfoSection({
           type: 'ISI_ANGGOTA_KELUARGA',
           rows: hasilAnggota,
           templates,
+        })
+
+      if (hasilPenilaian && Object.keys(hasilPenilaian).length > 0)
+        dispatch({
+          type: 'ISI_PENILAIAN_DARI_RIWAYAT',
+          penilaianByKey: hasilPenilaian,
         })
 
       // Sanitasi dibaca dari snapshot state saat ini, bukan dari `state` render

@@ -31,7 +31,6 @@
 import React, { useState } from 'react'
 import {
   Box,
-  Button,
   Card,
   Group,
   Stack,
@@ -49,6 +48,7 @@ import {
   Checkbox,
   Divider,
 } from '@mantine/core'
+import { Button } from '@/components/ui/Button'
 import {
   Trash2,
   Code2,
@@ -324,7 +324,7 @@ export function FormDesigner() {
           </Text>
           <Stack gap="xs">
             <Button
-              variant="light"
+              variant="default"
               leftSection={<Type size={16} />}
               onClick={() => handleAddField('input-text', 'Text Input')}
               fullWidth
@@ -332,8 +332,7 @@ export function FormDesigner() {
               + Text Input
             </Button>
             <Button
-              variant="light"
-              color="teal"
+              variant="default"
               leftSection={<AlignLeft size={16} />}
               onClick={() => handleAddField('textarea', 'Textarea')}
               fullWidth
@@ -341,8 +340,7 @@ export function FormDesigner() {
               + Textarea
             </Button>
             <Button
-              variant="light"
-              color="orange"
+              variant="default"
               leftSection={<Hash size={16} />}
               onClick={() => handleAddField('input-number', 'Number Input')}
               fullWidth
@@ -350,8 +348,7 @@ export function FormDesigner() {
               + Number
             </Button>
             <Button
-              variant="light"
-              color="violet"
+              variant="default"
               leftSection={<ListFilter size={16} />}
               onClick={() => handleAddField('select', 'Dropdown Select')}
               fullWidth
@@ -359,8 +356,7 @@ export function FormDesigner() {
               + Select
             </Button>
             <Button
-              variant="light"
-              color="green"
+              variant="default"
               leftSection={<CheckSquare size={16} />}
               onClick={() => handleAddField('checkbox', 'Checkbox')}
               fullWidth

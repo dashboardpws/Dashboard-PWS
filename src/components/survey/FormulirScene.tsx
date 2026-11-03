@@ -45,6 +45,7 @@ import type {
   FieldRuntime,
   DefinisiRuntime,
 } from '@/lib/server/survey/form-runtime.server'
+import type { SasaranSuggestion } from '@/lib/kunjungan-rumah/sasaran/warga-row'
 
 export interface FormulirSceneProps {
   formVersionId: string
@@ -63,11 +64,13 @@ function BarisField({
   field,
   value,
   setAnswer,
+  autofillDariField,
   invalid,
 }: {
   field: FieldRuntime
   value: unknown
   setAnswer: (fieldId: string, value: unknown) => void
+  autofillDariField: (triggerFieldId: string, row: SasaranSuggestion) => void
   invalid: boolean
 }) {
   const onChange = useCallback(
@@ -80,6 +83,7 @@ function BarisField({
         field={field}
         value={value}
         onChange={onChange}
+        onWargaDipilih={(row) => autofillDariField(field.id, row)}
         invalid={invalid}
       />
     </div>
@@ -93,6 +97,7 @@ export function FormulirScene({ formVersionId, definisi }: FormulirSceneProps) {
     version,
     answers,
     setAnswer,
+    autofillDariField,
     firstMissingRequiredId,
     kosongWajib,
     fillPercent,
@@ -329,6 +334,7 @@ export function FormulirScene({ formVersionId, definisi }: FormulirSceneProps) {
               field={field}
               value={answers[field.id]}
               setAnswer={setAnswer}
+              autofillDariField={autofillDariField}
               invalid={kosongkan(field)}
             />
           ))}

@@ -15,6 +15,7 @@ import {
 import { useToast } from '@/providers/toast'
 import { useFormBuilder } from '@/hooks/kelola/use-form-builder'
 import { useFormBuilderDraft } from '@/hooks/kelola/use-form-builder-draft'
+import { Loader } from '@mantine/core'
 
 const LABEL_STATUS: Record<string, string> = {
   draft: 'Draft',
@@ -131,7 +132,7 @@ export function FormBuilderSection() {
           sub="Form bawaan sistem ikut tampil dan bisa disunting di sini lewat draft baru. Strukturnya sebagian terkunci karena form kader membacanya lewat nama section dan kode field."
           actions={
             <Button
-              variant="primary"
+              variant="export"
               size="sm"
               onClick={() => setModalForm(true)}
             >
@@ -141,7 +142,10 @@ export function FormBuilderSection() {
         />
 
         {loading ? (
-          <p className="mt-3 text-[13px] text-muted">Memuat daftar form…</p>
+          <div className='flex gap-3 items-center p-2'>
+            <Loader size="xs" color="gray" />
+            <p className=" mt-1 text-sm text-muted">Memuat daftar form…</p>
+          </div>
         ) : null}
 
         {!loading && forms.length === 0 ? (
@@ -164,7 +168,7 @@ export function FormBuilderSection() {
                   <button
                     type="button"
                     onClick={() => void pilihForm(form.id)}
-                    className="flex-1 text-left text-[13px] font-semibold text-ink"
+                    className="flex-1 text-left text-sm! font-semibold text-ink"
                   >
                     {form.nama}
                   </button>
@@ -202,7 +206,7 @@ export function FormBuilderSection() {
 
       {formTerpilih ? (
         <>
-          <Card className="mt-3">
+          <Card className="my-3">
             <CardHeader
               title={`Versi — ${formTerpilih.nama}`}
               sub="Satu form hanya boleh punya satu versi yang tayang. Versi yang tayang dibekukan, perubahan harus lewat draft baru."
@@ -211,7 +215,7 @@ export function FormBuilderSection() {
                   <Button
                     size="sm"
                     disabled={!bisaUbah || saving}
-                    variant="primary"
+                    variant="export"
                     onClick={() => void terbitkan()}
                   >
                     Terbitkan
@@ -252,7 +256,7 @@ export function FormBuilderSection() {
                 <Button
                   key={v.id}
                   size="sm"
-                  variant={v.id === formVersionId ? 'primary' : 'default'}
+                  variant={v.id === formVersionId ? 'export' : 'default'}
                   onClick={() => void pilihVersi(v.id)}
                 >
                   v{v.version} · {LABEL_STATUS[v.status] ?? v.status}

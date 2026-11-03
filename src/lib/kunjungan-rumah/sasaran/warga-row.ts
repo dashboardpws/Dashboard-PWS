@@ -284,17 +284,17 @@ export function barisDataWargaDariForm(input: {
   // staff lebih baru daripada data import.
   const relasi = {
     hubungan_keluarga: keHubunganKeluarga(
-      kk?.hubKK ?? suggestion?.hubunganKeluarga,
+      kk?.hubKK || suggestion?.hubunganKeluarga,
     ),
-    status_kawin: keStatusKawin(kk?.statusKawin ?? suggestion?.statusKawin),
-    jenis_kelamin: keJenisKelamin(kk?.jk ?? suggestion?.jenisKelamin),
+    status_kawin: keStatusKawin(kk?.statusKawin || suggestion?.statusKawin),
+    jenis_kelamin: keJenisKelamin(kk?.jk || suggestion?.jenisKelamin),
     // `agama` tidak ada di template keluarga default, jadi biasanya hanya bisa
     // datang dari import. `kk.agama` tetap dibaca lebih dulu: kalau admin
     // menambah field `agama` di section anggota lewat Form Builder, `kk.agama`
     // langsung terpakai tanpa perubahan kode ini.
-    agama: keAgama(kk?.agama ?? suggestion?.agama),
-    pendidikan: kePendidikan(kk?.pendidikan ?? suggestion?.pendidikan),
-    pekerjaan: kePekerjaan(kk?.pekerjaan ?? suggestion?.pekerjaan),
+    agama: keAgama(kk?.agama || suggestion?.agama),
+    pendidikan: kePendidikan(kk?.pendidikan || suggestion?.pendidikan),
+    pekerjaan: kePekerjaan(kk?.pekerjaan || suggestion?.pekerjaan),
   }
 
   if (nik && !isValidNik(nik)) return { nilai: null, hilang: ['nik'] }

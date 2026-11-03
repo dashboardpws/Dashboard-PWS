@@ -372,6 +372,15 @@ pre code {
 }
 .mantine-Button-root[data-variant='ghost']:hover {
   background-color: var(--color-accent-light);
+  color: var(--color-accent);
+}
+.mantine-Button-root[data-variant='ghost']:disabled,
+.mantine-Button-root[data-variant='ghost']:disabled:hover {
+  border-color: var(--color-accent-border);
+  background-color: var(--color-surface);
+  color: var(--color-accent);
+  cursor: not-allowed;
+  opacity: 1;
 }
 
 .mantine-Button-root[data-variant='danger'] {

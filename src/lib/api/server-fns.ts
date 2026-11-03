@@ -31,6 +31,7 @@ import {
   querySasaranListPaged,
   querySasaranWarga,
   querySurveyStatsByNik,
+  queryPenilaianKRTerbaru,
   queryWargaList,
   queryRiwayatKsUntukNik,
 } from '@/lib/server/sasaran.server'
@@ -263,7 +264,7 @@ export const getSasaranDetail = createServerFn({ method: 'GET' })
     }): Promise<{ warga: SasaranDetailRow | null; surveys: SurveyRow[] }> => {
       const [warga, surveys] = await Promise.all([
         querySasaranByNik(data.nik),
-        querySurveysWithWarga(500),
+        querySurveysWithWarga(500, data.nik),
       ])
       // NIK yang hanya ada di `data_warga_import` juga ketemu di sini, jadi
       // detail menampilkan data awal import dan tidak lagi "tidak ditemukan"
@@ -275,9 +276,7 @@ export const getSasaranDetail = createServerFn({ method: 'GET' })
       )
       return {
         warga: { ...found, ...riwayat },
-        surveys: surveys.filter(
-          (s) => s.nik === found.nik || s.nik === data.nik,
-        ),
+        surveys,
       }
     },
   )
@@ -449,6 +448,22 @@ export const cariAnggotaKeluarga = createServerFn({ method: 'POST' })
     }) => data,
   )
   .handler(async ({ data }) => await queryAnggotaKeluarga(data))
+
+export const cariPenilaianKunjunganRumahTerakhir = createServerFn({
+  method: 'POST',
+})
+  .middleware([authSessionToken])
+  .validator(
+    (data: {
+      nik: string
+      namaKk: string
+      kelurahan?: string | null
+      kecamatan?: string | null
+      rt?: string | null
+      rw?: string | null
+    }) => data,
+  )
+  .handler(async ({ data }) => await queryPenilaianKRTerbaru(data))
 
 export const getKunjunganRumah = createServerFn({ method: 'GET' })
   .middleware([authSessionToken])

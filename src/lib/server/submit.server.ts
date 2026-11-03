@@ -51,7 +51,28 @@ export interface BarisIsianForm {
  */
 export async function querySurveysWithWarga(
   limit = 500,
+  nik?: string,
 ): Promise<BarisIsianForm[]> {
+  const filterNik = nik
+    ? sql`AND (
+        s."wargaNik" = ${nik}
+        OR EXISTS (
+          SELECT 1
+          FROM survey_entries e
+          JOIN form_versions fv ON fv.id = s."formVersionId"
+          CROSS JOIN LATERAL jsonb_array_elements(fv.schema->'sections') section
+          CROSS JOIN LATERAL jsonb_array_elements(section->'fields') field
+          CROSS JOIN LATERAL jsonb_array_elements(
+            CASE WHEN jsonb_typeof(e.value->'anggota') = 'array'
+              THEN e.value->'anggota' ELSE '[]'::jsonb END
+          ) anggota
+          WHERE e."surveyId" = s.id
+            AND field->>'id' = e."fieldId"::text
+            AND field->>'name' = 'penyimpanan::record_legacy'
+            AND anggota->>'nik' = ${nik}
+        )
+      )`
+    : sql``
   const rows = await db.execute(sql`
         SELECT
             s.id                                   AS "id",
@@ -68,6 +89,7 @@ export async function querySurveysWithWarga(
         INNER JOIN forms f ON f.id = fv."formId"
         LEFT JOIN data_warga w ON w.nik = s."wargaNik"
         LEFT JOIN users u ON u.id = s."petugasId"
+        WHERE TRUE ${filterNik}
         ORDER BY s."tanggal" DESC
         LIMIT ${limit}
     `)

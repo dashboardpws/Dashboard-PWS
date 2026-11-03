@@ -1,59 +1,43 @@
 import { forwardRef } from 'react'
 import { Button as MantineButton } from '@mantine/core'
 import type { ButtonProps as MantineButtonProps } from '@mantine/core'
-import type { ButtonVariant, ButtonSize } from '@/lib/utils'
-import { buttonClass, cn } from '@/lib/utils'
+import type { ButtonSize, ButtonVariant } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 
-export interface ButtonProps extends Omit<
-  React.ButtonHTMLAttributes<HTMLButtonElement>,
-  'color' | 'size'
-> {
-  variant?: ButtonVariant
+export interface ButtonProps
+  extends Omit<MantineButtonProps, 'size' | 'variant'>,
+    Omit<
+      React.ButtonHTMLAttributes<HTMLButtonElement>,
+      'color' | 'size' | 'style' | 'className'
+    > {
   size?: ButtonSize
-  mantineProps?: MantineButtonProps
+  variant?: ButtonVariant
+  className?: string
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   (
-    {
-      variant = 'default',
-      size = 'md',
-      type = 'button',
-      className,
-      children,
-      disabled,
-      mantineProps,
-      ...props
-    },
+    { size = 'md', type = 'button', variant = 'default', className, ...props },
     ref,
-  ) => {
-    return (
-      <MantineButton
-        ref={ref}
-        type={type}
-        disabled={disabled}
-        // `unstyled` mencabut style bawaan Mantine (warna biru default & radius Mantine hilang)
-        unstyled
-        className={cn(
-          'inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border font-bold transition-colors',
-          'disabled:cursor-not-allowed disabled:opacity-50',
-          buttonClass(variant, size),
-          className,
-        )}
-        styles={{
-          root: {
-            // Mengunci font-size & line-height secara eksplisit agar ukuran `sm` tidak kebesaran
-            fontSize: size === 'sm' ? '0.75rem' : '0.875rem',
-            lineHeight: size === 'sm' ? '1rem' : '1.25rem',
-          },
-        }}
-        {...mantineProps}
-        {...props}
-      >
-        {children}
-      </MantineButton>
-    )
-  },
+  ) => (
+    <MantineButton
+      ref={ref}
+      type={type}
+      size={size}
+      variant={variant}
+      className={cn(
+        // Menjaga warna teks tetap gelap (atau sesuai variabel ink) saat hover pada variant ghost/subtle
+        'hover:text-ink-1 font-bold',
+        className,
+      )}
+      classNames={{
+        // Memberikan gap antara ikon dan teks serta menyelaraskan posisi vertikalnya
+        inner: 'gap-2',
+        label: 'flex items-center gap-2 font-bold hover:text-inherit',
+      }}
+      {...props}
+    />
+  ),
 )
 
 Button.displayName = 'Button'

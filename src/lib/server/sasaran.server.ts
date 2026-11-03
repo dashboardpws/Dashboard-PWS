@@ -25,6 +25,11 @@ import {
 import { dataWargaTable } from '@/lib/schema/schema'
 import { db } from './db.server'
 import { sql } from 'drizzle-orm'
+import { isValidNik } from '@/lib/utils'
+import {
+  buildPenilaianMapFromSubmission,
+  getMemberKey,
+} from '@/lib/kunjungan-rumah/penilaian-riwayat'
 
 // ---- pencarian warga sasaran di data_warga + data import ----
 //
@@ -318,16 +323,22 @@ export async function queryAnggotaKeluarga(kunci: {
   // kelebihan.
   const jumlah = kunci.jumlahArt
   const adaBarisImport = importSisa.length > 0
-  if (
+  const terlihatAkhir =
     typeof jumlah === 'number' &&
     Number.isFinite(jumlah) &&
     jumlah > 0 &&
     adaBarisImport &&
     terurut.length > jumlah
+      ? terurut.slice(0, jumlah)
+      : terurut
+  const terbaru = await anggotaSubmissionTerbaru(kunci)
+  return gabungkanDenganSubmissionTerbaru(terlihatAkhir, terbaru).sort(
+    (a, b) => {
+      const aKepala = a.namaKk && a.namaArt === a.namaKk ? 0 : 1
+      const bKepala = b.namaKk && b.namaArt === b.namaKk ? 0 : 1
+      return aKepala - bKepala || a.namaArt.localeCompare(b.namaArt)
+    },
   )
-    return terurut.slice(0, jumlah)
-
-  return terurut
 }
 
 /** Baris import untuk satu NIK; dipakai server saat menyimpan agar kolom yang
@@ -341,6 +352,172 @@ async function importUntukNik(nik: string): Promise<SasaranSuggestion | null> {
     `)
   const [row] = rows as unknown as BarisImportSasaran[]
   return row ? normalkanSasaran(row) : null
+}
+
+/** Gabungkan master tersimpan dan import sebagai fallback sebelum memakai form. */
+async function saranDasarUntukNik(
+  nik: string,
+): Promise<SasaranSuggestion | null> {
+  const [tersimpan, imported] = await Promise.all([
+    db.execute(
+      sql`SELECT ${SELECT_SASARAN_WARGA} FROM data_warga WHERE nik = ${nik} LIMIT 1`,
+    ),
+    importUntukNik(nik),
+  ])
+  const row = (tersimpan as unknown as BarisImportSasaran[])[0]
+  const utama = row ? normalkanSasaran(row) : null
+  if (!utama) return imported
+  if (!imported) return utama
+  const hasil = { ...imported, ...utama, jumlahArt: imported.jumlahArt }
+  for (const key of Object.keys(hasil) as Array<keyof SasaranSuggestion>) {
+    const nilai = hasil[key]
+    if ((nilai === null || nilai === '') && imported[key] != null)
+      Object.assign(hasil, { [key]: imported[key] })
+  }
+  return hasil
+}
+
+/** Payload KR terbaru yang menyebut warga ini sebagai sasaran. */
+async function payloadSubmissionTerbaru(kunci: {
+  nik?: string
+  namaKk?: string
+  kelurahan?: string | null
+  kecamatan?: string | null
+  rt?: string | null
+  rw?: string | null
+}): Promise<Record<string, unknown> | null> {
+  const nik = kunci.nik?.trim() ?? ''
+  const rows = await db.execute(sql`
+    SELECT e.value
+    FROM surveys s
+    JOIN survey_entries e ON e."surveyId" = s.id
+    JOIN form_versions fv ON fv.id = s."formVersionId"
+    CROSS JOIN LATERAL jsonb_array_elements(fv."schema"->'sections') section
+    CROSS JOIN LATERAL jsonb_array_elements(section->'fields') field
+    WHERE field->>'id' = e."fieldId"::text
+      AND field->>'name' = 'penyimpanan::record_legacy'
+      AND (
+        (
+          ${nik} <> ''
+          AND (
+            s."wargaNik" = ${nik}
+            OR EXISTS (
+              SELECT 1
+              FROM jsonb_array_elements(
+                CASE
+                  WHEN jsonb_typeof(e.value->'anggota') = 'array'
+                    THEN e.value->'anggota'
+                  WHEN jsonb_typeof(e.value->'anggotaKeluarga') = 'array'
+                    THEN e.value->'anggotaKeluarga'
+                  ELSE '[]'::jsonb
+                END
+              ) anggota
+              WHERE anggota->>'nik' = ${nik}
+            )
+          )
+        )
+        OR (
+          ${nik} = ''
+          AND e.value->'info'->>'namaKK' = ${kunci.namaKk ?? ''}
+          AND NULLIF(e.value->'info'->>'kelurahan', '') IS NOT DISTINCT FROM NULLIF(${kunci.kelurahan ?? null}, '')
+          AND NULLIF(e.value->'info'->>'kecamatan', '') IS NOT DISTINCT FROM NULLIF(${kunci.kecamatan ?? null}, '')
+          AND NULLIF(e.value->'info'->>'rt', '') IS NOT DISTINCT FROM NULLIF(${kunci.rt ?? null}, '')
+          AND NULLIF(e.value->'info'->>'rw', '') IS NOT DISTINCT FROM NULLIF(${kunci.rw ?? null}, '')
+        )
+      )
+    ORDER BY e."createdAt" DESC
+    LIMIT 1
+  `)
+  const payload = (rows[0] as { value?: unknown } | undefined)?.value
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload))
+    return null
+  return payload as Record<string, unknown>
+}
+
+export async function queryPenilaianKRTerbaru(
+  kunci: Parameters<typeof payloadSubmissionTerbaru>[0],
+): Promise<
+  Record<
+    string,
+    import('@/lib/kunjungan-rumah/penilaian-riwayat').PenilaianRiwayat[]
+  >
+> {
+  if (!isValidNik(kunci.nik ?? '') && !kunci.namaKk?.trim()) return {}
+  const payload = await payloadSubmissionTerbaru(kunci)
+  return payload ? buildPenilaianMapFromSubmission(payload) : {}
+}
+
+/** Anggota dari submission KR terbaru yang menyebut warga ini sebagai sasaran. */
+async function anggotaSubmissionTerbaru(
+  kunci: Parameters<typeof payloadSubmissionTerbaru>[0],
+): Promise<SasaranSuggestion[]> {
+  const rec = await payloadSubmissionTerbaru(kunci)
+  if (!rec) return []
+  const info = (rec.info ?? {}) as Record<string, unknown>
+  const anggota = Array.isArray(rec.anggota)
+    ? rec.anggota
+    : Array.isArray(rec.anggotaKeluarga)
+      ? rec.anggotaKeluarga
+      : []
+  return anggota.flatMap((item): SasaranSuggestion[] => {
+    if (!item || typeof item !== 'object') return []
+    const a = item as Record<string, unknown>
+    const nikAnggota = typeof a.nik === 'string' ? a.nik.trim() : ''
+    if (!nikAnggota && !(typeof a.nama === 'string' && a.nama.trim())) return []
+    return [
+      normalkanSasaran({
+        rawId: nikAnggota,
+        nik: nikAnggota,
+        namaArt: a.nama,
+        namaKk: info.namaKK,
+        hubunganKeluarga: a.hubKK,
+        tglLahir: a.tglLahir,
+        jenisKelamin: a.jk,
+        statusKawin: a.statusKawin,
+        agama: a.agama,
+        pendidikan: a.pendidikan,
+        pekerjaan: a.pekerjaan,
+        alamat: info.alamat,
+        rt: info.rt,
+        rw: info.rw,
+        kecamatan: info.kecamatan,
+        kelurahan: info.kelurahan,
+        kabKota: info.kabKota,
+        provinsi: info.provinsi,
+      }),
+    ]
+  })
+}
+
+function gabungkanDenganSubmissionTerbaru(
+  awal: SasaranSuggestion[],
+  terbaru: SasaranSuggestion[],
+): SasaranSuggestion[] {
+  const kunci = (warga: SasaranSuggestion) =>
+    getMemberKey({
+      nik: warga.nik,
+      nama: warga.namaArt,
+      tglLahir: warga.tglLahir,
+      hubunganKeluarga: warga.hubunganKeluarga,
+    }) ?? `name_household:${warga.namaArt}|${warga.namaKk}`
+  const hasil = new Map(awal.map((warga) => [kunci(warga), warga]))
+  for (const warga of terbaru) {
+    const key = kunci(warga)
+    const sebelumnya = hasil.get(key)
+    hasil.set(key, {
+      ...(sebelumnya ?? warga),
+      ...Object.fromEntries(
+        Object.entries(warga).filter(
+          ([key, value]) =>
+            key !== 'rawId' &&
+            key !== 'jumlahArt' &&
+            value !== null &&
+            value !== '',
+        ),
+      ),
+    })
+  }
+  return [...hasil.values()]
 }
 
 /** Pesan error berbahasa petugas untuk kolom `data_warga` yang belum terisi. */
@@ -364,20 +541,42 @@ const LABEL_KOLOM_WARGA: Record<string, string> = {
 }
 
 export /**
- * Tulis warga sasaran ke `data_warga` bila NIK-nya belum terdaftar.
+ * Perbarui data master seluruh anggota yang lengkap berdasarkan isian KR.
  *
- * Dipanggil di dalam transaksi yang sama dengan insert `surveys`, karena
- * `surveys.wargaNik` punya FK ke `data_warga.nik`. NIK yang sudah ada tidak
- * ditulis ulang — data master tidak ditimpa oleh form kunjungan.
+ * Disimpan dalam transaksi yang sama dengan submission supaya pencarian dan
+ * autofill berikutnya memakai koreksi terbaru dari kader.
  */
 async function simpanWargaSasaran(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
-  baris: BarisWarga,
+  baris: BarisWarga[],
 ): Promise<void> {
-  await tx
-    .insert(dataWargaTable)
-    .values(baris)
-    .onConflictDoNothing({ target: dataWargaTable.nik })
+  for (const warga of baris) {
+    await tx
+      .insert(dataWargaTable)
+      .values(warga)
+      .onConflictDoUpdate({
+        target: dataWargaTable.nik,
+        set: {
+          nama_art: warga.nama_art,
+          nama_kk: warga.nama_kk,
+          hubungan_keluarga: warga.hubungan_keluarga,
+          alamat: warga.alamat,
+          tgl_lahir: warga.tgl_lahir,
+          rt: warga.rt,
+          rw: warga.rw,
+          kecamatan: warga.kecamatan,
+          kelurahan: warga.kelurahan,
+          kota: warga.kota,
+          status_kawin: warga.status_kawin,
+          staff: warga.staff,
+          jenis_kelamin: warga.jenis_kelamin,
+          agama: warga.agama,
+          pendidikan: warga.pendidikan,
+          pekerjaan: warga.pekerjaan,
+          updatedAt: new Date(),
+        },
+      })
+  }
 }
 
 export /** Susun baris `data_warga` dari payload form, atau lempar error yang menyebut
@@ -387,10 +586,9 @@ async function barisWargaDariPayload(rec: JsonRecord): Promise<BarisWarga> {
   const anggota = Array.isArray(rec.anggota)
     ? (rec.anggota as AnggotaKeluarga[])
     : []
-  const suggestion =
-    (await importUntukNik(
-      (typeof info.nik === 'string' ? info.nik : '').trim(),
-    )) ?? null
+  const suggestion = await saranDasarUntukNik(
+    (typeof info.nik === 'string' ? info.nik : '').trim(),
+  )
   const { nilai, hilang } = barisDataWargaDariForm({
     info: info as unknown as KeluargaInfo,
     anggota,
@@ -405,6 +603,32 @@ async function barisWargaDariPayload(rec: JsonRecord): Promise<BarisWarga> {
   throw new Error(
     `Data warga sasaran belum lengkap. Isi dulu di form: ${hilang.map((k) => LABEL_KOLOM_WARGA[k] ?? k).join(', ')}.`,
   )
+}
+
+/** Siapkan pembaruan data master untuk setiap anggota yang datanya lengkap. */
+export async function barisWargaKeluargaDariPayload(
+  rec: JsonRecord,
+): Promise<BarisWarga[]> {
+  const utama = await barisWargaDariPayload(rec)
+  const info = (rec.info ?? {}) as JsonRecord
+  const anggota = Array.isArray(rec.anggota)
+    ? (rec.anggota as AnggotaKeluarga[])
+    : []
+  const baris = new Map([[utama.nik, utama]])
+
+  for (const warga of anggota) {
+    const nik = warga.nik.trim()
+    if (!isValidNik(nik) || baris.has(nik)) continue
+    const suggestion = await saranDasarUntukNik(nik)
+    const { nilai } = barisDataWargaDariForm({
+      info: { ...info, nik } as unknown as KeluargaInfo,
+      anggota: [warga],
+      suggestion,
+    })
+    if (nilai) baris.set(nik, nilai)
+  }
+
+  return [...baris.values()]
 }
 
 // ---- read model DB (sumber tunggal UI; tanpa data dummy) ----
@@ -550,7 +774,23 @@ export async function querySasaranListPaged(
     where.push(sql`g."kelurahan" = ${p.kel}`)
   }
   if (p.status === 'Sudah' || p.status === 'Belum') {
-    const ada = sql`EXISTS (SELECT 1 FROM surveys s WHERE s."wargaNik" = g."nik_tampil")`
+    const ada = sql`EXISTS (
+      SELECT 1 FROM surveys s WHERE s."wargaNik" = g."nik_tampil"
+      UNION ALL
+      SELECT 1
+      FROM surveys s
+      JOIN survey_entries e ON e."surveyId" = s.id
+      JOIN form_versions fv ON fv.id = s."formVersionId"
+      CROSS JOIN LATERAL jsonb_array_elements(fv."schema"->'sections') section
+      CROSS JOIN LATERAL jsonb_array_elements(section->'fields') field
+      CROSS JOIN LATERAL jsonb_array_elements(
+        CASE WHEN jsonb_typeof(e.value->'anggota') = 'array'
+          THEN e.value->'anggota' ELSE '[]'::jsonb END
+      ) anggota
+      WHERE field->>'id' = e."fieldId"::text
+        AND field->>'name' = 'penyimpanan::record_legacy'
+        AND anggota->>'nik' = g."nik_tampil"
+    )`
     where.push(p.status === 'Sudah' ? ada : sql`NOT ${ada}`)
   }
 
@@ -747,10 +987,28 @@ export async function querySurveyStatsByNik(): Promise<
   // tabel dibuat ulang ke schema v2). Nama lama di sini bikin query gagal runtime
   // dengan "column nik does not exist", bukan error TypeScript.
   const rows = await db.execute(sql`
-        SELECT "wargaNik" AS "nik", COUNT(*)::int AS "total", MAX("tanggal")::text AS "terakhir"
-        FROM surveys
-        WHERE "wargaNik" IS NOT NULL
-        GROUP BY "wargaNik"
+        WITH kunjungan AS (
+          SELECT s."wargaNik" AS nik, s."tanggal"
+          FROM surveys s
+          WHERE s."wargaNik" IS NOT NULL
+          UNION
+          SELECT anggota->>'nik' AS nik, s."tanggal"
+          FROM surveys s
+          JOIN survey_entries e ON e."surveyId" = s.id
+          JOIN form_versions fv ON fv.id = s."formVersionId"
+          CROSS JOIN LATERAL jsonb_array_elements(fv."schema"->'sections') section
+          CROSS JOIN LATERAL jsonb_array_elements(section->'fields') field
+          CROSS JOIN LATERAL jsonb_array_elements(
+            CASE WHEN jsonb_typeof(e.value->'anggota') = 'array'
+              THEN e.value->'anggota' ELSE '[]'::jsonb END
+          ) anggota
+          WHERE field->>'id' = e."fieldId"::text
+            AND field->>'name' = 'penyimpanan::record_legacy'
+            AND anggota->>'nik' ~ '^[0-9]{16}$'
+        )
+        SELECT nik, COUNT(*)::int AS total, MAX("tanggal")::text AS terakhir
+        FROM kunjungan
+        GROUP BY nik
     `)
   return rows as unknown as Array<{
     nik: string

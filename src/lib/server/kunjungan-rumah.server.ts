@@ -10,7 +10,10 @@ import type {
 import { KODE_FORM_BAWAAN } from '@/lib/constants'
 import { PEMBATAS_NAMA_FIELD } from '@/lib/kunjungan-rumah/template/template-from-rows'
 import { and, desc, eq, inArray } from 'drizzle-orm'
-import { barisWargaDariPayload, simpanWargaSasaran } from './sasaran.server'
+import {
+  barisWargaKeluargaDariPayload,
+  simpanWargaSasaran,
+} from './sasaran.server'
 import { db } from './db.server'
 import {
   formVersions,
@@ -362,16 +365,16 @@ export async function saveKunjunganRumahRecord(payload: unknown) {
 
   const id = typeof rec.id === 'string' && rec.id ? rec.id : crypto.randomUUID()
   const clean: JsonRecord = { ...rec, id, fotos: cleanFotos(rec.fotos) }
-  const barisWarga = await barisWargaDariPayload(rec)
+  const barisWarga = await barisWargaKeluargaDariPayload(rec)
 
   await db.transaction(async (tx) => {
-    // `surveys.wargaNik` punya FK ke `data_warga.nik`, jadi warga sasaran
-    // ditulis lebih dulu. NIK yang sudah terdaftar tidak ditimpa.
+    // `surveys.wargaNik` punya FK ke `data_warga.nik`, jadi data anggota
+    // diperbarui lebih dulu dalam transaksi yang sama.
     await simpanWargaSasaran(tx, barisWarga)
     await tx.insert(surveys).values({
       id,
       formVersionId: form.formVersionId,
-      wargaNik: barisWarga.nik,
+      wargaNik: head.wargaNik,
       petugasId: petugas.id,
       tanggal: head.tanggal,
     })
@@ -410,13 +413,13 @@ export async function updateKunjunganRumahRecord(id: string, payload: unknown) {
       throw new Error('NIK sasaran utama wajib 16 digit.')
     }
     const petugas = await pastikanPetugasValid(head.petugasId)
-    const barisWarga = await barisWargaDariPayload(clean)
+    const barisWarga = await barisWargaKeluargaDariPayload(clean)
     await db.transaction(async (tx) => {
       await simpanWargaSasaran(tx, barisWarga)
       await tx
         .update(surveys)
         .set({
-          wargaNik: barisWarga.nik,
+          wargaNik: head.wargaNik,
           petugasId: petugas.id,
           tanggal: head.tanggal,
         })
