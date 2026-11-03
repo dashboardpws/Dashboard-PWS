@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { AppShell } from '@/components/layout/AppShell'
-
+import { useIsMobile } from '@/hooks/use-media-query'
+import { Stepper as StepperMantine } from '@mantine/core'
 import { DokumentasiPanel } from '@/components/shared/DokumentasiPanel'
 import { SuccessPanel } from '@/components/shared/SuccessPanel'
 import { SectionCard } from '@/components/ui/SectionCard'
@@ -36,11 +37,6 @@ interface SectionBlock {
 
 /**
  * Kelompokkan section DB menjadi blok kartu.
- *
- * Section sasaran tidak ada di `templates.sections`; kartunya disisipkan pada
- * `sasaranOrder`. Section generik mendapat kartu sendiri, sedangkan section
- * bawaan yang berurutan tetap menyatu seperti sebelumnya supaya tampilan kader
- * tidak berubah hanya karena metadata baru.
  */
 function buildBlocks(
   sections: KunjunganRumahSectionTemplate[],
@@ -54,10 +50,6 @@ function buildBlocks(
   let sasaranDisisipkan = false
 
   for (const section of visible) {
-    // Definisi lama menaruh section sasaran SETELAH masalah (urutan DB 5+),
-    // sementara layout kader selalu menaruh kartu sasaran sebelum kartu hasil.
-    // Karena itu kartu sasaran juga disisipkan begitu section hasil/masalah
-    // pertama muncul, bukan hanya saat urutan DB melewati `sasaranOrder`.
     if (
       !sasaranDisisipkan &&
       (section.order > sasaranOrder ||
@@ -109,9 +101,11 @@ export function KunjunganRumahFormScene({ record }: Props) {
   } = useKunjunganRumahForm({ record })
   const toast = useToast()
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
   const editMode = Boolean(record)
   const [saved, setSaved] = useState<KunjunganRumahRecord | null>(null)
   const [fotoErr, setFotoErr] = useState('')
+  const [mobileStep, setMobileStep] = useState(0)
 
   const handleFiles = async (files: File[]) => {
     const { added, skipped } = await addFotos(files)
@@ -134,13 +128,11 @@ export function KunjunganRumahFormScene({ record }: Props) {
 
   const onSubmit = () => {
     void handleSubmit().then((hasil) => {
-      // Tanpa perubahan: tidak ada yang disimpan, kembali ke form kosong.
       if (hasil.status === 'unchanged') {
         goCreate()
         return
       }
       if (hasil.status !== 'saved') return
-      // Hasil edit disimpan sebagai riwayat baru, lalu kembali ke daftar.
       if (editMode) {
         goCreate()
         return
@@ -178,16 +170,88 @@ export function KunjunganRumahFormScene({ record }: Props) {
   }
 
   const blocks = buildBlocks(templates.sections, templates.sasaranOrder)
+  const sasaranIndex = Math.max(
+    0,
+    blocks.findIndex((block) => block.key === 'sasaran'),
+  )
+  const sasaranBlock = blocks[sasaranIndex]
+  const mobileStages = [
+    blocks.slice(0, sasaranIndex),
+    sasaranBlock ? [sasaranBlock] : [],
+    blocks.slice(sasaranIndex + 1),
+  ]
+  const mobileStageTitles = [
+    'Data keluarga',
+    'Pemeriksaan sasaran',
+    'Hasil dan tindak lanjut',
+    'Dokumentasi dan simpan',
+  ]
+
+  const pindahTahap = (tahap: number) => {
+    setMobileStep(tahap)
+    if (typeof window !== 'undefined')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleReset = () => {
+    reset()
+    setMobileStep(0)
+    setFotoErr('')
+  }
 
   return (
     <AppShell>
       <PageHeader
         title={editMode ? 'Edit Kunjungan Rumah' : 'Kunjungan Rumah'}
       />
-      <Stepper steps={steps} />
-      <FillBar pct={fillPercent} />
+      {!isMobile ? <Stepper steps={steps} /> : null}
+      {!isMobile ? <FillBar pct={fillPercent} /> : null}
+
+      {isMobile ? (
+        <div className="relative mt-3.5 rounded-xl border border-line bg-surface p-3.5">
+          {/* Garis Progress Custom di Antara Step */}
+          <div className="absolute left-8 right-10 top-7.75 h-0.5 bg-line-2">
+            <div
+              className="h-full bg-accent transition-all duration-300"
+              style={{
+                width: `${(mobileStep / (mobileStageTitles.length - 1)) * 100}%`,
+              }}
+            />
+          </div>
+        
+          <StepperMantine
+            active={mobileStep}
+            onStepClick={setMobileStep}
+            size="xs"
+            color="var(--color-accent)"
+            allowNextStepsSelect={false}
+            labelPosition="bottom"
+            classNames={{
+              root: 'relative z-10',
+              steps: 'flex-nowrap! justify-between',
+              stepLabel: 'hidden',
+              stepDescription: 'text-[9px]! font-medium text-muted mt-1 text-center',
+              separator: 'opacity-0', // Sembunyikan separator asli Mantine
+            }}
+          >
+            {mobileStageTitles.map((title, index) => (
+              <StepperMantine.Step
+                key={title}
+                label={`Langkah ${index + 1}`}
+                description={title}
+              />
+            ))}
+          </StepperMantine>
+        </div>
+      ) : null}
 
       {blocks.map((block) => {
+        if (
+          isMobile &&
+          (mobileStep === 3 || !mobileStages[mobileStep]?.includes(block))
+        )
+          return null
+
         if (block.key === 'data-keluarga') {
           return (
             <SectionCard
@@ -296,62 +360,110 @@ export function KunjunganRumahFormScene({ record }: Props) {
         )
       })}
 
-      <SectionCard
-        title="4. Dokumentasi Kegiatan"
-        sub="Foto dokumentasi kunjungan rumah — wajib minimal 1 foto, maks. 6."
-      >
-        <DokumentasiPanel
-          fotos={state.fotos.map((f) => ({
-            url: f.fileUrl ?? f.dataUrl ?? '',
-            cap: f.caption,
-          }))}
-          onAddFiles={(files) => void handleFiles(files)}
-          onSetCaption={setFotoCaption}
-          onRemoveFoto={removeFoto}
-          title={`Dokumentasi Kunjungan Rumah (${state.fotos.length}/6)`}
-        />
-        {fotoUploading ? (
-          <span className="mt-2 block text-[11px] font-semibold text-muted">
-            Mengompres foto…
-          </span>
-        ) : null}
-        {fotoErr ? (
-          <span className="mt-2 block text-[11px] font-semibold text-danger">
-            {fotoErr}
-          </span>
-        ) : null}
-        {state.invalid.fotos ? (
-          <span className="mt-2 block text-[11px] font-semibold text-danger">
-            Tambahkan minimal 1 foto dokumentasi.
-          </span>
-        ) : null}
-      </SectionCard>
+      {!isMobile || mobileStep === 3 ? (
+        <>
+          <SectionCard
+            title="4. Dokumentasi Kegiatan"
+            sub="Foto dokumentasi kunjungan rumah — wajib minimal 1 foto, maks. 6."
+          >
+            <DokumentasiPanel
+              fotos={state.fotos.map((f) => ({
+                url: f.fileUrl ?? f.dataUrl ?? '',
+                cap: f.caption,
+              }))}
+              onAddFiles={(files) => void handleFiles(files)}
+              onSetCaption={setFotoCaption}
+              onRemoveFoto={removeFoto}
+              title={`Dokumentasi Kunjungan Rumah (${state.fotos.length}/6)`}
+            />
+            {fotoUploading ? (
+              <span className="mt-2 block text-[11px] font-semibold text-muted">
+                Mengompres foto…
+              </span>
+            ) : null}
+            {fotoErr ? (
+              <span className="mt-2 block text-[11px] font-semibold text-danger">
+                {fotoErr}
+              </span>
+            ) : null}
+            {state.invalid.fotos ? (
+              <span className="mt-2 block text-[11px] font-semibold text-danger">
+                Tambahkan minimal 1 foto dokumentasi.
+              </span>
+            ) : null}
+          </SectionCard>
 
-      <SectionCard
-        title="Simpan"
-        actions={
-          <SaveBar
-            onReset={reset}
-            onSubmit={onSubmit}
-            disabled={fotoUploading || saving}
-            submitLabel="Simpan kunjungan rumah"
-          />
-        }
-      >
-        <span className="text-xs text-muted">
-          Pastikan seluruh isian wajib bercentang hijau sebelum menyimpan.
-        </span>
-      </SectionCard>
+          {!isMobile ? (
+            <SectionCard
+              title="Simpan"
+              actions={
+                <SaveBar
+                  onReset={handleReset}
+                  onSubmit={onSubmit}
+                  disabled={fotoUploading || saving}
+                  submitLabel="Simpan kunjungan rumah"
+                />
+              }
+            >
+              <span className="text-xs text-muted">
+                Pastikan seluruh isian wajib bercentang hijau sebelum menyimpan.
+              </span>
+            </SectionCard>
+          ) : null}
+        </>
+      ) : null}
+
+      {isMobile ? (
+        <div className="sticky bottom-20 z-10 mt-4 flex gap-2 border-t border-line bg-canvas/95 py-3 backdrop-blur">
+          {mobileStep > 0 ? (
+            <Button
+              variant="default"
+              className="flex-1 text-sm!"
+              onClick={() => pindahTahap(mobileStep - 1)}
+            >
+              Kembali
+            </Button>
+          ) : null}
+          {mobileStep < 3 ? (
+            <Button
+              variant="primary"
+              className="ml-auto flex-1 text-sm!"
+              onClick={() => pindahTahap(mobileStep + 1)}
+            >
+              Lanjut
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant="default"
+                className="flex-1 text-sm!"
+                onClick={handleReset}
+                disabled={fotoUploading || saving}
+              >
+                Reset
+              </Button>
+              <Button
+                variant="primary"
+                className="flex-1 text-sm!"
+                onClick={onSubmit}
+                disabled={fotoUploading || saving}
+              >
+                Simpan
+              </Button>
+            </>
+          )}
+        </div>
+      ) : null}
 
       {saved ? (
         <SuccessPanel
           title={`Kunjungan rumah ${saved.info.namaKK || 'keluarga'} tersimpan.`}
           message={`${saved.penilaian.length} penilaian sasaran · ${saved.masalah.length} masalah tercatat. Kader dapat melanjutkan ke keluarga berikutnya.`}
         >
-          <Button variant="primary" onClick={handleNext}>
+          <Button className='text-sm!' variant="primary" onClick={handleNext}>
             Isi keluarga berikutnya
           </Button>
-          <ButtonLink to="/sasaran" variant="primary">
+          <ButtonLink className='text-sm!' to="/sasaran" variant="primary">
             Lihat Data Sasaran
           </ButtonLink>
         </SuccessPanel>

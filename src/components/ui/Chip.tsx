@@ -19,11 +19,19 @@ export const Chip = forwardRef<HTMLButtonElement, ChipProps>(
       aria-pressed={selected}
       className={cn(
         'cursor-pointer rounded-full border text-ink-2 font-semibold transition-colors',
-        size === 'md' ? 'px-3.5 py-2 text-xs' : 'px-2.5 py-1.5 text-[11px]',
+        // Touch Target & Hover (Mobile vs Desktop)
+        'touch-manipulation active:scale-[0.97]',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2',
+        
+        // Ukuran Responsif (Mobile First -> Desktop / md:)
+        size === 'md'
+          ? 'px-3 py-2 text-xs! min-h-9.5 md:px-3.5 md:py-1.5 md:min-h-9 md:text-xs'
+          : 'px-2.5 py-1.5 text-xs! min-h-8 md:px-3 md:py-1 md:min-h-7 md:text-xs',
+
         selected &&
           (dark
-            ? 'border-ink bg-ink text-on-accent'
-            : 'border-accent bg-accent text-on-accent'),
+            ? 'border-ink/50 bg-ink text-on-accent'
+            : 'border-accent/50 bg-accent text-on-accent'),
         className,
       )}
       {...props}

@@ -219,21 +219,19 @@ export function AnggotaSection({ state, templates, dispatch }: Props) {
                         SASARAN_LABEL_SHORT[key as SasaranKey] ?? tpl.label,
                     }))}
                   selected={memberPeni.map((p) => p.sasaran)}
+                  chipProps={{ size: 'sm' }}
                   onToggle={(v) => {
                     const key = v as SasaranKey
                     const current = memberPeni[0]
                     if (current && current.sasaran === key)
                       dispatch({ type: 'REMOVE_PENILAIAN', id: current.id })
-                    else {
-                      if (current)
-                        dispatch({ type: 'REMOVE_PENILAIAN', id: current.id })
+                    else
                       dispatch({
-                        type: 'ADD_PENILAIAN',
+                        type: 'GANTI_SASARAN',
                         anggotaId: m.id,
                         sasaran: key,
                         templates,
                       })
-                    }
                   }}
                 />
               </div>

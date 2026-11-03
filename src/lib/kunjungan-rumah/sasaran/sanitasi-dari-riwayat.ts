@@ -75,45 +75,98 @@ const PETA_AIR: Record<string, string> = {
   lain: 'Lainnya',
 }
 
+/** Potongan isian Sanitasi yang bisa digabung ke state. */
+export type PatchSanitasi = Partial<Sanitasi>
+
 /**
- * Isian awal Sanitasi dari satu baris riwayat.
+ * Isian dari satu baris `riwayat_ks_import`, sebagai patch.
  *
- * Mengembalikan `null` kalau baris riwayat tidak ada (warga belum pernah
- * diperiksa), supaya pemanggil bisa membiarkan isian yang sudah ada apa adanya.
- * Kalau baris ada, field yang tidak punya pasangan kolom maupun yang bernilai
- * `null` juga tidak ikut, dan `sanitasi` yang sudah terisi di form ikut
- * ditimpa — sesuai keputusan: riwayat yang ada menang atas isian manual.
+ * Field yang tidak punya pasangan kolom (atau bernilai `null`) tidak ikut,
+ * supaya pemanggil bisa menggabungkan beberapa sumber tanpa menghapus nilai
+ * yang sudah ada.
  */
-export function sanitasiDariRiwayat(
+export function patchSanitasiDariRiwayat(
   ada: boolean,
   nilai: Record<string, unknown>,
-  sekarang: Sanitasi,
-): Sanitasi | null {
-  if (!ada) return null
+): PatchSanitasi {
+  if (!ada) return {}
 
-  const hasil: Sanitasi = { ...sekarang }
-  let berubah = false
+  const patch: PatchSanitasi = {}
 
   for (const { field, kolom } of DARI_CHECKBOX) {
     const v = nilai[kolom]
     // `null` = tidak diperiksa. `Boolean(null)` yang salah akan menyatakan
     // "tidak ada" untuk hal yang tidak diketahui.
     if (typeof v !== 'boolean') continue
-    hasil[field] = v
-    berubah = true
+    patch[field] = v
   }
 
   const jamban = nilai.jenisJambanSaniter
   if (typeof jamban === 'string') {
-    hasil.jambanSaniter = PETA_JAMBAN[KUNCI_NILAI(jamban)] ?? ''
-    berubah = true
+    patch.jambanSaniter = PETA_JAMBAN[KUNCI_NILAI(jamban)] ?? ''
   }
 
   const air = nilai.jenisSumberAirTerlindung
   if (typeof air === 'string') {
-    hasil.jenisAir = PETA_AIR[KUNCI_NILAI(air)] ?? ''
-    berubah = true
+    patch.jenisAir = PETA_AIR[KUNCI_NILAI(air)] ?? ''
   }
 
-  return berubah ? hasil : null
+  return patch
+}
+
+/**
+ * Isian Sanitasi dari record KR terbaru, sebagai patch.
+ *
+ * Hanya nilai yang benar-benar terisi yang diambil: checkbox `false` tidak bisa
+ * dibedakan dari "belum disentuh", jadi membawanya akan menghapus nilai `true`
+ * dari sumber lain. `ventilasi` dan `dm` hanya bisa datang dari sini karena
+ * `riwayat_ks_import` tidak punya kolomnya.
+ */
+export function patchSanitasiDariRecordKR(sanitasi: unknown): PatchSanitasi {
+  if (!sanitasi || typeof sanitasi !== 'object' || Array.isArray(sanitasi))
+    return {}
+  const rec = sanitasi as Record<string, unknown>
+  const patch: PatchSanitasi = {}
+
+  for (const { field } of DARI_CHECKBOX) {
+    if (rec[field] === true) patch[field] = true
+  }
+  if (rec.ventilasi === true) patch.ventilasi = true
+  if (rec.dm === true) patch.dm = true
+
+  if (typeof rec.jambanSaniter === 'string' && rec.jambanSaniter)
+    patch.jambanSaniter = rec.jambanSaniter
+  if (typeof rec.jenisAir === 'string' && rec.jenisAir)
+    patch.jenisAir = rec.jenisAir
+
+  return patch
+}
+
+/** Gabungkan patch berurutan; sumber belakangan menang. */
+export function gabungPatchSanitasi(
+  sekarang: Sanitasi,
+  ...patch: PatchSanitasi[]
+): Sanitasi {
+  const hasil: Sanitasi = { ...sekarang }
+  for (const p of patch) {
+    for (const [key, nilai] of Object.entries(p)) {
+      if (nilai !== undefined) hasil[key] = nilai
+    }
+  }
+  return hasil
+}
+
+/**
+ * Isian awal Sanitasi dari satu baris riwayat saja.
+ *
+ * Dipertahankan untuk pemakai lama; alur autofill sekarang memakai patch +
+ * `gabungPatchSanitasi` supaya record KR terbaru bisa ikut jadi sumber.
+ */
+export function sanitasiDariRiwayat(
+  ada: boolean,
+  nilai: Record<string, unknown>,
+  sekarang: Sanitasi,
+): Sanitasi | null {
+  const patch = patchSanitasiDariRiwayat(ada, nilai)
+  return Object.keys(patch).length ? gabungPatchSanitasi(sekarang, patch) : null
 }

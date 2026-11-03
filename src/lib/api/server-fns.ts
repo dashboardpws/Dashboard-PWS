@@ -31,7 +31,7 @@ import {
   querySasaranListPaged,
   querySasaranWarga,
   querySurveyStatsByNik,
-  queryPenilaianKRTerbaru,
+  queryRiwayatKRTerbaru,
   queryWargaList,
   queryRiwayatKsUntukNik,
 } from '@/lib/server/sasaran.server'
@@ -463,7 +463,7 @@ export const cariPenilaianKunjunganRumahTerakhir = createServerFn({
       rw?: string | null
     }) => data,
   )
-  .handler(async ({ data }) => await queryPenilaianKRTerbaru(data))
+  .handler(async ({ data }) => await queryRiwayatKRTerbaru(data))
 
 export const getKunjunganRumah = createServerFn({ method: 'GET' })
   .middleware([authSessionToken])

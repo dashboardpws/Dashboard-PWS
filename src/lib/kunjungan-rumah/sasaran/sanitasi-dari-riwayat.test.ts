@@ -6,7 +6,12 @@
  * di daftar opsi field yang terkunci.
  */
 import { describe, expect, it } from 'vitest'
-import { sanitasiDariRiwayat } from './sanitasi-dari-riwayat'
+import {
+  gabungPatchSanitasi,
+  patchSanitasiDariRecordKR,
+  patchSanitasiDariRiwayat,
+  sanitasiDariRiwayat,
+} from './sanitasi-dari-riwayat'
 import type { Sanitasi } from '@/lib/kunjungan-rumah/models'
 
 function kosong(): Sanitasi {
@@ -139,5 +144,69 @@ describe('sanitasiDariRiwayat', () => {
       { ...kosong(), airBersih: 'Ya' },
     )
     expect(hasil?.airBersih).toBe('Ya')
+  })
+})
+
+describe('patchSanitasiDariRecordKR', () => {
+  it('hanya mengambil checkbox yang bernilai true', () => {
+    // `false` tidak bisa dibedakan dari "belum disentuh", jadi tidak boleh
+    // ikut sebagai patch — kalau ikut, nilai `true` dari impor akan terhapus.
+    const patch = patchSanitasiDariRecordKR({
+      jkn: true,
+      odgj: false,
+      tbc: true,
+      hipertensi: false,
+    })
+    expect(patch).toMatchObject({ jkn: true, tbc: true })
+    expect(patch).not.toHaveProperty('odgj')
+    expect(patch).not.toHaveProperty('hipertensi')
+  })
+
+  it('membawa ventilasi dan dm yang tidak punya kolom impor', () => {
+    const patch = patchSanitasiDariRecordKR({ ventilasi: true, dm: true })
+    expect(patch).toMatchObject({ ventilasi: true, dm: true })
+  })
+
+  it('mengabaikan select kosong dan nilai bukan objek', () => {
+    expect(
+      patchSanitasiDariRecordKR({ jambanSaniter: '', jenisAir: '' }),
+    ).toEqual({})
+    expect(patchSanitasiDariRecordKR(null)).toEqual({})
+    expect(patchSanitasiDariRecordKR('Kloset')).toEqual({})
+  })
+})
+
+describe('gabungPatchSanitasi', () => {
+  it('membiarkan nilai impor saat record KR tidak mengisi field itu', () => {
+    const patchImpor = patchSanitasiDariRiwayat(true, {
+      kepesertaanJkn: true,
+      jenisJambanSaniter: 'Cemplung',
+    })
+    const patchKR = patchSanitasiDariRecordKR({ tbc: true, ventilasi: true })
+    const hasil = gabungPatchSanitasi(kosong(), patchImpor, patchKR)
+    expect(hasil).toMatchObject({
+      jkn: true,
+      jambanSaniter: 'Cemplung',
+      tbc: true,
+      ventilasi: true,
+    })
+  })
+
+  it('record KR menang untuk field yang sama', () => {
+    const patchImpor = patchSanitasiDariRiwayat(true, {
+      jenisJambanSaniter: 'Cemplung',
+    })
+    const patchKR = patchSanitasiDariRecordKR({ jambanSaniter: 'Kloset' })
+    expect(
+      gabungPatchSanitasi(kosong(), patchImpor, patchKR).jambanSaniter,
+    ).toBe('Kloset')
+  })
+
+  it('tidak menyentuh field yang tidak ada di patch mana pun', () => {
+    const hasil = gabungPatchSanitasi(
+      { ...kosong(), airBersih: 'Ya' },
+      patchSanitasiDariRiwayat(true, { kepesertaanJkn: true }),
+    )
+    expect(hasil.airBersih).toBe('Ya')
   })
 })

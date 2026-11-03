@@ -22,7 +22,7 @@ export function HistorySection({ records, templates, onDelete }: Props) {
           <div className="flex flex-wrap items-center gap-2">
             <b>{r.info.namaKK || 'Tanpa nama KK'}</b>
             {r.penilaian.map((p) => (
-              <Tag key={p.id}>
+              <Tag key={p.id} className='hidden! md:inline!'>
                 {templates.sasaran[p.sasaran]
                   ? templates.sasaran[p.sasaran].label
                   : p.sasaran}
@@ -35,7 +35,7 @@ export function HistorySection({ records, templates, onDelete }: Props) {
               ))}
             <span className="text-muted">{fmtDate(r.info.tglPengumpulan)}</span>
           </div>
-          <span className="text-muted">
+          <span className="text-muted hidden md:inline">
             Posyandu {r.info.posyandu} · Kel. {r.info.kelurahan} ·{' '}
             {r.anggota.length} anggota · hasil: {r.hasil}
           </span>

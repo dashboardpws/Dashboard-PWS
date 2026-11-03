@@ -66,10 +66,11 @@ export function MasalahSection({ state, templates, dispatch }: Props) {
     <div className="mt-4 grid gap-3">
       <div className="mb-1 flex items-center justify-between gap-2">
         <span className="text-xs font-semibold text-ink">
-          Masalah & tindak lanjut (per sasaran)
+          Masalah & tindak lanjut <br className='sm:hidden'/> (per sasaran)
         </span>
         <Button
           variant="ghost"
+          className='text-sm!'
           onClick={() => dispatch({ type: 'ADD_MASALAH' })}
         >
           + Tambah masalah

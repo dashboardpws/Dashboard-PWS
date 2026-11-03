@@ -11,7 +11,11 @@ import {
   cariSasaranWarga,
 } from '@/lib/api/server-fns'
 import { SaranWargaDropdown } from '@/components/survey/SaranWargaDropdown'
-import { sanitasiDariRiwayat } from '@/lib/kunjungan-rumah/sasaran/sanitasi-dari-riwayat'
+import {
+  gabungPatchSanitasi,
+  patchSanitasiDariRecordKR,
+  patchSanitasiDariRiwayat,
+} from '@/lib/kunjungan-rumah/sasaran/sanitasi-dari-riwayat'
 import type { SasaranSuggestion } from '@/lib/kunjungan-rumah/sasaran/warga-row'
 import { cn, normalkanNik } from '@/lib/utils'
 import type {
@@ -175,22 +179,32 @@ export function KeluargaInfoSection({
           templates,
         })
 
-      if (hasilPenilaian && Object.keys(hasilPenilaian).length > 0)
+      if (hasilPenilaian && Object.keys(hasilPenilaian.penilaian).length > 0)
         dispatch({
           type: 'ISI_PENILAIAN_DARI_RIWAYAT',
-          penilaianByKey: hasilPenilaian,
+          penilaianByKey: hasilPenilaian.penilaian,
         })
 
-      // Sanitasi dibaca dari snapshot state saat ini, bukan dari `state` render
-      // yang sudah ditutup `pilihSaran`: `ISI_ANGGOTA_KELUARGA` di atas bisa
-      // sudah mengubah state.
-      if (hasilRiwayat) {
-        const sanitasi = sanitasiDariRiwayat(
-          hasilRiwayat.ada,
-          hasilRiwayat.nilai,
-          stateRef.current.sanitasi,
-        )
-        if (sanitasi) dispatch({ type: 'ISI_SANITASI_DARI_RIWAYAT', sanitasi })
+      // Sanitasi digabung dari dua sumber: riwayat pemeriksaan impor, lalu
+      // record KR terbaru menimpa field yang benar-benar terisi. Record KR
+      // satu-satunya sumber `ventilasi`/`dm`.
+      const patchImpor = patchSanitasiDariRiwayat(
+        hasilRiwayat?.ada ?? false,
+        hasilRiwayat?.nilai ?? {},
+      )
+      const patchKR = patchSanitasiDariRecordKR(hasilPenilaian?.sanitasi)
+      if (Object.keys(patchImpor).length || Object.keys(patchKR).length) {
+        // Sanitasi dibaca dari snapshot state saat ini, bukan dari `state` render
+        // yang sudah ditutup `pilihSaran`: `ISI_ANGGOTA_KELUARGA` di atas bisa
+        // sudah mengubah state.
+        dispatch({
+          type: 'ISI_SANITASI_DARI_RIWAYAT',
+          sanitasi: gabungPatchSanitasi(
+            stateRef.current.sanitasi,
+            patchImpor,
+            patchKR,
+          ),
+        })
       }
     }
     if (!stale) setMengisiOtomatis(false)

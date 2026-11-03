@@ -236,6 +236,7 @@ export function SasaranForm({ p, state, templates, dispatch }: Props) {
         <ChipGroup
           options={PRIOS.map((prio) => ({ value: prio, label: prio }))}
           selected={p.prioritas}
+          chipProps={{ size: 'sm' }}
           onToggle={(value) =>
             dispatch({ type: 'TOGGLE_PRIORITAS', id: p.id, prio: value })
           }

@@ -29,6 +29,12 @@ export interface KunjunganRumahState {
   sanitasi: Sanitasi
   anggota: AnggotaKeluarga[]
   penilaian: PenilaianForm[]
+  /**
+   * Cache sesi penilaian yang sasarannya sedang tidak dipilih, dikunci
+   * `(anggotaId, sasaran)`. Hanya untuk memulihkan isian saat kader berganti
+   * sasaran; tidak pernah ikut disimpan ke record.
+   */
+  penilaianTersimpan: PenilaianForm[]
   masalah: MasalahTindak[]
   hasil: string
   jadwal: string
@@ -142,12 +148,26 @@ export function penilaianPrefill(
   return values
 }
 
+function penilaianBaru(
+  anggota: AnggotaKeluarga | undefined,
+  anggotaId: string,
+  sasaran: SasaranKey,
+  templates?: KunjunganRumahTemplates,
+): PenilaianForm {
+  const base = emptyPenilaian(anggotaId, sasaran, templates)
+  const prefill = anggota ? penilaianPrefill(anggota, sasaran, templates) : {}
+  return Object.keys(prefill).length
+    ? { ...base, values: { ...prefill, ...base.values } }
+    : base
+}
+
 export function initialKunjunganRumahState(): KunjunganRumahState {
   return {
     info: { ...EMPTY_INFO },
     sanitasi: { ...EMPTY_SANITASI },
     anggota: [],
     penilaian: [],
+    penilaianTersimpan: [],
     masalah: [],
     hasil: HASIL_KUNJUNGAN_RUMAH[0],
     jadwal: '',
@@ -176,6 +196,17 @@ export type KunjunganRumahAction =
   | { type: 'REMOVE_ANGGOTA'; id: string }
   | {
       type: 'ADD_PENILAIAN'
+      anggotaId: string
+      sasaran: SasaranKey
+      templates: KunjunganRumahTemplates
+    }
+  | {
+      /**
+       * Ganti sasaran anggota tanpa membuang isian sasaran sebelumnya: entry
+       * lama dipindahkan ke `penilaianTersimpan` dan dipulihkan bila sasaran itu
+       * dipilih lagi.
+       */
+      type: 'GANTI_SASARAN'
       anggotaId: string
       sasaran: SasaranKey
       templates: KunjunganRumahTemplates
@@ -251,27 +282,68 @@ export function kunjunganRumahReducer(
         ...state,
         anggota: state.anggota.filter((m) => m.id !== action.id),
         penilaian: state.penilaian.filter((p) => p.anggotaId !== action.id),
+        penilaianTersimpan: state.penilaianTersimpan.filter(
+          (p) => p.anggotaId !== action.id,
+        ),
       }
     case 'ADD_PENILAIAN': {
-      const base = emptyPenilaian(
-        action.anggotaId,
-        action.sasaran,
-        action.templates,
+      const anggota = state.anggota.find((a) => a.id === action.anggotaId)
+      return {
+        ...state,
+        penilaian: [
+          ...state.penilaian,
+          penilaianBaru(
+            anggota,
+            action.anggotaId,
+            action.sasaran,
+            action.templates,
+          ),
+        ],
+      }
+    }
+    case 'GANTI_SASARAN': {
+      const aktif = state.penilaian.filter(
+        (p) => p.anggotaId === action.anggotaId,
+      )
+      // Seluruh cache dipertahankan, termasuk sasaran lain milik anggota ini:
+      // membuangnya per anggota akan menghapus justru entry yang mau dipulihkan
+      // pada pergantian berikutnya.
+      const cache = [...state.penilaianTersimpan, ...aktif]
+      const dipulihkan = cache.find(
+        (p) => p.anggotaId === action.anggotaId && p.sasaran === action.sasaran,
       )
       const anggota = state.anggota.find((a) => a.id === action.anggotaId)
-      const prefill = anggota
-        ? penilaianPrefill(anggota, action.sasaran, action.templates)
-        : {}
-      const next: PenilaianForm = Object.keys(prefill).length
-        ? { ...base, values: { ...prefill, ...base.values } }
-        : base
-      return { ...state, penilaian: [...state.penilaian, next] }
+      return {
+        ...state,
+        penilaian: [
+          ...state.penilaian.filter((p) => p.anggotaId !== action.anggotaId),
+          dipulihkan ??
+            penilaianBaru(
+              anggota,
+              action.anggotaId,
+              action.sasaran,
+              action.templates,
+            ),
+        ],
+        penilaianTersimpan: cache.filter((p) => p !== dipulihkan),
+      }
     }
-    case 'REMOVE_PENILAIAN':
+    case 'REMOVE_PENILAIAN': {
+      const dihapus = state.penilaian.find((p) => p.id === action.id)
       return {
         ...state,
         penilaian: state.penilaian.filter((p) => p.id !== action.id),
+        penilaianTersimpan: dihapus
+          ? state.penilaianTersimpan.filter(
+              (p) =>
+                !(
+                  p.anggotaId === dihapus.anggotaId &&
+                  p.sasaran === dihapus.sasaran
+                ),
+            )
+          : state.penilaianTersimpan,
       }
+    }
     case 'SET_VALUE':
       return {
         ...state,
@@ -436,7 +508,13 @@ export function kunjunganRumahReducer(
       return { ...state, info, anggota, invalid: {} }
     }
     case 'RESET_DATA_SASARAN':
-      return { ...state, anggota: [], penilaian: [], masalah: [] }
+      return {
+        ...state,
+        anggota: [],
+        penilaian: [],
+        penilaianTersimpan: [],
+        masalah: [],
+      }
     case 'SET_INVALID':
       return { ...state, invalid: action.invalid }
     case 'ADD_FOTOS':
@@ -620,7 +698,13 @@ export function kunjunganRumahReducer(
           },
         ]
       })
-      return { ...state, anggota: mappedRows, penilaian: [], masalah: [] }
+      return {
+        ...state,
+        anggota: mappedRows,
+        penilaian: [],
+        penilaianTersimpan: [],
+        masalah: [],
+      }
     }
     case 'ISI_PENILAIAN_DARI_RIWAYAT': {
       const penilaian = state.anggota.flatMap((anggota) => {
@@ -637,7 +721,7 @@ export function kunjunganRumahReducer(
           prioritas: [...row.prioritas],
         }))
       })
-      return { ...state, penilaian }
+      return { ...state, penilaian, penilaianTersimpan: [] }
     }
     case 'ISI_SANITASI_DARI_RIWAYAT': {
       return { ...state, sanitasi: action.sanitasi }

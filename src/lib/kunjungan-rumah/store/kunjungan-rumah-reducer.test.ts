@@ -169,6 +169,7 @@ describe('initialKunjunganRumahState', () => {
     expect(state.info.petugasId).toBe('')
     expect(state.anggota).toEqual([])
     expect(state.penilaian).toEqual([])
+    expect(state.penilaianTersimpan).toEqual([])
     expect(state.masalah).toEqual([])
     expect(state.fotos).toEqual([])
     expect(state.invalid).toEqual({})
@@ -454,6 +455,101 @@ describe('penilaian sasaran', () => {
       keys: ['a'],
     })
     expect(must(sesudah.penilaian[0], 'penilaian').values).toEqual({ a: '1' })
+  })
+})
+
+describe('GANTI_SASARAN', () => {
+  it('mempertahankan isian sasaran lama saat sasaran diganti lalu dikembalikan', () => {
+    // Kasus yang dilaporkan: dewasa -> ibu hamil -> dewasa. Isian dewasa harus
+    // utuh, bukan kembali ke prefill identitas saja.
+    const state: KunjunganRumahState = {
+      ...stateDenganIsi(),
+      penilaian: [
+        penilaian({
+          values: { nama: 'Budi Setiawan', keluhan: 'batuk' },
+          checks: { bahaBatuk: true },
+          prioritas: ['Hipertensi'],
+        }),
+      ],
+    }
+    const keHamil = dispatch(state, {
+      type: 'GANTI_SASARAN',
+      anggotaId: 'a1',
+      sasaran: 'ibu-hamil',
+      templates,
+    })
+    const balik = dispatch(keHamil, {
+      type: 'GANTI_SASARAN',
+      anggotaId: 'a1',
+      sasaran: 'dewasa',
+      templates,
+    })
+    const pulih = must(balik.penilaian[0], 'penilaian dewasa')
+    expect(pulih.values).toMatchObject({
+      nama: 'Budi Setiawan',
+      keluhan: 'batuk',
+    })
+    expect(pulih.checks).toMatchObject({ bahaBatuk: true })
+    expect(pulih.prioritas).toEqual(['Hipertensi'])
+  })
+
+  it('menyimpan sasaran nonaktif di cache, bukan di penilaian', () => {
+    const sesudah = dispatch(stateDenganIsi(), {
+      type: 'GANTI_SASARAN',
+      anggotaId: 'a1',
+      sasaran: 'ibu-hamil',
+      templates,
+    })
+    expect(sesudah.penilaian.map((p) => p.sasaran)).toEqual(['ibu-hamil'])
+    expect(sesudah.penilaianTersimpan.map((p) => p.sasaran)).toEqual(['dewasa'])
+  })
+
+  it('sasaran yang belum pernah diisi dibuat baru dengan prefill identitas', () => {
+    const state: KunjunganRumahState = {
+      ...stateDenganIsi(),
+      penilaian: [penilaian({ values: { nama: 'Budi Setiawan' } })],
+    }
+    const sesudah = dispatch(state, {
+      type: 'GANTI_SASARAN',
+      anggotaId: 'a1',
+      sasaran: 'ibu-hamil',
+      templates,
+    })
+    const baru = must(sesudah.penilaian[0], 'penilaian ibu hamil')
+    expect(baru.sasaran).toBe('ibu-hamil')
+    expect(baru.values.nama).toBe('Budi Setiawan')
+    expect(baru.prioritas).toEqual(['Bumil Risti'])
+  })
+
+  it('REMOVE_PENILAIAN membuang cache sasaran yang sama', () => {
+    // Chip sasaran diklik ulang = batal; menghapus penilaian dewasa juga harus
+    // membuang cadangan dewasa supaya sasaran itu benar-benar kosong lagi.
+    const state: KunjunganRumahState = {
+      ...stateDenganIsi(),
+      penilaianTersimpan: [penilaian({ id: 'p-dewasa' })],
+    }
+    const sesudah = dispatch(state, { type: 'REMOVE_PENILAIAN', id: 'p1' })
+    expect(sesudah.penilaianTersimpan).toHaveLength(0)
+  })
+
+  it('REMOVE_PENILAIAN mempertahankan cache sasaran lain', () => {
+    const state: KunjunganRumahState = {
+      ...stateDenganIsi(),
+      penilaianTersimpan: [penilaian({ id: 'p-hamil', sasaran: 'ibu-hamil' })],
+    }
+    const sesudah = dispatch(state, { type: 'REMOVE_PENILAIAN', id: 'p1' })
+    expect(sesudah.penilaianTersimpan.map((p) => p.sasaran)).toEqual([
+      'ibu-hamil',
+    ])
+  })
+
+  it('REMOVE_ANGGOTA membuang cache milik anggota itu', () => {
+    const state: KunjunganRumahState = {
+      ...stateDenganIsi(),
+      penilaianTersimpan: [penilaian({ id: 'p-hamil', sasaran: 'ibu-hamil' })],
+    }
+    const sesudah = dispatch(state, { type: 'REMOVE_ANGGOTA', id: 'a1' })
+    expect(sesudah.penilaianTersimpan).toHaveLength(0)
   })
 })
 

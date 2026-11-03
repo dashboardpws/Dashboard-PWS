@@ -15,6 +15,8 @@ export interface ChipGroupProps {
   dark?: boolean
   className?: string
   chipProps?: Partial<ChipProps>
+  /** Opsi jika ingin Chip di-scroll horizontal pada mobile agar tidak banyak baris */
+  scrollableOnMobile?: boolean
 }
 
 export function ChipGroup({
@@ -24,13 +26,24 @@ export function ChipGroup({
   dark,
   className,
   chipProps,
+  scrollableOnMobile = false,
 }: ChipGroupProps) {
   const has = (v: string) =>
     typeof selected === 'string'
       ? selected === v
       : Array.from(selected).includes(v)
+
   return (
-    <div className={cn('flex flex-wrap gap-2', className)}>
+    <div
+      className={cn(
+        // Gap dirapatkan dari gap-2 (8px) menjadi gap-1.5 (6px)
+        'flex gap-1.5',
+        scrollableOnMobile
+          ? 'overflow-x-auto pb-1 no-scrollbar -mx-1 px-1'
+          : 'flex-wrap',
+        className,
+      )}
+    >
       {options.map((opt) => (
         <Chip
           key={opt.value}

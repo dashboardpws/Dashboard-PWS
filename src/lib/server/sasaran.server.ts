@@ -6,7 +6,9 @@
 import type {
   AnggotaKeluarga,
   KeluargaInfo,
+  Sanitasi,
 } from '@/lib/kunjungan-rumah/models'
+import { sanitizeRecord } from '@/lib/kunjungan-rumah/types'
 import type {
   BarisWarga,
   SasaranSuggestion,
@@ -434,17 +436,25 @@ async function payloadSubmissionTerbaru(kunci: {
   return payload as Record<string, unknown>
 }
 
-export async function queryPenilaianKRTerbaru(
+export async function queryRiwayatKRTerbaru(
   kunci: Parameters<typeof payloadSubmissionTerbaru>[0],
-): Promise<
-  Record<
+): Promise<{
+  penilaian: Record<
     string,
     import('@/lib/kunjungan-rumah/penilaian-riwayat').PenilaianRiwayat[]
   >
-> {
-  if (!isValidNik(kunci.nik ?? '') && !kunci.namaKk?.trim()) return {}
+  sanitasi: Sanitasi | null
+}> {
+  const kosong = { penilaian: {}, sanitasi: null }
+  if (!isValidNik(kunci.nik ?? '') && !kunci.namaKk?.trim()) return kosong
   const payload = await payloadSubmissionTerbaru(kunci)
-  return payload ? buildPenilaianMapFromSubmission(payload) : {}
+  if (!payload) return kosong
+  return {
+    penilaian: buildPenilaianMapFromSubmission(payload),
+    // Record KR terbaru menyimpan sanitasi lengkap; ini satu-satunya sumber
+    // untuk `ventilasi`/`dm` yang tidak punya kolom di `riwayat_ks_import`.
+    sanitasi: sanitizeRecord(payload)?.sanitasi ?? null,
+  }
 }
 
 /** Anggota dari submission KR terbaru yang menyebut warga ini sebagai sasaran. */
