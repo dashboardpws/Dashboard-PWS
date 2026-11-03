@@ -21,7 +21,7 @@ import { Route as PinRouteImport } from './routes/pin'
 import { Route as SasaranRouteImport } from './routes/sasaran'
 import { Route as CronNotifikasiRouteImport } from './routes/cron.notifikasi'
 import { Route as IsiFormVersionIdRouteImport } from './routes/isi.$formVersionId'
-import { Route as KunjunganRumahIdRouteImport } from './routes/kunjungan-rumah.$id'
+import { Route as KunjunganRumahIdRouteImport } from './routes/kunjungan-rumah_.$id'
 import { Route as SasaranIndexRouteImport } from './routes/sasaran.index'
 import { Route as SasaranIdRouteImport } from './routes/sasaran.$id'
 
@@ -86,9 +86,9 @@ const IsiFormVersionIdRoute = IsiFormVersionIdRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const KunjunganRumahIdRoute = KunjunganRumahIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => KunjunganRumahRoute,
+  id: '/kunjungan-rumah_/$id',
+  path: '/kunjungan-rumah/$id',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const SasaranIndexRoute = SasaranIndexRouteImport.update({
   id: '/',
@@ -107,7 +107,7 @@ export interface FileRoutesByFullPath {
   '/form-designer': typeof FormDesignerRoute
   '/kegiatan': typeof KegiatanRoute
   '/kelola': typeof KelolaRoute
-  '/kunjungan-rumah': typeof KunjunganRumahRouteWithChildren
+  '/kunjungan-rumah': typeof KunjunganRumahRoute
   '/laporan': typeof LaporanRoute
   '/notifikasi': typeof NotifikasiRoute
   '/pin': typeof PinRoute
@@ -124,7 +124,7 @@ export interface FileRoutesByTo {
   '/form-designer': typeof FormDesignerRoute
   '/kegiatan': typeof KegiatanRoute
   '/kelola': typeof KelolaRoute
-  '/kunjungan-rumah': typeof KunjunganRumahRouteWithChildren
+  '/kunjungan-rumah': typeof KunjunganRumahRoute
   '/laporan': typeof LaporanRoute
   '/notifikasi': typeof NotifikasiRoute
   '/pin': typeof PinRoute
@@ -141,14 +141,14 @@ export interface FileRoutesById {
   '/form-designer': typeof FormDesignerRoute
   '/kegiatan': typeof KegiatanRoute
   '/kelola': typeof KelolaRoute
-  '/kunjungan-rumah': typeof KunjunganRumahRouteWithChildren
+  '/kunjungan-rumah': typeof KunjunganRumahRoute
   '/laporan': typeof LaporanRoute
   '/notifikasi': typeof NotifikasiRoute
   '/pin': typeof PinRoute
   '/sasaran': typeof SasaranRouteWithChildren
   '/cron/notifikasi': typeof CronNotifikasiRoute
   '/isi/$formVersionId': typeof IsiFormVersionIdRoute
-  '/kunjungan-rumah/$id': typeof KunjunganRumahIdRoute
+  '/kunjungan-rumah_/$id': typeof KunjunganRumahIdRoute
   '/sasaran/$id': typeof SasaranIdRoute
   '/sasaran/': typeof SasaranIndexRoute
 }
@@ -200,7 +200,7 @@ export interface FileRouteTypes {
     | '/sasaran'
     | '/cron/notifikasi'
     | '/isi/$formVersionId'
-    | '/kunjungan-rumah/$id'
+    | '/kunjungan-rumah_/$id'
     | '/sasaran/$id'
     | '/sasaran/'
   fileRoutesById: FileRoutesById
@@ -211,13 +211,14 @@ export interface RootRouteChildren {
   FormDesignerRoute: typeof FormDesignerRoute
   KegiatanRoute: typeof KegiatanRoute
   KelolaRoute: typeof KelolaRoute
-  KunjunganRumahRoute: typeof KunjunganRumahRouteWithChildren
+  KunjunganRumahRoute: typeof KunjunganRumahRoute
   LaporanRoute: typeof LaporanRoute
   NotifikasiRoute: typeof NotifikasiRoute
   PinRoute: typeof PinRoute
   SasaranRoute: typeof SasaranRouteWithChildren
   CronNotifikasiRoute: typeof CronNotifikasiRoute
   IsiFormVersionIdRoute: typeof IsiFormVersionIdRoute
+  KunjunganRumahIdRoute: typeof KunjunganRumahIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -306,12 +307,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IsiFormVersionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/kunjungan-rumah/$id': {
-      id: '/kunjungan-rumah/$id'
-      path: '/$id'
+    '/kunjungan-rumah_/$id': {
+      id: '/kunjungan-rumah_/$id'
+      path: '/kunjungan-rumah/$id'
       fullPath: '/kunjungan-rumah/$id'
       preLoaderRoute: typeof KunjunganRumahIdRouteImport
-      parentRoute: typeof KunjunganRumahRoute
+      parentRoute: typeof rootRouteImport
     }
     '/sasaran/': {
       id: '/sasaran/'
@@ -329,18 +330,6 @@ declare module '@tanstack/react-router' {
     }
   }
 }
-
-interface KunjunganRumahRouteChildren {
-  KunjunganRumahIdRoute: typeof KunjunganRumahIdRoute
-}
-
-const KunjunganRumahRouteChildren: KunjunganRumahRouteChildren = {
-  KunjunganRumahIdRoute: KunjunganRumahIdRoute,
-}
-
-const KunjunganRumahRouteWithChildren = KunjunganRumahRoute._addFileChildren(
-  KunjunganRumahRouteChildren,
-)
 
 interface SasaranRouteChildren {
   SasaranIdRoute: typeof SasaranIdRoute
@@ -361,13 +350,14 @@ const rootRouteChildren: RootRouteChildren = {
   FormDesignerRoute: FormDesignerRoute,
   KegiatanRoute: KegiatanRoute,
   KelolaRoute: KelolaRoute,
-  KunjunganRumahRoute: KunjunganRumahRouteWithChildren,
+  KunjunganRumahRoute: KunjunganRumahRoute,
   LaporanRoute: LaporanRoute,
   NotifikasiRoute: NotifikasiRoute,
   PinRoute: PinRoute,
   SasaranRoute: SasaranRouteWithChildren,
   CronNotifikasiRoute: CronNotifikasiRoute,
   IsiFormVersionIdRoute: IsiFormVersionIdRoute,
+  KunjunganRumahIdRoute: KunjunganRumahIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

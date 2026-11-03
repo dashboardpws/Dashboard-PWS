@@ -5,7 +5,7 @@ import { sanitizeRecord } from '@/lib/kunjungan-rumah/types'
 import { KunjunganRumahFormScene } from '@/components/kunjungan-rumah/KunjunganRumahFormScene'
 import type { KunjunganRumahRecord } from '@/lib/kunjungan-rumah/types'
 
-export const Route = createFileRoute('/kunjungan-rumah/$id')({
+export const Route = createFileRoute('/kunjungan-rumah_/$id')({
   beforeLoad: requireAuth,
   loader: async ({
     params,

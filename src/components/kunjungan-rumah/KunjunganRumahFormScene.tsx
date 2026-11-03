@@ -133,8 +133,19 @@ export function KunjunganRumahFormScene({ record }: Props) {
   ]
 
   const onSubmit = () => {
-    void handleSubmit().then((rec) => {
-      if (rec) setSaved(rec)
+    void handleSubmit().then((hasil) => {
+      // Tanpa perubahan: tidak ada yang disimpan, kembali ke form kosong.
+      if (hasil.status === 'unchanged') {
+        goCreate()
+        return
+      }
+      if (hasil.status !== 'saved') return
+      // Hasil edit disimpan sebagai riwayat baru, lalu kembali ke daftar.
+      if (editMode) {
+        goCreate()
+        return
+      }
+      setSaved(hasil.record)
     })
   }
 
@@ -333,31 +344,17 @@ export function KunjunganRumahFormScene({ record }: Props) {
       </SectionCard>
 
       {saved ? (
-        editMode ? (
-          <SuccessPanel
-            title={`Perubahan kunjungan rumah ${saved.info.namaKK || 'keluarga'} tersimpan.`}
-            message={`${saved.penilaian.length} penilaian sasaran · ${saved.masalah.length} masalah tercatat.`}
-          >
-            <Button variant="primary" onClick={goCreate}>
-              Kembali & isi kunjungan baru
-            </Button>
-            <ButtonLink to="/kunjungan-rumah" variant="primary">
-              Lihat Riwayat
-            </ButtonLink>
-          </SuccessPanel>
-        ) : (
-          <SuccessPanel
-            title={`Kunjungan rumah ${saved.info.namaKK || 'keluarga'} tersimpan.`}
-            message={`${saved.penilaian.length} penilaian sasaran · ${saved.masalah.length} masalah tercatat. Kader dapat melanjutkan ke keluarga berikutnya.`}
-          >
-            <Button variant="primary" onClick={handleNext}>
-              Isi keluarga berikutnya
-            </Button>
-            <ButtonLink to="/sasaran" variant="primary">
-              Lihat Data Sasaran
-            </ButtonLink>
-          </SuccessPanel>
-        )
+        <SuccessPanel
+          title={`Kunjungan rumah ${saved.info.namaKK || 'keluarga'} tersimpan.`}
+          message={`${saved.penilaian.length} penilaian sasaran · ${saved.masalah.length} masalah tercatat. Kader dapat melanjutkan ke keluarga berikutnya.`}
+        >
+          <Button variant="primary" onClick={handleNext}>
+            Isi keluarga berikutnya
+          </Button>
+          <ButtonLink to="/sasaran" variant="primary">
+            Lihat Data Sasaran
+          </ButtonLink>
+        </SuccessPanel>
       ) : null}
 
       <SectionCard

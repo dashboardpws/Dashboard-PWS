@@ -253,11 +253,9 @@ export function FormulirScene({ formVersionId, definisi }: FormulirSceneProps) {
           />
         </FormField>
 
-        <p className="max-w-64 text-[11px] font-normal text-muted">
-          Petugas dan tanggal diisi di luar form. Kalau form ini butuh data
+        {/* Petugas dan tanggal diisi di luar form. Kalau form ini butuh data
           petugas atau warga sebagai pertanyaan, tambahkan sendiri sebagai field
-          di Form Builder.
-        </p>
+          di Form Builder. */}
         {petugasError ? (
           <p className="text-[11px] font-semibold text-danger">
             {petugasError}

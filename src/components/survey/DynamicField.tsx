@@ -194,25 +194,12 @@ const pesanSumberTidakDikenali =
 /** Peringatan sumber opsi dinamis yang tidak dikenali, bukan dropdown kosong. */
 function PeringatanOpsi({ pesan }: { pesan: string }) {
   return (
-    <p className="rounded-lg border border-[var(--color-danger-border)] bg-[var(--color-danger-soft)] px-3 py-2 text-[11px] font-semibold text-danger">
+    <p className="rounded-lg border border-danger-border bg-danger-soft px-3 py-2 text-[11px] font-semibold text-danger">
       {pesan}
     </p>
   )
 }
 
-/**
- * Field yang pilihannya diambil dari sumber data, bukan diketik admin.
- *
- * Ditampilkan supaya petugas tahu daftarnya mengikuti data terbaru (mis. daftar
- * petugas aktif), bukan daftar yang beku di dalam form.
- */
-function CatatanSumber({ label }: { label: string }) {
-  return (
-    <p className="text-[11px] font-normal text-muted">
-      Pilihan diambil dari data: {label}.
-    </p>
-  )
-}
 
 /**
  * Field bertipe pilihan yang tidak punya satu pun opsi aktif.
@@ -522,9 +509,6 @@ function DynamicFieldImpl({
           {field.sumberOpsiTidakDikenali ? (
             <PeringatanOpsi pesan={pesanSumberTidakDikenali} />
           ) : null}
-          {field.sumberOpsiLabel ? (
-            <CatatanSumber label={field.sumberOpsiLabel} />
-          ) : null}
           {opsi.length === 0 && !field.sumberOpsiTidakDikenali ? (
             <CatatanOpsiKosong />
           ) : null}
@@ -557,9 +541,6 @@ function DynamicFieldImpl({
         >
           {field.sumberOpsiTidakDikenali ? (
             <PeringatanOpsi pesan={pesanSumberTidakDikenali} />
-          ) : null}
-          {field.sumberOpsiLabel ? (
-            <CatatanSumber label={field.sumberOpsiLabel} />
           ) : null}
           {opsi.length === 0 && !field.sumberOpsiTidakDikenali ? (
             <CatatanOpsiKosong />
@@ -597,9 +578,6 @@ function DynamicFieldImpl({
         >
           {field.sumberOpsiTidakDikenali ? (
             <PeringatanOpsi pesan={pesanSumberTidakDikenali} />
-          ) : null}
-          {field.sumberOpsiLabel ? (
-            <CatatanSumber label={field.sumberOpsiLabel} />
           ) : null}
           {opsi.length === 0 && !field.sumberOpsiTidakDikenali ? (
             <CatatanOpsiKosong />

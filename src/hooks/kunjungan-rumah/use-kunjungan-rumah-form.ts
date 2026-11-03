@@ -19,6 +19,12 @@ import {
   createRecordId,
 } from '@/lib/kunjungan-rumah/types'
 import type { KunjunganRumahRecord } from '@/lib/kunjungan-rumah/types'
+import type { KunjunganRumahFoto } from '@/lib/kunjungan-rumah/models'
+import type { KunjunganRumahState } from '@/lib/kunjungan-rumah/store/kunjungan-rumah-reducer'
+import {
+  payloadDariRecord,
+  payloadSama,
+} from '@/lib/kunjungan-rumah/bandingkan-payload'
 import type { SasaranSuggestion } from '@/lib/kunjungan-rumah/sasaran/warga-row'
 import {
   buatKrFieldBindings,
@@ -29,8 +35,50 @@ import {
 } from '@/lib/kunjungan-rumah/kr-state-bridge'
 
 export interface UseKunjunganRumahFormOptions {
-  /** Record yang sedang diedit. Saat diberikan, submit memperbarui record ini (bukan menambah baru). */
+  /**
+   * Record yang sedang diedit. Submit membandingkan isian dengan record ini:
+   * tanpa perubahan → diabaikan, ada perubahan → disimpan sebagai riwayat baru
+   * (record lama tetap utuh).
+   */
   record?: KunjunganRumahRecord | null
+}
+
+/** Hasil submit dipakai Scene untuk memilih notifikasi dan navigasi. */
+export type HasilSubmit =
+  | { status: 'invalid' | 'error' }
+  | { status: 'unchanged' }
+  | { status: 'saved'; record: KunjunganRumahRecord }
+
+/**
+ * Bentuk record yang disimpan. Selalu memakai id baru: hasil edit diperlakukan
+ * sebagai riwayat baru supaya catatan lama tetap utuh, bukan ditimpa.
+ */
+function recordDariState(
+  state: KunjunganRumahState,
+  fotos: KunjunganRumahFoto[],
+): KunjunganRumahRecord {
+  return {
+    id: createRecordId(),
+    schemaVersion: KUNJUNGAN_RUMAH_SCHEMA_VERSION,
+    clientId: createRecordId(),
+    syncedAt: new Date().toISOString(),
+    waktuSimpan: new Date().toISOString(),
+    info: { ...state.info },
+    sanitasi: { ...state.sanitasi },
+    anggota: state.anggota.map((m) => ({ ...m })),
+    penilaian: state.penilaian.map((p) => ({
+      ...p,
+      values: { ...p.values },
+      checks: { ...p.checks },
+      prioritas: [...p.prioritas],
+    })),
+    masalah: state.masalah.map((m) => ({ ...m })),
+    hasil: state.hasil,
+    jadwal: state.jadwal,
+    ttd: state.ttd,
+    fotos: fotos.map((f) => ({ ...f })),
+    tambahan: { ...state.tambahan },
+  }
 }
 
 export function useKunjunganRumahForm(opts?: UseKunjunganRumahFormOptions) {
@@ -41,7 +89,6 @@ export function useKunjunganRumahForm(opts?: UseKunjunganRumahFormOptions) {
   } = useKunjunganRumahTemplates()
   const toast = useToast()
   const record = opts?.record ?? null
-  const editingId = record?.id ?? null
   const [state, dispatch] = useReducer(kunjunganRumahReducer, undefined, () => {
     const s = initialKunjunganRumahState()
     const first = templatesDasar.hasilOpsi[0]
@@ -66,7 +113,6 @@ export function useKunjunganRumahForm(opts?: UseKunjunganRumahFormOptions) {
     loading: recordsLoading,
     error: recordsError,
     saveRecord,
-    updateRecord,
     removeRecord: removeDbRecord,
   } = useKunjunganRumahRecords()
   const [fotoUploading, setFotoUploading] = useState(false)
@@ -147,99 +193,87 @@ export function useKunjunganRumahForm(opts?: UseKunjunganRumahFormOptions) {
     [state.anggota, state.penilaian, state.ttd],
   )
 
-  const handleSubmit =
-    useCallback(async (): Promise<KunjunganRumahRecord | null> => {
-      const { ok, invalid } = validateKunjunganRumah({ ...state, templates })
-      dispatch({ type: 'SET_INVALID', invalid })
-      if (!ok) {
-        toast('Periksa kembali isian yang wajib diisi.')
-        return null
+  const handleSubmit = useCallback(async (): Promise<HasilSubmit> => {
+    const { ok, invalid } = validateKunjunganRumah({ ...state, templates })
+    dispatch({ type: 'SET_INVALID', invalid })
+    if (!ok) {
+      toast('Periksa kembali isian yang wajib diisi.')
+      return { status: 'invalid' }
+    }
+    // Bandingkan SEBELUM upload: upload mengubah `fotos[].dataUrl` menjadi
+    // `fileUrl`, jadi record yang tidak diubah pun akan terlihat berbeda.
+    if (record) {
+      const sekarang = payloadDariRecord(recordDariState(state, state.fotos))
+      if (payloadSama(payloadDariRecord(record), sekarang)) {
+        toast('Tidak ada perubahan data pada riwayat ini.')
+        return { status: 'unchanged' }
       }
-      setSaving(true)
-      try {
-        // Foto ke Supabase Storage bila bucket tersedia; gagal upload → simpan inline (DB jsonb).
-        // Log aman: hanya status/detail infra + ukuran/tipe. Tanpa token, secret, data warga, isi foto.
-        const uploadErrors: Array<{ status: number; detail: string }> = []
-        const fotos = await Promise.all(
-          state.fotos.map(async (f) => {
-            if (f.fileUrl || !f.dataUrl) return { ...f }
-            try {
-              const fileUrl = await uploadDataUrl(f.dataUrl, 'kunjungan-rumah')
-              const { dataUrl: _drop, ...rest } = f
-              return { ...rest, fileUrl }
-            } catch (e) {
-              if (e instanceof StorageUploadError) {
-                uploadErrors.push({ status: e.status, detail: e.detail })
-                console.error(
-                  '[upload-foto]',
-                  JSON.stringify({
-                    bucket: e.bucket,
-                    status: e.status,
-                    detail: e.detail,
-                    bytes: e.bytes,
-                    contentType: e.contentType,
-                  }),
-                )
-              } else {
-                const detail = (
-                  e instanceof Error ? e.message : String(e)
-                ).slice(0, 300)
-                uploadErrors.push({ status: -1, detail })
-                console.error(
-                  '[upload-foto]',
-                  JSON.stringify({ status: -1, detail }),
-                )
-              }
-              return { ...f }
+    }
+    setSaving(true)
+    try {
+      // Foto ke Supabase Storage bila bucket tersedia; gagal upload → simpan inline (DB jsonb).
+      // Log aman: hanya status/detail infra + ukuran/tipe. Tanpa token, secret, data warga, isi foto.
+      const uploadErrors: Array<{ status: number; detail: string }> = []
+      const fotos = await Promise.all(
+        state.fotos.map(async (f) => {
+          if (f.fileUrl || !f.dataUrl) return { ...f }
+          try {
+            const fileUrl = await uploadDataUrl(f.dataUrl, 'kunjungan-rumah')
+            const { dataUrl: _drop, ...rest } = f
+            return { ...rest, fileUrl }
+          } catch (e) {
+            if (e instanceof StorageUploadError) {
+              uploadErrors.push({ status: e.status, detail: e.detail })
+              console.error(
+                '[upload-foto]',
+                JSON.stringify({
+                  bucket: e.bucket,
+                  status: e.status,
+                  detail: e.detail,
+                  bytes: e.bytes,
+                  contentType: e.contentType,
+                }),
+              )
+            } else {
+              const detail = (e instanceof Error ? e.message : String(e)).slice(
+                0,
+                300,
+              )
+              uploadErrors.push({ status: -1, detail })
+              console.error(
+                '[upload-foto]',
+                JSON.stringify({ status: -1, detail }),
+              )
             }
-          }),
-        )
-        if (uploadErrors.length > 0) {
-          const first = uploadErrors[0]!
-          toast(
-            `Upload ${uploadErrors.length} foto gagal (${first.status}): ${first.detail}. Data tetap tersimpan lokal — salin pesan ini untuk diagnosis.`,
-          )
-        }
-        const rec: KunjunganRumahRecord = {
-          id: editingId ?? createRecordId(),
-          schemaVersion: KUNJUNGAN_RUMAH_SCHEMA_VERSION,
-          clientId: createRecordId(),
-          syncedAt: new Date().toISOString(),
-          waktuSimpan: new Date().toISOString(),
-          info: { ...state.info },
-          sanitasi: { ...state.sanitasi },
-          anggota: state.anggota.map((m) => ({ ...m })),
-          penilaian: state.penilaian.map((p) => ({
-            ...p,
-            values: { ...p.values },
-            checks: { ...p.checks },
-            prioritas: [...p.prioritas],
-          })),
-          masalah: state.masalah.map((m) => ({ ...m })),
-          hasil: state.hasil,
-          jadwal: state.jadwal,
-          ttd: state.ttd,
-          fotos: fotos.map((f) => ({ ...f })),
-          tambahan: { ...state.tambahan },
-        }
-        const saved = editingId
-          ? await updateRecord(rec)
-          : await saveRecord(rec)
+            return { ...f }
+          }
+        }),
+      )
+      if (uploadErrors.length > 0) {
+        const first = uploadErrors[0]!
         toast(
-          `Kunjungan rumah ${rec.info.namaKK || 'keluarga'} tersimpan di database.`,
+          `Upload ${uploadErrors.length} foto gagal (${first.status}): ${first.detail}. Data tetap tersimpan lokal — salin pesan ini untuk diagnosis.`,
         )
-        return saved
-      } catch (e) {
-        // [perbaikan] pesan server ikut ditampilkan — expect: validasi `data_warga`
-        //   (kolom NOT NULL) dan pesan petugas yang gagal ditulis server tidak
-        //   hilang, jadi user tahu bagian mana yang harus diperbaiki.
-        const detail = e instanceof Error ? e.message : String(e)
-        toast(`Gagal menyimpan ke database. ${detail}`.slice(0, 400))
-        return null
-      } finally {
-        setSaving(false)
       }
-    }, [state, templates, editingId, toast, saveRecord, updateRecord])
+      const rec = recordDariState(state, fotos)
+      const saved = await saveRecord(rec)
+      toast(
+        record
+          ? `Riwayat baru ${rec.info.namaKK || 'keluarga'} tersimpan di database.`
+          : `Kunjungan rumah ${rec.info.namaKK || 'keluarga'} tersimpan di database.`,
+      )
+      return { status: 'saved', record: saved }
+    } catch (e) {
+      // [perbaikan] pesan server ikut ditampilkan — expect: validasi `data_warga`
+      //   (kolom NOT NULL) dan pesan petugas yang gagal ditulis server tidak
+      //   hilang, jadi user tahu bagian mana yang harus diperbaiki.
+      const detail = e instanceof Error ? e.message : String(e)
+      toast(`Gagal menyimpan ke database. ${detail}`.slice(0, 400))
+      return { status: 'error' }
+    } finally {
+      setSaving(false)
+    }
+  }, [state, templates, record, toast, saveRecord])
 
   const reset = useCallback(() => {
     dispatch({ type: 'RESET' })
