@@ -1,18 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { getKegiatanMonthlyStats } from '@/lib/api/server-fns'
+import { getKunjunganRumahMonthlyStats } from '@/lib/api/server-fns'
+import type { MonthlyKunjunganRumahStat } from '@/lib/kunjungan-rumah/dashboard'
 
-export interface MonthlyKegiatanStat {
-  month: string
-  label: string
-  totalKegiatan: number
-  totalHadir: number
-  totalPeserta: number
-  pctHadir: number
-  byJenis: Array<{ jenis: string; count: number }>
-}
-
-export function useKegiatanTrend() {
-  const [data, setData] = useState<MonthlyKegiatanStat[]>([])
+export function useKunjunganRumahTrend() {
+  const [data, setData] = useState<MonthlyKunjunganRumahStat[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const epochRef = useRef(0)
@@ -22,13 +13,15 @@ export function useKegiatanTrend() {
     setLoading(true)
     setError(null)
     try {
-      const hasil = await getKegiatanMonthlyStats()
+      const hasil = await getKunjunganRumahMonthlyStats()
       if (epoch !== epochRef.current) return
       setData(hasil)
     } catch (err) {
       if (epoch !== epochRef.current) return
       setError(
-        err instanceof Error ? err.message : 'Gagal memuat data trend kegiatan',
+        err instanceof Error
+          ? err.message
+          : 'Gagal memuat tren kunjungan rumah',
       )
     } finally {
       if (epoch === epochRef.current) setLoading(false)

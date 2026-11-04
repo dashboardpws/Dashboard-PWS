@@ -9,7 +9,7 @@ import type {
 } from '@/lib/kunjungan-rumah/template/template-from-rows'
 import { KODE_FORM_BAWAAN } from '@/lib/constants'
 import { PEMBATAS_NAMA_FIELD } from '@/lib/kunjungan-rumah/template/template-from-rows'
-import { and, desc, eq, inArray } from 'drizzle-orm'
+import { and, count, desc, eq, gte, inArray, lt, or, sql } from 'drizzle-orm'
 import {
   barisWargaKeluargaDariPayload,
   simpanWargaSasaran,
@@ -24,6 +24,14 @@ import {
 import { isValidNik } from '@/lib/utils'
 import { pastikanPetugasValid } from '@/lib/server/petugas/user-registry.server'
 import { parseFormDefinition } from '@/lib/form-builder/form-schema'
+import type {
+  KunjunganRumahDashboardKategori,
+  KunjunganRumahDashboardPage,
+  KunjunganRumahDashboardPageInput,
+  KunjunganRumahDashboardStatus,
+  MonthlyKunjunganRumahStat,
+} from '@/lib/kunjungan-rumah/dashboard'
+import { sanitizeRecord } from '@/lib/kunjungan-rumah/types'
 
 export // ---- kunjungan rumah langsung ke DB — pengganti localStorage `pws-kunjungan-rumah` ----
 type JsonRecord = Record<string, unknown>
@@ -312,6 +320,220 @@ export async function listKunjunganRumahRecords() {
       (v): v is JsonRecord => !!v && typeof v === 'object' && !Array.isArray(v),
     )
     .map((payload) => ({ id: String(payload.id ?? ''), ...payload }))
+}
+
+async function fieldVersiKunjunganRumah() {
+  const versions = await db
+    .select({ versionId: formVersions.id, schema: formVersions.schema })
+    .from(forms)
+    .innerJoin(formVersions, eq(formVersions.formId, forms.id))
+    .where(eq(forms.kode, KODE_FORM_BAWAAN.kunjunganRumah))
+
+  return versions.flatMap(({ versionId, schema }) => {
+    const definition = parseFormDefinition(schema)
+    const fieldId = definition.sections
+      .flatMap((section) => section.fields)
+      .find((field) => field.name === NAMA_FIELD_RECORD_LEGACY)?.id
+    return fieldId ? [{ versionId, fieldId }] : []
+  })
+}
+
+function pasanganVersiField(
+  fields: Array<{ versionId: string; fieldId: string }>,
+) {
+  return or(
+    ...fields.map(({ versionId, fieldId }) =>
+      and(
+        eq(surveys.formVersionId, versionId),
+        eq(surveyEntries.fieldId, fieldId),
+      ),
+    ),
+  )
+}
+
+function rentangBulan(month: string) {
+  const year = Number(month.slice(0, 4))
+  const monthNumber = Number(month.slice(5, 7))
+  const start = new Date(Date.UTC(year, monthNumber - 1, 1))
+  const end = new Date(Date.UTC(year, monthNumber, 1))
+  return {
+    start: start.toISOString().slice(0, 10),
+    end: end.toISOString().slice(0, 10),
+  }
+}
+
+const recordValue = surveyEntries.value
+const adaMasalah = sql<boolean>`exists (
+  select 1 from jsonb_array_elements(
+    case when jsonb_typeof(${recordValue}->'masalah') = 'array'
+      then ${recordValue}->'masalah' else '[]'::jsonb end
+  ) as masalah(item)
+  where nullif(item->>'masalah', '') is not null
+     or nullif(item->>'tindakLanjut', '') is not null
+)`
+const adaTindakLanjut = sql<boolean>`exists (
+  select 1 from jsonb_array_elements(
+    case when jsonb_typeof(${recordValue}->'masalah') = 'array'
+      then ${recordValue}->'masalah' else '[]'::jsonb end
+  ) as masalah(item) where nullif(item->>'tindakLanjut', '') is not null
+)`
+
+function kondisiKategori(category: KunjunganRumahDashboardKategori) {
+  if (category === 'all') return undefined
+  const sasaranByCategory: Record<
+    Exclude<KunjunganRumahDashboardKategori, 'all'>,
+    string
+  > = {
+    balita: 'balita',
+    'ibu-hamil': 'ibu-hamil',
+    lansia: 'lansia',
+  }
+  const sasaran = sasaranByCategory[category]
+  return sql`${recordValue}->'penilaian' @> ${JSON.stringify([{ sasaran }])}::jsonb`
+}
+
+function kondisiStatus(status: KunjunganRumahDashboardStatus) {
+  if (status === 'berisiko') return adaMasalah
+  if (status === 'sehat') return sql`not (${adaMasalah})`
+  return undefined
+}
+
+/** Rekap grafik dan drawer sama-sama dibatasi ke payload form kunjungan rumah. */
+export async function queryKunjunganRumahMonthlyStats(): Promise<
+  MonthlyKunjunganRumahStat[]
+> {
+  const fields = await fieldVersiKunjunganRumah()
+  if (fields.length === 0) return []
+
+  const now = new Date()
+  const start = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 11, 1),
+  )
+  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1))
+  const startDate = start.toISOString().slice(0, 10)
+  const endDate = end.toISOString().slice(0, 10)
+  const month = sql<string>`to_char(${surveys.tanggal}, 'YYYY-MM')`
+  const posyandu = sql<string>`coalesce(${recordValue}->'info'->>'posyandu', 'Tidak diketahui')`
+  const rows = await db
+    .select({ month, posyandu, count: count() })
+    .from(surveys)
+    .innerJoin(surveyEntries, eq(surveyEntries.surveyId, surveys.id))
+    .where(
+      and(
+        pasanganVersiField(fields),
+        gte(surveys.tanggal, startDate),
+        lt(surveys.tanggal, endDate),
+      ),
+    )
+    .groupBy(month, posyandu)
+    .orderBy(month)
+
+  const grouped = new Map<string, MonthlyKunjunganRumahStat>()
+  for (const row of rows) {
+    let stat = grouped.get(row.month)
+    if (!stat) {
+      stat = {
+        month: row.month,
+        label: new Date(`${row.month}-01T00:00:00`).toLocaleDateString(
+          'id-ID',
+          { month: 'short', year: '2-digit' },
+        ),
+        totalKunjungan: 0,
+        byPosyandu: [],
+      }
+      grouped.set(row.month, stat)
+    }
+    stat.totalKunjungan += row.count
+    stat.byPosyandu.push({ nama: row.posyandu, count: row.count })
+  }
+  return [...grouped.values()]
+}
+
+export async function queryKunjunganRumahDashboardPage(
+  input: KunjunganRumahDashboardPageInput,
+): Promise<KunjunganRumahDashboardPage> {
+  const fields = await fieldVersiKunjunganRumah()
+  if (fields.length === 0) {
+    return {
+      records: [],
+      total: 0,
+      page: input.page,
+      pageSize: 10,
+      summary: { total: 0, flagged: 0, followedUp: 0 },
+    }
+  }
+
+  const { start, end } = rentangBulan(input.month)
+  const baseConditions = [
+    pasanganVersiField(fields),
+    gte(surveys.tanggal, start),
+    lt(surveys.tanggal, end),
+  ]
+  const summaryWhere = and(...baseConditions)
+
+  const search = input.search.trim()
+  const searchCondition = search
+    ? or(
+        sql`${recordValue}->'info'->>'namaKK' ilike ${`%${search}%`}`,
+        sql`${recordValue}->'info'->>'nik' ilike ${`%${search}%`}`,
+      )
+    : undefined
+  const conditions = [
+    ...baseConditions,
+    searchCondition,
+    kondisiKategori(input.category),
+    kondisiStatus(input.status),
+  ]
+  const where = and(...conditions)
+  const [summaryRows, totalRows] = await Promise.all([
+    db
+      .select({
+        total: count(),
+        flagged: sql<number>`count(*) filter (where ${adaMasalah})`,
+        followedUp: sql<number>`count(*) filter (where ${adaTindakLanjut})`,
+      })
+      .from(surveys)
+      .innerJoin(surveyEntries, eq(surveyEntries.surveyId, surveys.id))
+      .where(summaryWhere),
+    db
+      .select({ total: count() })
+      .from(surveys)
+      .innerJoin(surveyEntries, eq(surveyEntries.surveyId, surveys.id))
+      .where(where),
+  ])
+  const summary = summaryRows[0]
+  const totalRow = totalRows[0]
+  const pageSize = 10
+  const page = Math.max(1, input.page)
+  const rows = await db
+    .select({ id: surveys.id, value: surveyEntries.value })
+    .from(surveys)
+    .innerJoin(surveyEntries, eq(surveyEntries.surveyId, surveys.id))
+    .where(where)
+    .orderBy(desc(surveys.tanggal), desc(surveys.createdAt))
+    .limit(pageSize)
+    .offset((page - 1) * pageSize)
+
+  return {
+    records: rows.flatMap((row) => {
+      if (
+        !row.value ||
+        typeof row.value !== 'object' ||
+        Array.isArray(row.value)
+      )
+        return []
+      const record = sanitizeRecord({ ...row.value, id: row.id })
+      return record ? [record] : []
+    }),
+    total: totalRow?.total ?? 0,
+    page,
+    pageSize,
+    summary: {
+      total: summary?.total ?? 0,
+      flagged: Number(summary?.flagged ?? 0),
+      followedUp: Number(summary?.followedUp ?? 0),
+    },
+  }
 }
 
 export async function getKunjunganRumahRecord(id: string) {

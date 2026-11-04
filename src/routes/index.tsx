@@ -22,8 +22,8 @@ import {
   StatusBadge,
 } from '@/components/ui'
 import { paginate } from '@/lib/laporan/report-shared'
-import { useKegiatanTrend } from '@/hooks/dashboard/use-kegiatan-trend'
-import { KegiatanTrendChart } from '@/components/dashboard/KegiatanTrendChart'
+import { useKunjunganRumahTrend } from '@/hooks/dashboard/use-kunjungan-rumah-trend'
+import { KunjunganRumahTrendChart } from '@/components/dashboard/KunjunganRumahTrendChart'
 import { buildWarnings, computePeriod } from '@/lib/dashboard/warning'
 
 export const Route = createFileRoute('/')({
@@ -35,7 +35,7 @@ export const Route = createFileRoute('/')({
 
 function Dashboard() {
   const data = Route.useLoaderData()
-  const { data: trendData, loading: trendLoading } = useKegiatanTrend()
+  const { data: trendData, loading: trendLoading } = useKunjunganRumahTrend()
 
   const [statusF, setStatusF] = useState('all')
   const [wilayahF, setWilayahF] = useState('all')
@@ -134,9 +134,9 @@ function Dashboard() {
 
       <SectionCard
         title="Trend Kunjungan Rumah (12 Bulan Terakhir)"
-        sub="Klik titik pada grafik untuk melihat laporan kunjungan bulan tersebut di halaman Laporan."
+        sub="Pilih bulan pada grafik untuk melihat ringkasan dan daftar kunjungan rumah."
       >
-        <KegiatanTrendChart data={trendData} loading={trendLoading} />
+        <KunjunganRumahTrendChart data={trendData} loading={trendLoading} />
       </SectionCard>
 
       <SectionCard

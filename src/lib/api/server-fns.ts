@@ -10,6 +10,8 @@ import {
   getKunjunganRumahRecord,
   getKunjunganRumahTemplateRows,
   listKunjunganRumahRecords,
+  queryKunjunganRumahDashboardPage,
+  queryKunjunganRumahMonthlyStats,
   removeKunjunganRumahRecord,
   saveKunjunganRumahRecord,
   updateKunjunganRumahRecord,
@@ -90,24 +92,7 @@ import {
   SEMUA_TIPE_FIELD,
   TIPE_BUTUH_OPSI,
 } from '@/lib/service/form-builder/validasi'
-import type { MonthlyKegiatanStat } from '@/hooks/dashboard/use-kegiatan-trend'
-import { db } from '../server/db.server'
-import { surveyEntries } from '../schema/schema'
-
-const namaBulan = [
-  'Januari',
-  'Februari',
-  'Maret',
-  'April',
-  'Mei',
-  'Juni',
-  'Juli',
-  'Agustus',
-  'September',
-  'Oktober',
-  'November',
-  'Desember',
-]
+import type { KunjunganRumahDashboardPageInput } from '@/lib/kunjungan-rumah/dashboard'
 
 /* ALUR LOGIN
 1. cek sessionToken pake beforeLoad di /laporan (form)
@@ -497,88 +482,28 @@ export const listKegiatan = createServerFn({ method: 'GET' })
   .middleware([authSessionToken])
   .handler(async () => await listKegiatanV2())
 
-export const getKegiatanMonthlyStats = createServerFn({
+export const getKunjunganRumahMonthlyStats = createServerFn({ method: 'GET' })
+  .middleware([authSessionToken])
+  .handler(async () => await queryKunjunganRumahMonthlyStats())
+
+export const getKunjunganRumahDashboardPage = createServerFn({
   method: 'GET',
-}).handler(async (): Promise<MonthlyKegiatanStat[]> => {
-  // Ambil data JSONB dari database
-  const rows = await db
-    .select({
-      value: surveyEntries.value,
-    })
-    .from(surveyEntries)
-
-  const rekap = new Map<
-    string,
-    {
-      totalKegiatan: number
-      totalHadir: number
-      totalPeserta: number
-      byJenis: Map<string, number>
-    }
-  >()
-
-  for (const row of rows) {
-    const value = row.value as Record<string, any>
-
-    // Sesuaikan dengan struktur JSONB value yang sebenarnya.
-    const info = value.info
-
-    const tanggal = info?.tglPengumpulan
-    const jenis = info?.posyandu
-
-    // Abaikan data yang tidak memiliki tanggal kegiatan.
-    if (!tanggal) continue
-
-    const date = new Date(tanggal)
-
-    if (Number.isNaN(date.getTime())) continue
-
-    const month = [
-      date.getFullYear(),
-      String(date.getMonth() + 1).padStart(2, '0'),
-    ].join('-')
-
-    if (!rekap.has(month)) {
-      rekap.set(month, {
-        totalKegiatan: 0,
-        totalHadir: 0,
-        totalPeserta: 0,
-        byJenis: new Map(),
-      })
-    }
-
-    const item = rekap.get(month)!
-
-    // Satu baris survey_entries dianggap satu kegiatan.
-    item.totalKegiatan += 1
-
-    // TODO: Ganti dengan field kehadiran dan peserta yang sebenarnya.
-    // Jangan menghitung keduanya dari jumlah baris jika struktur
-    // JSONB tidak menyatakan bahwa satu baris = satu peserta hadir.
-
-    if (jenis) {
-      item.byJenis.set(jenis, (item.byJenis.get(jenis) ?? 0) + 1)
-    }
-  }
-
-  return Array.from(rekap.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([month, item]) => ({
-      month,
-      label: namaBulan[Number(month.slice(5, 7)) - 1] ?? 'Tidak Diketahui',
-      totalKegiatan: item.totalKegiatan,
-      totalHadir: item.totalHadir,
-      totalPeserta: item.totalPeserta,
-      pctHadir:
-        item.totalPeserta > 0
-          ? Math.round((item.totalHadir / item.totalPeserta) * 100)
-          : 0,
-      byJenis: Array.from(item.byJenis.entries()).map(([jenis, count]) => ({
-        jenis,
-        count,
-      })),
-    }))
 })
+  .middleware([authSessionToken])
+  .validator((data: KunjunganRumahDashboardPageInput) => {
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(data.month))
+      throw new Error('Periode kunjungan tidak valid')
+    if (!Number.isInteger(data.page) || data.page < 1)
+      throw new Error('Halaman kunjungan tidak valid')
+    if (data.page > 10_000 || data.search.length > 100)
+      throw new Error('Filter kunjungan melebihi batas')
+    if (!['all', 'balita', 'ibu-hamil', 'lansia'].includes(data.category))
+      throw new Error('Kategori sasaran tidak valid')
+    if (!['all', 'sehat', 'berisiko'].includes(data.status))
+      throw new Error('Status kunjungan tidak valid')
+    return data
+  })
+  .handler(async ({ data }) => await queryKunjunganRumahDashboardPage(data))
 
 export const saveKegiatan = createServerFn({ method: 'POST' })
   .middleware([authSessionToken])

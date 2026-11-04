@@ -10,6 +10,7 @@ import {
 import { sanitizeRecord } from '@/lib/kunjungan-rumah/types'
 import type { KunjunganRumahRecord } from '@/lib/kunjungan-rumah/types'
 import { invalidateNotifikasi } from '@/lib/notifikasi/notifikasi-cache'
+import { invalidateKunjunganRumahDashboardCache } from '@/lib/kunjungan-rumah/dashboard-cache'
 
 /** Daftar kunjungan langsung dari Postgres — pengganti localStorage `pws-kunjungan-rumah`. */
 export function useKunjunganRumahRecords() {
@@ -41,6 +42,7 @@ export function useKunjunganRumahRecords() {
       // Jadwal dan tindak lanjut diturunkan dari record ini, jadi lonceng harus
       // langsung invalidated — jangan tunggu TTL 5 menit habis.
       invalidateNotifikasi()
+      invalidateKunjunganRumahDashboardCache()
       await reload()
       return saved
     },
@@ -53,6 +55,7 @@ export function useKunjunganRumahRecords() {
         data: { id: rec.id, record: rec as unknown as Record<string, unknown> },
       })) as unknown as KunjunganRumahRecord
       invalidateNotifikasi()
+      invalidateKunjunganRumahDashboardCache()
       await reload()
       return saved
     },
@@ -63,6 +66,7 @@ export function useKunjunganRumahRecords() {
     async (id: string) => {
       await removeKunjunganRumah({ data: { id } })
       invalidateNotifikasi()
+      invalidateKunjunganRumahDashboardCache()
       await reload()
     },
     [reload],
