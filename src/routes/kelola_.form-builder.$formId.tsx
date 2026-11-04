@@ -4,7 +4,7 @@ import { FormBuilderSection } from '@/components/kelola/FormBuilderSection'
 import { DetailHeader } from '@/components/shared'
 import { requireAuth } from '@/lib/auth/auth'
 
-export const Route = createFileRoute('/kelola/form-builder/$formId')({
+export const Route = createFileRoute('/kelola_/form-builder/$formId')({
   beforeLoad: requireAuth,
   component: FormBuilderPage,
 })

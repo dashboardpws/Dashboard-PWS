@@ -199,14 +199,10 @@ export function FormBuilderSection({
                     <button
                       type="button"
                       onClick={() => {
-                        if (mode === 'list') {
-                          void navigate({
-                            to: '/kelola/form-builder/$formId',
-                            params: { formId: String(form.id) },
-                          })
-                        } else {
-                          void pilihForm(form.id)
-                        }
+                        void navigate({
+                          to: '/kelola/form-builder/$formId',
+                          params: { formId: String(form.id) },
+                        })
                       }}
                       className="flex-1 text-left text-sm! font-semibold text-ink"
                     >
