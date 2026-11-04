@@ -1,4 +1,5 @@
 import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
+import { useEffect } from 'react'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 
@@ -21,6 +22,7 @@ export const Route = createRootRoute({
     meta: [
       { charSet: 'utf-8' },
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
+      { name: 'theme-color', content: '#ffffff' },
       { title: 'Dashboard PWS — Dinas Kesehatan Kota Pasuruan' },
     ],
     links: [
@@ -33,6 +35,8 @@ export const Route = createRootRoute({
         type: 'image/png',
         href: icon,
       },
+      { rel: 'manifest', href: '/manifest.webmanifest' },
+      { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
     ],
   }),
   shellComponent: RootDocument,
@@ -61,6 +65,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <AuthProvider>
           <MantineProvider>
             <Notifications position="top-right" zIndex={1000} />
+            <ServiceWorkerRegistration />
             {children}
           </MantineProvider>
         </AuthProvider>
@@ -81,4 +86,18 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </body>
     </html>
   )
+}
+
+function ServiceWorkerRegistration() {
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      void navigator.serviceWorker
+        .register('/sw.js')
+        .catch((error: unknown) => {
+          console.error('Service worker gagal didaftarkan:', error)
+        })
+    }
+  }, [])
+
+  return null
 }

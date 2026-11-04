@@ -16,6 +16,12 @@ import { useToast } from '@/providers/toast'
 import { useFormBuilder } from '@/hooks/kelola/use-form-builder'
 import { useFormBuilderDraft } from '@/hooks/kelola/use-form-builder-draft'
 import { Loader } from '@mantine/core'
+import { useNavigate } from '@tanstack/react-router'
+
+export interface FormBuilderSectionProps {
+  mode?: 'list' | 'editor'
+  selectedFormId?: number
+}
 
 const LABEL_STATUS: Record<string, string> = {
   draft: 'Draft',
@@ -23,7 +29,10 @@ const LABEL_STATUS: Record<string, string> = {
   archived: 'Diarsipkan',
 }
 
-export function FormBuilderSection() {
+export function FormBuilderSection({
+  mode = 'list',
+  selectedFormId,
+}: FormBuilderSectionProps) {
   const {
     forms,
     formId,
@@ -54,6 +63,7 @@ export function FormBuilderSection() {
   } = useFormBuilder()
 
   const toast = useToast()
+  const navigate = useNavigate()
   const draft = useFormBuilderDraft()
   const { loadDocument, clearDocument, document, ...draftRest } = draft
 
@@ -66,6 +76,19 @@ export function FormBuilderSection() {
   } | null>(null)
 
   const formTerpilih = forms.find((f) => f.id === formId) ?? null
+
+  useEffect(() => {
+    if (
+      mode === 'editor' &&
+      !loading &&
+      selectedFormId &&
+      formId !== selectedFormId
+    ) {
+      if (forms.some((form) => form.id === selectedFormId)) {
+        void pilihForm(selectedFormId)
+      }
+    }
+  }, [mode, loading, selectedFormId, formId, forms, pilihForm])
 
   const tambahForm = async () => {
     if (!nama.trim()) return
@@ -118,93 +141,111 @@ export function FormBuilderSection() {
     )
   }
 
-  const handleBack = () => {
-    pilihForm(formTerpilih?.id ?? forms[0]?.id ?? 0)
-  }
+  const handleBack = () => navigate({ to: '/kelola' })
 
   return (
     <div className="mt-4">
       {error ? <p className="mb-3 text-sm text-destructive">{error}</p> : null}
 
-      <Card>
-        <CardHeader
-          title="Form"
-          sub="Form bawaan sistem ikut tampil dan bisa disunting di sini lewat draft baru. Strukturnya sebagian terkunci karena form kader membacanya lewat nama section dan kode field."
-          actions={
-            <Button
-              variant="export"
-              size="sm"
-              onClick={() => setModalForm(true)}
-            >
-              Form Baru
-            </Button>
-          }
-        />
+      {mode === 'editor' &&
+      !loading &&
+      selectedFormId &&
+      !forms.some((form) => form.id === selectedFormId) ? (
+        <EmptyState title="Form tidak ditemukan." className="mt-3">
+          <p>Kembali ke Kelola untuk memilih form yang tersedia.</p>
+        </EmptyState>
+      ) : null}
 
-        {loading ? (
-          <div className='flex gap-3 items-center p-2'>
-            <Loader size="xs" color="gray" />
-            <p className=" mt-1 text-sm text-muted">Memuat daftar form…</p>
-          </div>
-        ) : null}
+      {mode === 'list' ? (
+        <Card>
+          <CardHeader
+            title="Form"
+            sub="Form bawaan sistem ikut tampil dan bisa disunting di sini lewat draft baru. Strukturnya sebagian terkunci karena form kader membacanya lewat nama section dan kode field."
+            actions={
+              <Button
+                variant="export"
+                size="sm"
+                onClick={() => setModalForm(true)}
+              >
+                Form Baru
+              </Button>
+            }
+          />
 
-        {!loading && forms.length === 0 ? (
-          <EmptyState title="Belum ada form." className="mt-3">
-            <p>Buat form dulu, lalu susun pertanyaannya per section.</p>
-          </EmptyState>
-        ) : null}
+          {loading ? (
+            <div className="flex gap-3 items-center p-2">
+              <Loader size="xs" color="gray" />
+              <p className=" mt-1 text-sm text-muted">Memuat daftar form…</p>
+            </div>
+          ) : null}
 
-        {forms.length > 0 ? (
-          <ul className="mt-3 grid gap-1.5">
-            {forms.map((form) => (
-              <li key={form.id}>
-                <div
-                  className={`flex w-full flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 ${
-                    form.id === formId
-                      ? 'border-accent-border bg-accent-light'
-                      : 'border-line'
-                  }`}
-                >
-                  <button
-                    type="button"
-                    onClick={() => void pilihForm(form.id)}
-                    className="flex-1 text-left text-sm! font-semibold text-ink"
+          {!loading && forms.length === 0 ? (
+            <EmptyState title="Belum ada form." className="mt-3">
+              <p>Buat form dulu, lalu susun pertanyaannya per section.</p>
+            </EmptyState>
+          ) : null}
+
+          {forms.length > 0 ? (
+            <ul className="mt-3 grid gap-1.5">
+              {forms.map((form) => (
+                <li key={form.id}>
+                  <div
+                    className={`flex w-full flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 ${
+                      form.id === formId
+                        ? 'border-accent-border bg-accent-light'
+                        : 'border-line'
+                    }`}
                   >
-                    {form.nama}
-                  </button>
-                  <div className="flex items-center gap-2">
-                    {form.kode ? (
-                      <StatusBadge variant="process">Bawaan</StatusBadge>
-                    ) : null}
-                    <StatusBadge variant={form.aktif ? 'done' : 'off'}>
-                      {form.aktif ? 'Aktif' : 'Nonaktif'}
-                    </StatusBadge>
-                    {/* Form bawaan tidak bisa dihapus — server juga menolaknya.
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (mode === 'list') {
+                          void navigate({
+                            to: '/kelola/form-builder/$formId',
+                            params: { formId: String(form.id) },
+                          })
+                        } else {
+                          void pilihForm(form.id)
+                        }
+                      }}
+                      className="flex-1 text-left text-sm! font-semibold text-ink"
+                    >
+                      {form.nama}
+                    </button>
+                    <div className="flex items-center gap-2">
+                      {form.kode ? (
+                        <StatusBadge variant="process">Bawaan</StatusBadge>
+                      ) : null}
+                      <StatusBadge variant={form.aktif ? 'done' : 'off'}>
+                        {form.aktif ? 'Aktif' : 'Nonaktif'}
+                      </StatusBadge>
+                      {/* Form bawaan tidak bisa dihapus — server juga menolaknya.
                         Tombolnya disembunyikan supaya tidak menawarkan aksi yang
                         pasti gagal. */}
-                    {form.kode ? null : (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-destructive hover:bg-destructive/10"
-                        onClick={() => {
-                          setTargetHapus({ formId: form.id, nama: form.nama })
-                          void bukaDialogHapus(form.id)
-                        }}
-                        disabled={saving}
-                      >
-                        Hapus
-                      </Button>
-                    )}
+                      {form.kode ? null : (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive hover:bg-destructive/10"
+                          onClick={() => {
+                            setTargetHapus({ formId: form.id, nama: form.nama })
+                            void bukaDialogHapus(form.id)
+                          }}
+                          disabled={saving}
+                        >
+                          Hapus
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-      </Card>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </Card>
+      ) : null}
 
-      {formTerpilih ? (
+      {mode === 'editor' && formTerpilih ? (
         <>
           <Card className="my-3">
             <CardHeader

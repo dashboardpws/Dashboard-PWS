@@ -215,7 +215,7 @@ export function UserSection({ pengguna, fasilitas, save, setAktif }: Props) {
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div className="font-semibold text-ink">{p.nama}</div>
-                  <div className="text-[11px] text-muted">
+                  <div className="text-xs text-muted">
                     Kel. {p.kel} · {p.fasKes}
                   </div>
                 </div>

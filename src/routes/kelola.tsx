@@ -56,7 +56,7 @@ function Kelola() {
         title="Kelola Aplikasi"
       />
 
-      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm pointer-events-none">
+      <div className="fixed bottom-4 right-4 max-md:top-14 z-50 flex flex-col gap-2 max-w-sm pointer-events-none">
         {registryLoading && (
           <div className="pointer-events-auto flex items-center gap-3 rounded-lg bg-surface-2 px-4 py-3 text-sm text-ink-1 shadow-lg backdrop-blur transition-all duration-300 animate-in fade-in slide-in-from-bottom-3 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:slide-out-to-bottom-3">
             <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -84,9 +84,9 @@ function Kelola() {
         )}
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3 max-md:grid-cols-1">
+      <div className="mt-4 grid grid-cols-2 gap-3">
         <StatCard
-          caption="Field Kunjungan Rumah aktif"
+          caption="Field Kunjungan Rumah"
           value={activeFieldCount}
         />
         <StatCard caption="Petugas aktif" value={petugasAktif} />

@@ -383,7 +383,7 @@ function Laporan() {
           title="Ringkasan"
           sub="Rekap otomatis dari filter di atas."
         >
-          <div className="grid grid-cols-3 gap-3 max-md:grid-cols-2 max-sm:grid-cols-1">
+          <div className="grid grid-cols-3 gap-3 max-md:grid-cols-2">
             <StatCard caption="Total isian form" value={filtered.length} />
             <StatCard caption="Warga unik" value={wargaUnik} />
             <StatCard
@@ -448,19 +448,19 @@ function Laporan() {
                   {fmtDate(r.tanggal)}
                 </td>
                 <td className="px-2.5 py-2">
-                  <div className="font-semibold">{r.formNama}</div>
+                  <div className="font-semibold truncate">{r.formNama}</div>
                   <div className="text-muted">Versi {r.formVersion}</div>
                 </td>
                 <td className="px-2.5 py-2">
-                  <div className="font-semibold">{r.nama}</div>
-                  <div className="text-muted">
+                  <div className="font-semibold truncate">{r.nama}</div>
+                  <div className="text-muted truncate">
                     {r.nik ? `NIK ${r.nik}` : 'Tanpa warga'}
                   </div>
                 </td>
                 <td className="whitespace-nowrap px-2.5 py-2">
                   Kel. {r.kelurahan}
                 </td>
-                <td className="px-2.5 py-2 text-muted">{r.petugas}</td>
+                <td className="px-2.5 py-2 text-muted truncate">{r.petugas}</td>
                 <td className="px-2.5 py-2">
                   <StatusBadge value="Selesai" />
                 </td>
@@ -601,7 +601,7 @@ function Laporan() {
           title="Ringkasan Kegiatan"
           sub="Rekap otomatis dari filter kegiatan di atas."
         >
-          <div className="grid grid-cols-4 gap-3 max-md:grid-cols-2 max-sm:grid-cols-1">
+          <div className="grid grid-cols-4 gap-3 max-md:grid-cols-2">
             <StatCard caption="Total kegiatan" value={totalKegiatan} />
             <StatCard caption="Total peserta" value={totalPeserta} />
             <StatCard caption="Total hadir" value={totalHadir} />
@@ -721,7 +721,7 @@ function Laporan() {
             rows={gPageRows}
             emptyMessage="Belum ada kegiatan untuk filter ini. Isi di halaman Kegiatan."
             renderRow={(r, i) => (
-              <Tr key={i}>
+              <Tr key={i} className='truncate'>
                 <Td>{(gPageClamped - 1) * PAGE_SIZE + i + 1}</Td>
                 <Td className="whitespace-nowrap">
                   {fmtDate(r.tgl)} <span className="text-muted">{r.jam}</span>
@@ -784,27 +784,6 @@ function Laporan() {
             onNext={() => setGPage((p) => Math.min(gMaxPage, p + 1))}
           />
         </SectionCard>
-      </CollapsibleSection>
-
-      {/* SECTION 3: Rekap Kunjungan Rumah (Bulanan) */}
-      <CollapsibleSection
-        title="Rekap Kunjungan Rumah (Bulanan)"
-        subtitle="Rekap mingguan per kelurahan/posyandu/kader dengan input manual & cetak PDF"
-        open={openSection3}
-        onChange={setOpenSection3}
-      >
-        <RekapKunjunganRumahSection
-          judul={judul}
-          setJudul={setJudul}
-          ttdNama={ttdNama}
-          setTtdNama={setTtdNama}
-          ttdJabatan={ttdJabatan}
-          setTtdJabatan={setTtdJabatan}
-          defaultPeriod={dari.slice(0, 7)}
-          defaultKel={kel}
-          defaultPosy="all"
-          defaultKader="all"
-        />
       </CollapsibleSection>
 
       {/* SECTION 4: Riwayat Submit Form (Audit Trail) */}

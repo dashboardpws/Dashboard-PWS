@@ -23,7 +23,7 @@ export function KopTable<T>({
             {headers.map((h) => (
               <th
                 key={h}
-                className="border-b border-line bg-surface-2 px-2.5 py-2 text-left font-semibold uppercase tracking-wider text-muted"
+                className="border-b border-line bg-surface-2 px-2.5 py-2 truncate text-left font-semibold uppercase tracking-wider text-muted"
               >
                 {h}
               </th>
@@ -35,7 +35,7 @@ export function KopTable<T>({
             <tr>
               <td
                 colSpan={colSpan}
-                className="px-2.5 py-4 text-center text-muted"
+                className="px-2.5 py-4 truncate text-center text-muted"
               >
                 {emptyMessage}
               </td>

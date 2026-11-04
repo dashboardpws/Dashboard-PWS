@@ -24,6 +24,7 @@ import { Route as IsiFormVersionIdRouteImport } from './routes/isi.$formVersionI
 import { Route as KunjunganRumahIdRouteImport } from './routes/kunjungan-rumah_.$id'
 import { Route as SasaranIndexRouteImport } from './routes/sasaran.index'
 import { Route as SasaranIdRouteImport } from './routes/sasaran.$id'
+import { Route as KelolaFormBuilderFormIdRouteImport } from './routes/kelola.form-builder.$formId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -100,13 +101,18 @@ const SasaranIdRoute = SasaranIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => SasaranRoute,
 } as any)
+const KelolaFormBuilderFormIdRoute = KelolaFormBuilderFormIdRouteImport.update({
+  id: '/form-builder/$formId',
+  path: '/form-builder/$formId',
+  getParentRoute: () => KelolaRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/form': typeof FormRoute
   '/form-designer': typeof FormDesignerRoute
   '/kegiatan': typeof KegiatanRoute
-  '/kelola': typeof KelolaRoute
+  '/kelola': typeof KelolaRouteWithChildren
   '/kunjungan-rumah': typeof KunjunganRumahRoute
   '/laporan': typeof LaporanRoute
   '/notifikasi': typeof NotifikasiRoute
@@ -117,13 +123,14 @@ export interface FileRoutesByFullPath {
   '/kunjungan-rumah/$id': typeof KunjunganRumahIdRoute
   '/sasaran/$id': typeof SasaranIdRoute
   '/sasaran/': typeof SasaranIndexRoute
+  '/kelola/form-builder/$formId': typeof KelolaFormBuilderFormIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/form': typeof FormRoute
   '/form-designer': typeof FormDesignerRoute
   '/kegiatan': typeof KegiatanRoute
-  '/kelola': typeof KelolaRoute
+  '/kelola': typeof KelolaRouteWithChildren
   '/kunjungan-rumah': typeof KunjunganRumahRoute
   '/laporan': typeof LaporanRoute
   '/notifikasi': typeof NotifikasiRoute
@@ -133,6 +140,7 @@ export interface FileRoutesByTo {
   '/kunjungan-rumah/$id': typeof KunjunganRumahIdRoute
   '/sasaran/$id': typeof SasaranIdRoute
   '/sasaran': typeof SasaranIndexRoute
+  '/kelola/form-builder/$formId': typeof KelolaFormBuilderFormIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -140,7 +148,7 @@ export interface FileRoutesById {
   '/form': typeof FormRoute
   '/form-designer': typeof FormDesignerRoute
   '/kegiatan': typeof KegiatanRoute
-  '/kelola': typeof KelolaRoute
+  '/kelola': typeof KelolaRouteWithChildren
   '/kunjungan-rumah': typeof KunjunganRumahRoute
   '/laporan': typeof LaporanRoute
   '/notifikasi': typeof NotifikasiRoute
@@ -151,6 +159,7 @@ export interface FileRoutesById {
   '/kunjungan-rumah_/$id': typeof KunjunganRumahIdRoute
   '/sasaran/$id': typeof SasaranIdRoute
   '/sasaran/': typeof SasaranIndexRoute
+  '/kelola/form-builder/$formId': typeof KelolaFormBuilderFormIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -170,6 +179,7 @@ export interface FileRouteTypes {
     | '/kunjungan-rumah/$id'
     | '/sasaran/$id'
     | '/sasaran/'
+    | '/kelola/form-builder/$formId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -186,6 +196,7 @@ export interface FileRouteTypes {
     | '/kunjungan-rumah/$id'
     | '/sasaran/$id'
     | '/sasaran'
+    | '/kelola/form-builder/$formId'
   id:
     | '__root__'
     | '/'
@@ -203,6 +214,7 @@ export interface FileRouteTypes {
     | '/kunjungan-rumah_/$id'
     | '/sasaran/$id'
     | '/sasaran/'
+    | '/kelola/form-builder/$formId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -210,7 +222,7 @@ export interface RootRouteChildren {
   FormRoute: typeof FormRoute
   FormDesignerRoute: typeof FormDesignerRoute
   KegiatanRoute: typeof KegiatanRoute
-  KelolaRoute: typeof KelolaRoute
+  KelolaRoute: typeof KelolaRouteWithChildren
   KunjunganRumahRoute: typeof KunjunganRumahRoute
   LaporanRoute: typeof LaporanRoute
   NotifikasiRoute: typeof NotifikasiRoute
@@ -328,8 +340,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SasaranIdRouteImport
       parentRoute: typeof SasaranRoute
     }
+    '/kelola/form-builder/$formId': {
+      id: '/kelola/form-builder/$formId'
+      path: '/form-builder/$formId'
+      fullPath: '/kelola/form-builder/$formId'
+      preLoaderRoute: typeof KelolaFormBuilderFormIdRouteImport
+      parentRoute: typeof KelolaRoute
+    }
   }
 }
+
+interface KelolaRouteChildren {
+  KelolaFormBuilderFormIdRoute: typeof KelolaFormBuilderFormIdRoute
+}
+
+const KelolaRouteChildren: KelolaRouteChildren = {
+  KelolaFormBuilderFormIdRoute: KelolaFormBuilderFormIdRoute,
+}
+
+const KelolaRouteWithChildren =
+  KelolaRoute._addFileChildren(KelolaRouteChildren)
 
 interface SasaranRouteChildren {
   SasaranIdRoute: typeof SasaranIdRoute
@@ -349,7 +379,7 @@ const rootRouteChildren: RootRouteChildren = {
   FormRoute: FormRoute,
   FormDesignerRoute: FormDesignerRoute,
   KegiatanRoute: KegiatanRoute,
-  KelolaRoute: KelolaRoute,
+  KelolaRoute: KelolaRouteWithChildren,
   KunjunganRumahRoute: KunjunganRumahRoute,
   LaporanRoute: LaporanRoute,
   NotifikasiRoute: NotifikasiRoute,

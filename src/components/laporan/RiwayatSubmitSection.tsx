@@ -321,7 +321,7 @@ export function RiwayatSubmitSection({
             ]}
             rows={pageRows}
             renderRow={(r) => (
-              <Tr key={r.id}>
+              <Tr key={r.id} className='truncate'>
                 <Td className="whitespace-nowrap">{fmtDate(r.tanggal)}</Td>
                 <Td>
                   <div className="font-semibold text-ink">{r.formNama}</div>

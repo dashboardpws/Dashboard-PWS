@@ -10,6 +10,13 @@ Dipakai petugas untuk mencatat kunjungan rumah dan kegiatan Posyandu, dan mencet
 - **Tailwind CSS v4**
 - **Vitest**
 
+## Progressive Web App
+
+Dashboard dapat dipasang ke layar utama melalui browser yang mendukung PWA.
+Service worker dipakai untuk Web Push, tetapi belum menyimpan halaman atau data
+untuk penggunaan offline. Koneksi internet tetap diperlukan untuk memakai fitur
+aplikasi.
+
 ## Getting started
 
 ```bash

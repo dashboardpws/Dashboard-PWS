@@ -14,7 +14,7 @@ export interface KelStatsGridProps {
 
 export function KelStatsGrid({ stats, unit }: KelStatsGridProps) {
   return (
-    <div className="mt-3 grid grid-cols-4 gap-3 max-md:grid-cols-2 max-sm:grid-cols-1">
+    <div className="mt-3 grid grid-cols-4 gap-3 max-md:grid-cols-2">
       {stats.map((s) => (
         <div key={s.kel} className={cn(CARD_SHELL, 'p-3.5 shadow-card')}>
           <div className="text-xs font-semibold text-ink">Kel. {s.kel}</div>
