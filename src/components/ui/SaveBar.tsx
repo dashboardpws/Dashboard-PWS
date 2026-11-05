@@ -15,6 +15,11 @@ export interface SaveBarProps {
   onReset: () => void
   onSubmit: () => void
   disabled?: boolean
+  /**
+   * Tampilkan spinner pada tombol simpan. Mantine juga menonaktifkan tombol
+   * selama `loading`, jadi klik berulang tidak memicu submit kedua.
+   */
+  loading?: boolean
   /** Label tombol simpan; biasanya berubah jadi "Menyimpan…" saat busy. */
   submitLabel: ReactNode
   children?: ReactNode
@@ -24,6 +29,7 @@ export function SaveBar({
   onReset,
   onSubmit,
   disabled,
+  loading,
   submitLabel,
   children,
 }: SaveBarProps) {
@@ -34,7 +40,12 @@ export function SaveBar({
         Reset
       </Button>
       {children}
-      <Button variant="primary" onClick={onSubmit} disabled={disabled}>
+      <Button
+        variant="primary"
+        onClick={onSubmit}
+        disabled={disabled}
+        loading={loading}
+      >
         {submitLabel}
       </Button>{' '}
     </Toolbar>

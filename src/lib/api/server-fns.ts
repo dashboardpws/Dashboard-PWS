@@ -174,7 +174,10 @@ export interface SurveyRow {
   id: string
   tanggal: string
   nik: string | null
+  /** Nama kepala keluarga; fallback ke nama warga bila KK tidak ada. */
   nama: string
+  /** NIK kepala keluarga; fallback ke `nik` warga bila tidak bisa diturunkan. */
+  nikKk: string | null
   kelurahan: string
   petugas: string
   formNama: string

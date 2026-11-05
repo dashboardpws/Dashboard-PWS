@@ -14,6 +14,7 @@ function row(formNama: string): SurveyRow {
     tanggal: '2026-07-15',
     nik: '3520010101990001',
     nama: 'Siti Aminah',
+    nikKk: '3520010101990001',
     kelurahan: 'Kota Lama',
     petugas: 'Kader A',
     formNama,

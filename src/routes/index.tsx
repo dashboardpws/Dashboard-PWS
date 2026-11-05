@@ -154,7 +154,7 @@ function Dashboard() {
             columns={[
               { key: 'tgl', label: 'Tanggal', sortable: true },
               { key: 'form', label: 'Form' },
-              { key: 'kel', label: 'Kelurahan' },
+              // { key: 'kel', label: 'Kelurahan' },
               { key: 'nama', label: 'Sasaran' },
               { key: 'petugas', label: 'Petugas' },
               { key: 'status', label: 'Status' },
@@ -171,7 +171,9 @@ function Dashboard() {
                 <Td>
                   <div className="font-semibold text-ink">{row.nama}</div>
                   <div className="text-[11px] text-muted">
-                    {row.nik ? `NIK ${row.nik}` : 'Tanpa warga'}
+                    {(row.nikKk ?? row.nik)
+                      ? `NIK ${row.nikKk ?? row.nik}`
+                      : 'Tanpa warga'}
                   </div>
                 </Td>
                 <Td className="text-muted">{row.petugas}</Td>

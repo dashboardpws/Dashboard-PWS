@@ -8,13 +8,49 @@ import { eq, sql } from 'drizzle-orm'
 import { formVersions, surveyEntries, surveys } from '@/lib/schema/schema'
 import { parseFormDefinition } from '@/lib/form-builder/form-schema'
 
+/**
+ * NIK kepala keluarga dari payload `record_legacy`.
+ *
+ * `data_warga` hanya menyimpan `nama_kk`, bukan NIK KK. Payload kunjungan
+ * menyimpan seluruh anggota keluarga, jadi kepala keluarga dicari di sana:
+ * `hubKK` = "Kepala Keluarga" lebih dulu, lalu nama yang sama dengan `namaKK`.
+ * Alias `s` (surveys) dan `w` (data_warga) harus sudah ada di query pemanggil.
+ */
+const joinNikKk = sql`
+        LEFT JOIN LATERAL (
+            SELECT anggota->>'nik' AS "nik"
+            FROM survey_entries e
+            CROSS JOIN LATERAL jsonb_array_elements(
+                CASE
+                    WHEN jsonb_typeof(e.value->'anggota') = 'array'
+                        THEN e.value->'anggota'
+                    WHEN jsonb_typeof(e.value->'anggotaKeluarga') = 'array'
+                        THEN e.value->'anggotaKeluarga'
+                    ELSE '[]'::jsonb
+                END
+            ) anggota
+            WHERE e."surveyId" = s.id
+                AND e.value->>'id' = s.id::text
+                AND length(anggota->>'nik') = 16
+                AND (
+                    anggota->>'hubKK' = 'Kepala Keluarga'
+                    OR anggota->>'nama' = e.value->'info'->>'namaKK'
+                )
+            ORDER BY (anggota->>'hubKK' = 'Kepala Keluarga') DESC
+            LIMIT 1
+        ) kk ON TRUE
+`
+
 /** Baris isian form yang dipakai dashboard, laporan, dan detail sasaran. */
 export interface BarisIsianForm {
   id: string
   tanggal: string
   /** NULL kalau form-nya tidak menunjuk warga per-submission (mis. kegiatan). */
   nik: string | null
+  /** Nama kepala keluarga; fallback ke nama warga bila KK tidak ada. */
   nama: string
+  /** NIK kepala keluarga; fallback ke `nik` warga bila tidak bisa diturunkan. */
+  nikKk: string | null
   kelurahan: string
   petugas: string
   /** Nama form dari `forms`, bukan label hardcoded — ini yang membuat record
@@ -78,7 +114,8 @@ export async function querySurveysWithWarga(
             s.id                                   AS "id",
             to_char(s."tanggal", 'YYYY-MM-DD')     AS "tanggal",
             s."wargaNik"                           AS "nik",
-            COALESCE(w."nama_art", '—')            AS "nama",
+            COALESCE(NULLIF(btrim(w."nama_kk"), ''), w."nama_art", '—') AS "nama",
+            COALESCE(kk.nik, w."nik")              AS "nikKk",
             COALESCE(w."kelurahan", '—')           AS "kelurahan",
             COALESCE(u."nama", '—')                AS "petugas",
             f.nama                                 AS "formNama",
@@ -88,6 +125,7 @@ export async function querySurveysWithWarga(
         INNER JOIN form_versions fv ON fv.id = s."formVersionId"
         INNER JOIN forms f ON f.id = fv."formId"
         LEFT JOIN data_warga w ON w.nik = s."wargaNik"
+        ${joinNikKk}
         LEFT JOIN users u ON u.id = s."petugasId"
         WHERE TRUE ${filterNik}
         ORDER BY s."tanggal" DESC
@@ -106,7 +144,10 @@ export interface BarisRiwayatSubmit {
   formVersion: number
   petugas: string
   nik: string | null
+  /** Nama kepala keluarga; fallback ke nama warga bila KK tidak ada. */
   nama: string
+  /** NIK kepala keluarga; fallback ke `nik` warga bila tidak bisa diturunkan. */
+  nikKk: string | null
   kelurahan: string
   jumlahJawaban: number
 }
@@ -161,13 +202,15 @@ export async function queryRiwayatSubmit(params: {
             fv.version                             AS "formVersion",
             COALESCE(u."nama", '—')                AS "petugas",
             s."wargaNik"                           AS "nik",
-            COALESCE(w."nama_art", '—')            AS "nama",
+            COALESCE(NULLIF(btrim(w."nama_kk"), ''), w."nama_art", '—') AS "nama",
+            COALESCE(kk.nik, w."nik")              AS "nikKk",
             COALESCE(w."kelurahan", '—')           AS "kelurahan",
             (SELECT COUNT(*)::int FROM survey_entries e WHERE e."surveyId" = s.id) AS "jumlahJawaban"
         FROM surveys s
         INNER JOIN form_versions fv ON fv.id = s."formVersionId"
         INNER JOIN forms f ON f.id = fv."formId"
         LEFT JOIN data_warga w ON w.nik = s."wargaNik"
+        ${joinNikKk}
         LEFT JOIN users u ON u.id = s."petugasId"
         WHERE TRUE
         ${filterForm}
@@ -245,7 +288,8 @@ export async function queryRingkasanSubmit(
             s.id                                   AS "id",
             to_char(s."tanggal", 'YYYY-MM-DD')     AS "tanggal",
             s."wargaNik"                           AS "nik",
-            COALESCE(w."nama_art", '—')            AS "nama",
+            COALESCE(NULLIF(btrim(w."nama_kk"), ''), w."nama_art", '—') AS "nama",
+            COALESCE(kk.nik, w."nik")              AS "nikKk",
             COALESCE(w."kelurahan", '—')           AS "kelurahan",
             COALESCE(u."nama", '—')                AS "petugas",
             f.nama                                 AS "formNama",
@@ -255,6 +299,7 @@ export async function queryRingkasanSubmit(
         INNER JOIN form_versions fv ON fv.id = s."formVersionId"
         INNER JOIN forms f ON f.id = fv."formId"
         LEFT JOIN data_warga w ON w.nik = s."wargaNik"
+        ${joinNikKk}
         LEFT JOIN users u ON u.id = s."petugasId"
         WHERE s.id = ${surveyId}
         LIMIT 1

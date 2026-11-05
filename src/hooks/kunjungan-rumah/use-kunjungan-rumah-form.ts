@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useReducer, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from 'react'
 import { useKunjunganRumahTemplates } from './use-kunjungan-rumah-templates'
 import { useKunjunganRumahRecords } from './use-kunjungan-rumah-records'
 import { useToast } from '@/providers/toast'
@@ -45,7 +52,7 @@ export interface UseKunjunganRumahFormOptions {
 
 /** Hasil submit dipakai Scene untuk memilih notifikasi dan navigasi. */
 export type HasilSubmit =
-  | { status: 'invalid' | 'error' }
+  | { status: 'invalid' | 'error' | 'busy' }
   | { status: 'unchanged' }
   | { status: 'saved'; record: KunjunganRumahRecord }
 
@@ -117,6 +124,9 @@ export function useKunjunganRumahForm(opts?: UseKunjunganRumahFormOptions) {
   } = useKunjunganRumahRecords()
   const [fotoUploading, setFotoUploading] = useState(false)
   const [saving, setSaving] = useState(false)
+  // Penjaga klik berulang. `saving` baru terlihat oleh render berikutnya,
+  // sedangkan ref langsung berlaku pada event klik kedua di frame yang sama.
+  const savingRef = useRef(false)
 
   useEffect(() => {
     const hasil = bersihkanFieldTersembunyiKR({
@@ -194,6 +204,7 @@ export function useKunjunganRumahForm(opts?: UseKunjunganRumahFormOptions) {
   )
 
   const handleSubmit = useCallback(async (): Promise<HasilSubmit> => {
+    if (savingRef.current) return { status: 'busy' }
     const { ok, invalid } = validateKunjunganRumah({ ...state, templates })
     dispatch({ type: 'SET_INVALID', invalid })
     if (!ok) {
@@ -209,6 +220,7 @@ export function useKunjunganRumahForm(opts?: UseKunjunganRumahFormOptions) {
         return { status: 'unchanged' }
       }
     }
+    savingRef.current = true
     setSaving(true)
     try {
       // Foto ke Supabase Storage bila bucket tersedia; gagal upload → simpan inline (DB jsonb).
@@ -271,6 +283,7 @@ export function useKunjunganRumahForm(opts?: UseKunjunganRumahFormOptions) {
       toast(`Gagal menyimpan ke database. ${detail}`.slice(0, 400))
       return { status: 'error' }
     } finally {
+      savingRef.current = false
       setSaving(false)
     }
   }, [state, templates, record, toast, saveRecord])

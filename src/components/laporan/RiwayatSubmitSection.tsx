@@ -236,6 +236,7 @@ export function RiwayatSubmitSection({
         r.nama.toLowerCase().includes(q) ||
         r.formNama.toLowerCase().includes(q) ||
         (r.nik ?? '').includes(q) ||
+        (r.nikKk ?? '').includes(q) ||
         r.petugas.toLowerCase().includes(q),
     )
   }, [terfilter, cari, dari, sampai, kel])
@@ -321,14 +322,14 @@ export function RiwayatSubmitSection({
             ]}
             rows={pageRows}
             renderRow={(r) => (
-              <Tr key={r.id} className='truncate'>
+              <Tr key={r.id} className="truncate">
                 <Td className="whitespace-nowrap">{fmtDate(r.tanggal)}</Td>
                 <Td>
                   <div className="font-semibold text-ink">{r.formNama}</div>
                   <div className="text-muted">Versi {r.formVersion}</div>
                 </Td>
                 <Td>
-                  <Nik nik={r.nik} nama={r.nama} />
+                  <Nik nik={r.nikKk ?? r.nik} nama={r.nama} />
                 </Td>
                 <Td className="text-muted">{r.petugas}</Td>
                 <Td className="text-muted">{r.jumlahJawaban}</Td>

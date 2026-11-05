@@ -284,6 +284,7 @@ function Kegiatan() {
             onReset={k.clearAll}
             onSubmit={handleSubmit}
             disabled={saving}
+            loading={saving}
             submitLabel={saving ? 'Menyimpan…' : 'Simpan kegiatan'}
           >
             <Button variant="ghost" onClick={k.loadDemo}>

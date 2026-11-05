@@ -218,7 +218,7 @@ export function KunjunganRumahFormScene({ record }: Props) {
               }}
             />
           </div>
-        
+
           <StepperMantine
             active={mobileStep}
             onStepClick={setMobileStep}
@@ -230,7 +230,8 @@ export function KunjunganRumahFormScene({ record }: Props) {
               root: 'relative z-10',
               steps: 'flex-nowrap! justify-between',
               stepLabel: 'hidden',
-              stepDescription: 'text-[9px]! font-medium text-muted mt-1 text-center',
+              stepDescription:
+                'text-[9px]! font-medium text-muted mt-1 text-center',
               separator: 'opacity-0', // Sembunyikan separator asli Mantine
             }}
           >
@@ -401,7 +402,8 @@ export function KunjunganRumahFormScene({ record }: Props) {
                   onReset={handleReset}
                   onSubmit={onSubmit}
                   disabled={fotoUploading || saving}
-                  submitLabel="Simpan kunjungan rumah"
+                  loading={saving}
+                  submitLabel={saving ? 'Menyimpan…' : 'Simpan kunjungan rumah'}
                 />
               }
             >
@@ -447,8 +449,9 @@ export function KunjunganRumahFormScene({ record }: Props) {
                 className="flex-1 text-sm!"
                 onClick={onSubmit}
                 disabled={fotoUploading || saving}
+                loading={saving}
               >
-                Simpan
+                {saving ? 'Menyimpan…' : 'Simpan'}
               </Button>
             </>
           )}
@@ -460,10 +463,10 @@ export function KunjunganRumahFormScene({ record }: Props) {
           title={`Kunjungan rumah ${saved.info.namaKK || 'keluarga'} tersimpan.`}
           message={`${saved.penilaian.length} penilaian sasaran · ${saved.masalah.length} masalah tercatat. Kader dapat melanjutkan ke keluarga berikutnya.`}
         >
-          <Button className='text-sm!' variant="primary" onClick={handleNext}>
+          <Button className="text-sm!" variant="primary" onClick={handleNext}>
             Isi keluarga berikutnya
           </Button>
-          <ButtonLink className='text-sm!' to="/sasaran" variant="primary">
+          <ButtonLink className="text-sm!" to="/sasaran" variant="primary">
             Lihat Data Sasaran
           </ButtonLink>
         </SuccessPanel>

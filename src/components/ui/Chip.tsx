@@ -25,8 +25,8 @@ export const Chip = forwardRef<HTMLButtonElement, ChipProps>(
         
         // Ukuran Responsif (Mobile First -> Desktop / md:)
         size === 'md'
-          ? 'px-3 py-2 text-xs! min-h-9.5 md:px-3.5 md:py-1.5 md:min-h-9 md:text-xs'
-          : 'px-2.5 py-1.5 text-xs! min-h-8 md:px-3 md:py-1 md:min-h-7 md:text-xs',
+          ? 'px-3 py-2 text-sm! min-h-9.5 md:px-3.5 md:py-1.5 md:min-h-9 md:text-sm'
+          : 'px-2.5 py-1.5 text-sm! min-h-8 md:px-3 md:py-1 md:min-h-7 md:text-sm',
 
         selected &&
           (dark

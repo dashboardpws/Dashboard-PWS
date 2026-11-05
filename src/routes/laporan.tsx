@@ -152,6 +152,7 @@ function Laporan() {
         (!cari ||
           r.nama.toLowerCase().includes(cari.toLowerCase()) ||
           (r.nik ?? '').includes(cari) ||
+          (r.nikKk ?? '').includes(cari) ||
           r.formNama.toLowerCase().includes(cari.toLowerCase())),
     )
   }, [rows, dari, sampai, kel, formId, cari, formAdaSubmit])
@@ -196,7 +197,7 @@ function Laporan() {
       r.tanggal,
       r.formNama,
       r.nama,
-      r.nik ?? '—',
+      r.nikKk ?? r.nik ?? '—',
       r.kelurahan,
       r.petugas,
     ])
@@ -454,7 +455,9 @@ function Laporan() {
                 <td className="px-2.5 py-2">
                   <div className="font-semibold truncate">{r.nama}</div>
                   <div className="text-muted truncate">
-                    {r.nik ? `NIK ${r.nik}` : 'Tanpa warga'}
+                    {(r.nikKk ?? r.nik)
+                      ? `NIK ${r.nikKk ?? r.nik}`
+                      : 'Tanpa warga'}
                   </div>
                 </td>
                 <td className="whitespace-nowrap px-2.5 py-2">
@@ -503,7 +506,9 @@ function Laporan() {
                   <Td>
                     <div className="font-semibold text-ink">{r.nama}</div>
                     <div className="text-[11px] text-muted">
-                      {r.nik ? `NIK ${r.nik}` : 'Tanpa warga'}
+                      {(r.nikKk ?? r.nik)
+                        ? `NIK ${r.nikKk ?? r.nik}`
+                        : 'Tanpa warga'}
                     </div>
                   </Td>
                   <Td className="whitespace-nowrap">Kel. {r.kelurahan}</Td>
@@ -721,7 +726,7 @@ function Laporan() {
             rows={gPageRows}
             emptyMessage="Belum ada kegiatan untuk filter ini. Isi di halaman Kegiatan."
             renderRow={(r, i) => (
-              <Tr key={i} className='truncate'>
+              <Tr key={i} className="truncate">
                 <Td>{(gPageClamped - 1) * PAGE_SIZE + i + 1}</Td>
                 <Td className="whitespace-nowrap">
                   {fmtDate(r.tgl)} <span className="text-muted">{r.jam}</span>

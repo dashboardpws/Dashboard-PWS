@@ -355,6 +355,7 @@ export function FormulirScene({ formVersionId, definisi }: FormulirSceneProps) {
             onReset={reset}
             onSubmit={onSimpan}
             disabled={saving}
+            loading={saving}
             submitLabel={saving ? 'Menyimpan…' : 'Simpan isian'}
           />
         }
