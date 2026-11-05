@@ -18,7 +18,7 @@ Dashboard PWS: pencatatan kunjungan rumah dan kegiatan Posyandu. TanStack Start 
 
 **Baca `CONTRIBUTING.md` sebelum edit besar.** Isinya peta codebase, aturan arsitektur, tabel "Mau mengubah apa"; `README.md` untuk setup dan overview route.
 
-Pastikan branch yang gunakana adalah branch main dengan commit terbaru dari [github repo](https://github.com/Lyc-n/Dashboard-PWS)
+Pastikan branch yang gunakana adalah branch main dengan commit terbaru dari [github repo](https://github.com/dashboardpws/Dashboard-PWS)
 
 ### Note
 
@@ -32,7 +32,7 @@ Perubahan yang kamu lakukan harus bersifat fokus, dan tidak mengubah sesuatu dil
 
 - **projek**: Dashboard PWS, codebase yang kamu kerjakan sekarang
 - **admin / user**: end user dari projek ini, biasanya kader yang tidak mahir teknologi
-- **aku/saya/me/i/developer**: orang yang mengerjakan projek ini. Mereka mengerjakan projek ini dengan bahasa yang berbeda, respon dengan bahasa yang digunakan untuk nge prompt
+- **aku/saya/me/i/developer**: orang yang mengerjakan projek ini. Mereka mengerjakan projek ini dengan bahasa yang berbeda, respon dengan bahasa yang aku gunakan
 - **client**: hardware yang akan menjalankan web ini, biasanya Handphone
 
 ## Gate sebelum commit
