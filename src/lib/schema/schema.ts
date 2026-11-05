@@ -39,8 +39,16 @@ import type { FormDefinition } from '@/lib/form-builder/form-schema'
 //
 // Kolom `date` (surveys.tanggal, data_warga.tgl_lahir) TIDAK ikut aturan ini:
 // tanggal kalender memang tidak punya zona waktu.
+//
+// Semua tabel memakai `pgTable.withRLS`, supaya role `anon` dan `authenticated`
+// (jalur PostgREST Supabase) ditolak. Tidak ada policy permissive di mana pun, dan
+// tanpa itu Postgres menolak semua akses baris. Server tidak lewat jalur itu: ia
+// terhubung langsung lewat DATABASE_URL sebagai pemilik tabel, dan pemilik melewati
+// RLS. Tambahkan policy hanya kalau ada klien Supabase yang memang perlu membaca
+// tabel tertentu. Dua tabel impor punya policy RESTRICTIVE di `data-import.ts`;
+// policy itu tidak memberi akses, hanya menambah syarat.
 
-export const dataWargaTable = pgTable('data_warga', {
+export const dataWargaTable = pgTable.withRLS('data_warga', {
   nik: varchar({ length: 16 }).notNull().primaryKey(),
   nama_art: varchar({ length: 255 }).notNull(),
   nama_kk: varchar({ length: 255 }).notNull(),
@@ -65,7 +73,7 @@ export const dataWargaTable = pgTable('data_warga', {
   updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 })
 
-export const wilayahKerja = pgTable(
+export const wilayahKerja = pgTable.withRLS(
   'wilayah_kerja',
   {
     id: smallint().primaryKey().notNull().generatedAlwaysAsIdentity(),
@@ -82,7 +90,7 @@ export const wilayahKerja = pgTable(
   ],
 )
 
-export const fasilitasKesehatan = pgTable(
+export const fasilitasKesehatan = pgTable.withRLS(
   'fasilitas_kesehatan',
   {
     id: smallint().primaryKey().notNull().generatedAlwaysAsIdentity(),
@@ -122,7 +130,7 @@ export const fasilitasKesehatan = pgTable(
  * hanya menimbulkan pertanyaan "ini kredensial atau bukan" bagi siapa pun yang
  * nanti membaca basis data.
  */
-export const users = pgTable(
+export const users = pgTable.withRLS(
   'users',
   {
     id: uuid().primaryKey().defaultRandom(),
@@ -149,7 +157,7 @@ export const users = pgTable(
 )
 
 // tabel untuk pilihan form, sehingga user bisa membuat atau menghapus form
-export const forms = pgTable(
+export const forms = pgTable.withRLS(
   'forms',
   {
     id: smallint().primaryKey().notNull().generatedAlwaysAsIdentity(),
@@ -175,7 +183,7 @@ export const forms = pgTable(
   (t) => [uniqueIndex('forms_kode_key').on(t.kode)],
 )
 
-export const formVersions = pgTable(
+export const formVersions = pgTable.withRLS(
   'form_versions',
   {
     id: uuid().primaryKey().defaultRandom(),
@@ -207,7 +215,7 @@ export const formVersions = pgTable(
 )
 
 // tabel hasil dan riwayat survey
-export const surveys = pgTable(
+export const surveys = pgTable.withRLS(
   'surveys',
   {
     id: uuid().primaryKey().defaultRandom(),
@@ -241,7 +249,7 @@ export const surveys = pgTable(
   ],
 )
 
-export const surveyEntries = pgTable(
+export const surveyEntries = pgTable.withRLS(
   'survey_entries',
   {
     id: uuid().primaryKey().defaultRandom(),
@@ -264,7 +272,7 @@ export const surveyEntries = pgTable(
 
 // Jejak audit untuk data warga. Sengaja dipisah dari log aplikasi: log aplikasi bisa
 // dirotasi, tabel ini tidak, dan isinya dibutuhkan untuk investigasi kebocoran NIK.
-export const auditLogs = pgTable(
+export const auditLogs = pgTable.withRLS(
   'audit_logs',
   {
     id: uuid().primaryKey().defaultRandom(),
@@ -290,7 +298,7 @@ export const auditLogs = pgTable(
   ],
 )
 
-export const validSession = pgTable('valid_session', {
+export const validSession = pgTable.withRLS('valid_session', {
   uid: uuid().primaryKey().defaultRandom(),
   token: text().notNull().unique(),
   expiresAt: timestamp({ withTimezone: true }).notNull(),
@@ -309,7 +317,7 @@ export const validSession = pgTable('valid_session', {
  * `ip` adalah kunci: tidak ada tabel user karena tidak ada user per-akun.
  * Baris dihapus setelah tidak ada lock (lihat `bersihkanKedaluwarsa`).
  */
-export const pinAttempts = pgTable('pin_attempts', {
+export const pinAttempts = pgTable.withRLS('pin_attempts', {
   ip: varchar({ length: 64 }).primaryKey(),
   gagalBerturut: integer('gagal_berturut').notNull().default(0),
   terkunciSampai: timestamp('terkunci_sampai', { withTimezone: true }),
@@ -318,7 +326,7 @@ export const pinAttempts = pgTable('pin_attempts', {
     .defaultNow(),
 })
 
-export const pushSubscriptions = pgTable(
+export const pushSubscriptions = pgTable.withRLS(
   'push_subscriptions',
   {
     id: uuid().primaryKey().defaultRandom(),
