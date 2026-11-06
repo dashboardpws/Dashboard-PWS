@@ -7,7 +7,8 @@ import type {
   TemplateQuestionRow,
   TemplateSectionRow,
 } from '@/lib/kunjungan-rumah/template/template-from-rows'
-import { KODE_FORM_BAWAAN } from '@/lib/constants'
+import { KODE_FORM_BAWAAN, MAX_FOTO } from '@/lib/constants'
+import { pathDariFileUrl, pathFotoValid, signedUrls } from './storage.server'
 import { PEMBATAS_NAMA_FIELD } from '@/lib/kunjungan-rumah/template/template-from-rows'
 import { and, count, desc, eq, gte, inArray, lt, or, sql } from 'drizzle-orm'
 import {
@@ -42,15 +43,14 @@ function asJsonRecord(v: unknown): JsonRecord {
   return v as JsonRecord
 }
 
-/** Foto untuk DB: teruskan id/name/fileUrl/dataUrl/caption/takenAt.
- *  dataUrl (base64) disimpan inline di jsonb — Postgres/TOAST menanganinya
- *  (batas kuota hanya berlaku untuk localStorage, bukan DB).
- *  fileUrl Supabase Storage siap dipakai setelah bucket `dokumentasi` tersedia
- *  di proyek yang sama dengan VITE_SUPABASE_URL (saat ini DB dan API beda proyek).
+/** Foto untuk DB: simpan `path` object, bukan URL.
+ *  Upload baru selalu menghasilkan `path`; `fileUrl`/`dataUrl` hanya
+ *  dipertahankan untuk record lama yang belum punya `path`, supaya tidak hilang
+ *  saat record itu diedit. Signed URL dibuat saat baca, tidak pernah disimpan.
  */
 function cleanFotos(fotos: unknown): Array<Record<string, unknown>> {
   if (!Array.isArray(fotos)) return []
-  return fotos.map((f) => {
+  return fotos.slice(0, MAX_FOTO).map((f) => {
     const o = (f ?? {}) as Record<string, unknown>
     const out: Record<string, unknown> = {
       id: typeof o.id === 'string' ? o.id : '',
@@ -59,9 +59,44 @@ function cleanFotos(fotos: unknown): Array<Record<string, unknown>> {
       takenAt:
         typeof o.takenAt === 'string' ? o.takenAt : new Date().toISOString(),
     }
+    if (typeof o.path === 'string' && pathFotoValid(o.path)) {
+      out.path = o.path
+      return out
+    }
     if (typeof o.fileUrl === 'string' && o.fileUrl) out.fileUrl = o.fileUrl
     if (typeof o.dataUrl === 'string' && o.dataUrl) out.dataUrl = o.dataUrl
     return out
+  })
+}
+
+/** Object path sebuah foto, dari `path` baru atau `fileUrl` publik lama. */
+function pathFoto(f: unknown): string | null {
+  if (!f || typeof f !== 'object') return null
+  const o = f as Record<string, unknown>
+  if (typeof o.path === 'string' && pathFotoValid(o.path)) return o.path
+  if (typeof o.fileUrl === 'string') return pathDariFileUrl(o.fileUrl)
+  return null
+}
+
+/** Tempelkan signed URL ke tiap foto saat dibaca.
+ *
+ *  DB hanya menyimpan `path`; signed URL berumur pendek jadi dibuat ulang tiap
+ *  baca. Foto lama tanpa `path` diambil dari `fileUrl` publik yang sudah
+ *  tersimpan, jadi tetap tampil walau belum di-backfill. Kalau signing gagal,
+ *  foto dikembalikan apa adanya supaya halaman tidak ikut gagal.
+ */
+async function fotosBerUrl(
+  fotos: unknown,
+): Promise<Array<Record<string, unknown>>> {
+  if (!Array.isArray(fotos)) return []
+  const asal = fotos.map(pathFoto).filter((p): p is string => !!p)
+  const signed = await signedUrls(asal)
+  return fotos.map((f) => {
+    if (!f || typeof f !== 'object') return {}
+    const baris = f as Record<string, unknown>
+    const path = pathFoto(f)
+    const url = path ? signed[path] : undefined
+    return url ? { ...baris, fileUrl: url } : baris
   })
 }
 
@@ -555,7 +590,8 @@ export async function getKunjunganRumahRecord(id: string) {
   const payload = row?.value
   if (!payload || typeof payload !== 'object' || Array.isArray(payload))
     return null
-  const rec = payload as JsonRecord
+  const rec: JsonRecord = { ...(payload as JsonRecord) }
+  rec.fotos = await fotosBerUrl(rec.fotos)
   return { id, ...rec }
 }
 

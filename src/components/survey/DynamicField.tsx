@@ -200,7 +200,6 @@ function PeringatanOpsi({ pesan }: { pesan: string }) {
   )
 }
 
-
 /**
  * Field bertipe pilihan yang tidak punya satu pun opsi aktif.
  *

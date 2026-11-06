@@ -32,6 +32,7 @@ import {
   buildPenilaianMapFromSubmission,
   getMemberKey,
 } from '@/lib/kunjungan-rumah/penilaian-riwayat'
+import type { PenilaianRiwayat } from '@/lib/kunjungan-rumah/penilaian-riwayat'
 
 // ---- pencarian warga sasaran di data_warga + data import ----
 //
@@ -439,10 +440,7 @@ async function payloadSubmissionTerbaru(kunci: {
 export async function queryRiwayatKRTerbaru(
   kunci: Parameters<typeof payloadSubmissionTerbaru>[0],
 ): Promise<{
-  penilaian: Record<
-    string,
-    import('@/lib/kunjungan-rumah/penilaian-riwayat').PenilaianRiwayat[]
-  >
+  penilaian: Record<string, PenilaianRiwayat[]>
   sanitasi: Sanitasi | null
 }> {
   const kosong = { penilaian: {}, sanitasi: null }
@@ -518,9 +516,9 @@ function gabungkanDenganSubmissionTerbaru(
       ...(sebelumnya ?? warga),
       ...Object.fromEntries(
         Object.entries(warga).filter(
-          ([key, value]) =>
-            key !== 'rawId' &&
-            key !== 'jumlahArt' &&
+          ([namaKolom, value]) =>
+            namaKolom !== 'rawId' &&
+            namaKolom !== 'jumlahArt' &&
             value !== null &&
             value !== '',
         ),

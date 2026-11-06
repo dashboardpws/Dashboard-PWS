@@ -1,3 +1,8 @@
 allowBuilds:
   esbuild: true
   unrs-resolver: false
+minimumReleaseAgeExclude:
+  - vite@8.3.6
+overrides:
+  seroval: ^1.7.7
+  source-map-js: ^1.2.2

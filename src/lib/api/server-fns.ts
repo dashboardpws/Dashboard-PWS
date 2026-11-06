@@ -62,6 +62,7 @@ import {
   listKegiatan as listKegiatanV2,
   simpanKegiatan,
 } from '@/lib/server/survey/kegiatan.server'
+import { signedUrls, unggahFoto } from '@/lib/server/storage.server'
 import {
   buatFormBaru,
   daftarVersiForm,
@@ -476,6 +477,27 @@ export const removeKunjunganRumah = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     await removeKunjunganRumahRecord(data.id)
   })
+
+// Foto warga ada di bucket privat. Upload dan pembuatan signed URL lewat server
+// fn supaya service role tidak pernah sampai ke browser. Batas panjang base64
+// menjaga body tetap wajar sebelum divalidasi ulang dari magic bytes di server.
+export const uploadFoto = createServerFn({ method: 'POST' })
+  .middleware([authSessionToken])
+  .validator((data: { dataUrl: string; prefix: string }) => {
+    if (typeof data.dataUrl !== 'string' || data.dataUrl.length > 3_500_000)
+      throw new Error('Ukuran foto melebihi batas')
+    return data
+  })
+  .handler(async ({ data }) => await unggahFoto(data.dataUrl, data.prefix))
+
+export const getFotoUrls = createServerFn({ method: 'POST' })
+  .middleware([authSessionToken])
+  .validator((data: { paths: string[] }) => {
+    if (!Array.isArray(data.paths) || data.paths.length > 60)
+      throw new Error('Daftar foto tidak valid')
+    return data
+  })
+  .handler(async ({ data }) => await signedUrls(data.paths))
 
 // ---- kegiatan pemberdayaan — generic submission v2 ----
 // formerly ditulis ke tabel `kegiatan_records`, yang sudah dihapus dari database

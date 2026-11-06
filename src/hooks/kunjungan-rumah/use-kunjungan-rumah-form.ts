@@ -10,7 +10,7 @@ import { useKunjunganRumahTemplates } from './use-kunjungan-rumah-templates'
 import { useKunjunganRumahRecords } from './use-kunjungan-rumah-records'
 import { useToast } from '@/providers/toast'
 import { prepareFotos } from '@/lib/kunjungan-rumah/fotos'
-import { StorageUploadError, uploadDataUrl } from '@/lib/supabase-storage'
+import { uploadFotoDataUrl } from '@/lib/supabase-storage'
 import { validateKunjunganRumah } from '@/lib/service/kunjungan-rumah/validate-kunjungan-rumah'
 import {
   initialKunjunganRumahState,
@@ -223,48 +223,31 @@ export function useKunjunganRumahForm(opts?: UseKunjunganRumahFormOptions) {
     savingRef.current = true
     setSaving(true)
     try {
-      // Foto ke Supabase Storage bila bucket tersedia; gagal upload → simpan inline (DB jsonb).
-      // Log aman: hanya status/detail infra + ukuran/tipe. Tanpa token, secret, data warga, isi foto.
-      const uploadErrors: Array<{ status: number; detail: string }> = []
+      // Foto diunggah lewat server fn ke bucket privat. Server memvalidasi ulang
+      // tipe/ukuran; DB hanya menyimpan object `path`, bukan URL. Log sengaja
+      // hanya berisi pesan galat, tanpa token, secret, atau data warga.
+      const uploadErrors: string[] = []
       const fotos = await Promise.all(
         state.fotos.map(async (f) => {
-          if (f.fileUrl || !f.dataUrl) return { ...f }
+          if (f.path || !f.dataUrl) return { ...f }
           try {
-            const fileUrl = await uploadDataUrl(f.dataUrl, 'kunjungan-rumah')
-            const { dataUrl: _drop, ...rest } = f
-            return { ...rest, fileUrl }
+            const path = await uploadFotoDataUrl(f.dataUrl, 'kunjungan-rumah')
+            const { dataUrl: _drop, fileUrl: _lama, ...rest } = f
+            return { ...rest, path }
           } catch (e) {
-            if (e instanceof StorageUploadError) {
-              uploadErrors.push({ status: e.status, detail: e.detail })
-              console.error(
-                '[upload-foto]',
-                JSON.stringify({
-                  bucket: e.bucket,
-                  status: e.status,
-                  detail: e.detail,
-                  bytes: e.bytes,
-                  contentType: e.contentType,
-                }),
-              )
-            } else {
-              const detail = (e instanceof Error ? e.message : String(e)).slice(
-                0,
-                300,
-              )
-              uploadErrors.push({ status: -1, detail })
-              console.error(
-                '[upload-foto]',
-                JSON.stringify({ status: -1, detail }),
-              )
-            }
+            const detail = (e instanceof Error ? e.message : String(e)).slice(
+              0,
+              300,
+            )
+            uploadErrors.push(detail)
+            console.error('[upload-foto]', JSON.stringify({ detail }))
             return { ...f }
           }
         }),
       )
       if (uploadErrors.length > 0) {
-        const first = uploadErrors[0]!
         toast(
-          `Upload ${uploadErrors.length} foto gagal (${first.status}): ${first.detail}. Data tetap tersimpan lokal — salin pesan ini untuk diagnosis.`,
+          `Upload ${uploadErrors.length} foto gagal: ${uploadErrors[0]}. Data tetap tersimpan — salin pesan ini untuk diagnosis.`,
         )
       }
       const rec = recordDariState(state, fotos)

@@ -26,7 +26,6 @@ import {
   StatusBadge,
 } from '@/components/ui'
 import { requireAuth } from '@/lib/auth/auth'
-import { RekapKunjunganRumahSection } from '@/components/laporan/RekapKunjunganRumahSection'
 import { RiwayatSubmitSection } from '@/components/laporan/RiwayatSubmitSection'
 import { FilterToolbar } from '@/components/laporan/FilterToolbar'
 import { KelStatsGrid } from '@/components/laporan/KelStatsGrid'
@@ -130,7 +129,6 @@ function Laporan() {
     section !== 'kegiatan' && section !== 'rekap' && section !== 'riwayat',
   )
   const [openSection2, setOpenSection2] = useState(section === 'kegiatan')
-  const [openSection3, setOpenSection3] = useState(section === 'rekap')
   const [openSection4, setOpenSection4] = useState(section === 'riwayat')
 
   // If period is set, update date range and lock it for Section 2

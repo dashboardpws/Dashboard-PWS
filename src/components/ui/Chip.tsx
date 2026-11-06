@@ -22,7 +22,7 @@ export const Chip = forwardRef<HTMLButtonElement, ChipProps>(
         // Touch Target & Hover (Mobile vs Desktop)
         'touch-manipulation active:scale-[0.97]',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2',
-        
+
         // Ukuran Responsif (Mobile First -> Desktop / md:)
         size === 'md'
           ? 'px-3 py-2 text-sm! min-h-9.5 md:px-3.5 md:py-1.5 md:min-h-9 md:text-sm'

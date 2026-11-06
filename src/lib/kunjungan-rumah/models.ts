@@ -72,13 +72,15 @@ export interface Sanitasi {
   [key: string]: boolean | string
 }
 
-/** Satu foto dokumentasi kunjungan. fileUrl = Supabase Storage (publik); dataUrl lawas opsional. */
+/** Satu foto dokumentasi kunjungan. `path` = object Storage privat (sumber kebenaran). */
 export interface KunjunganRumahFoto {
   id: string
   name: string
-  /** URL publik Supabase Storage — diisi saat submit setelah upload. */
+  /** Object path di bucket privat `foto`, mis. `kunjungan-rumah/<uuid>.jpg`. */
+  path?: string
+  /** URL sementara (signed/public lama) — hanya untuk pratinjau, tidak disimpan. */
   fileUrl?: string
-  /** Base64 lawas (data localStorage) — hanya untuk pratinjau sebelum upload / fallback baca lama. */
+  /** Base64 lawas/pratinjau sebelum upload — tidak disimpan untuk record baru. */
   dataUrl?: string
   caption: string
   takenAt: string

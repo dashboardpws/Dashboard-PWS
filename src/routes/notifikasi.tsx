@@ -57,8 +57,8 @@ function Notifikasi() {
   }
 
   // Safe fallback agar tidak crash saat loading/error jika `data` belum tersedia
-  const totalWarga = data.ringkasan.warga 
-  const totalKunjungan = data.ringkasan.kunjungan 
+  const totalWarga = data.ringkasan.warga
+  const totalKunjungan = data.ringkasan.kunjungan
 
   return (
     <AppShell>

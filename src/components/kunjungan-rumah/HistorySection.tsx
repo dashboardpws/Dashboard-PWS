@@ -22,7 +22,7 @@ export function HistorySection({ records, templates, onDelete }: Props) {
           <div className="flex flex-wrap items-center gap-2">
             <b>{r.info.namaKK || 'Tanpa nama KK'}</b>
             {r.penilaian.map((p) => (
-              <Tag key={p.id} className='hidden! md:inline!'>
+              <Tag key={p.id} className="hidden! md:inline!">
                 {templates.sasaran[p.sasaran]
                   ? templates.sasaran[p.sasaran].label
                   : p.sasaran}

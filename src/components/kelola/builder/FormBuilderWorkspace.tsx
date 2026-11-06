@@ -275,7 +275,7 @@ export function FormBuilderWorkspace({
         <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
           <div className="flex items-center gap-2">
             {onBack && (
-              <Button size="sm" variant="ghost" onClick={onBack} >
+              <Button size="sm" variant="ghost" onClick={onBack}>
                 <RotateCcw className="w-4 h-4" /> Kembali
               </Button>
             )}

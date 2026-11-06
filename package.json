@@ -36,9 +36,7 @@
     "@mui/material": "^9.5.0",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/history": "1.162.4",
-    "@tanstack/react-devtools": "latest",
     "@tanstack/react-router": "latest",
-    "@tanstack/react-router-devtools": "latest",
     "@tanstack/react-start": "latest",
     "dotenv": "^18.0.1",
     "drizzle-orm": "^1.0.0-rc.4",
@@ -51,12 +49,14 @@
     "recharts": "^3.10.1",
     "tailwindcss": "^4.1.18",
     "web-push": "^3.6.7",
-    "zod": "^4.6.2"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.16",
     "@tanstack/devtools-vite": "latest",
     "@tanstack/eslint-config": "latest",
+    "@tanstack/react-devtools": "latest",
+    "@tanstack/react-router-devtools": "latest",
     "@tanstack/router-cli": "^1.132.0",
     "@types/node": "^22.10.2",
     "@types/react": "^19.2.0",
@@ -67,14 +67,8 @@
     "prettier": "^3.8.1",
     "tsx": "^4.23.13",
     "typescript": "^6.0.2",
-    "vite": "^8.0.0",
+    "vite": "^8.3.6",
     "vitest": "^5.0.1"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild",
-      "lightningcss"
-    ]
   },
   "intent": {
     "skills": [

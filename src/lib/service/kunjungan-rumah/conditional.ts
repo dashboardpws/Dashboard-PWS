@@ -1,7 +1,6 @@
 import type { ConditionalRule } from '@/lib/kunjungan-rumah/template/kunjungan-rumah-form'
 import type { KunjunganRumahTemplateField } from '@/lib/kunjungan-rumah/template/kunjungan-rumah-templates'
 import { evaluasiVisibilitas } from '@/lib/form-builder/engine/visibilitas'
-import type { RuleVisibilitas } from '@/lib/form-builder/engine/types'
 
 export function isConditionalActive(
   rule: ConditionalRule,
@@ -33,7 +32,7 @@ export function fieldSasaranAktif(
   if (rules.length === 0) return new Set(fields.map((field) => field.id))
   return evaluasiVisibilitas({
     answers: { ...values, ...checks },
-    rules: rules as RuleVisibilitas[],
+    rules,
     allFieldIds: fields.map((field) => field.id),
     allSectionIds: [],
   }).fieldAktif

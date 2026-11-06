@@ -5,7 +5,8 @@ import type { ButtonSize, ButtonVariant } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 
 export interface ButtonProps
-  extends Omit<MantineButtonProps, 'size' | 'variant'>,
+  extends
+    Omit<MantineButtonProps, 'size' | 'variant'>,
     Omit<
       React.ButtonHTMLAttributes<HTMLButtonElement>,
       'color' | 'size' | 'style' | 'className'
