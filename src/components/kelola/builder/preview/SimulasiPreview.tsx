@@ -34,6 +34,7 @@ import {
   OverlayFullscreen,
 } from '@/components/ui/OverlayFullscreen'
 import { DynamicField } from '@/components/survey/DynamicField'
+import { terapkanAutofill } from '@/lib/form-builder/engine'
 import type { FieldRuntime } from '@/lib/server/survey/form-runtime.server'
 import type { DraftFormDocument } from '@/components/kelola/builder/types'
 import { draftKeRuntime } from './draft-ke-runtime'
@@ -169,6 +170,16 @@ export function SimulasiPreview({
         field={field}
         value={isian[field.id]}
         onChange={(v) => setNilai(field.id, v)}
+        onWargaDipilih={(row, nilai) => {
+          const answers = { ...isian, [field.id]: nilai }
+          const hasil = terapkanAutofill({
+            answers,
+            rules: document?.rulesAutofill ?? [],
+            konteks: { wargaTerpilih: { ...row } },
+            triggerFieldId: field.id,
+          })
+          setIsian(hasil.changed ? hasil.answersBaru : answers)
+        }}
       />
     </div>
   )

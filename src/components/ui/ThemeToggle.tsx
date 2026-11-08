@@ -2,26 +2,42 @@ import { MoonIcon, SunIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { applyThemeMode, readThemeMode } from '@/lib/theme'
 import type { ThemeMode } from '@/lib/theme'
-import { ActionIcon } from '@mantine/core'
+import { ActionIcon, useMantineColorScheme } from '@mantine/core'
 
 export default function ThemeToggle({ plain = false }: { plain?: boolean }) {
   const [mode, setMode] = useState<ThemeMode>('light')
+  const { setColorScheme } = useMantineColorScheme()
 
   useEffect(() => {
     const initialMode = readThemeMode()
     setMode(initialMode)
     applyThemeMode(initialMode)
-  }, [])
+    setColorScheme(initialMode)
+  }, [setColorScheme])
 
+  /**
+   * Ikuti perubahan sistem hanya selama user belum memilih sendiri. Begitu
+   * `theme` sudah tersimpan, pilihan toggle yang menang.
+   */
   useEffect(() => {
-    if (mode !== 'light') return
-
     const media = window.matchMedia('(prefers-color-scheme: dark)')
-    const onChange = () => applyThemeMode('light')
+    const onChange = () => {
+      if (window.localStorage.getItem('theme')) return
+      const modeSistem: ThemeMode = media.matches ? 'dark' : 'light'
+      setMode(modeSistem)
+      applyThemeMode(modeSistem)
+      setColorScheme(modeSistem)
+    }
 
     media.addEventListener('change', onChange)
-    return () => {
-      media.removeEventListener('change', onChange)
+    return () => media.removeEventListener('change', onChange)
+  }, [setColorScheme])
+
+  /** Status bar PWA ikut warna tema, bukan selalu putih. */
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="theme-color"]')
+    if (meta) {
+      meta.setAttribute('content', mode === 'dark' ? '#0a1418' : '#ffffff')
     }
   }, [mode])
 
@@ -29,6 +45,7 @@ export default function ThemeToggle({ plain = false }: { plain?: boolean }) {
     const nextMode: ThemeMode = mode === 'light' ? 'dark' : 'light'
     setMode(nextMode)
     applyThemeMode(nextMode)
+    setColorScheme(nextMode)
     window.localStorage.setItem('theme', nextMode)
   }
 

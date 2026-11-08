@@ -126,7 +126,12 @@ export function FormulirScene({ formVersionId, definisi }: FormulirSceneProps) {
     error,
     saved,
     reset,
-  } = useFormRuntime({ formVersionId, definisi })
+  } = useFormRuntime({
+    formVersionId,
+    definisi,
+    rulesAutofill: definisi.rulesAutofill,
+    rulesVisibilitas: definisi.rulesVisibilitas,
+  })
 
   /** Penanda wajib hanya menyala setelah petugas pernah menekan Simpan. */
   const kosongkan = (field: FieldRuntime) =>

@@ -43,7 +43,7 @@ pnpm test    # vitest run
 pnpm lint    # eslint
 ```
 
-Baseline saat ini: `tsc` exit 0, `eslint` 0 problem, dan 467 dari 470 test lulus. Tiga test di `lib/kunjungan-rumah/fotos.test.ts` dan `lib/kunjungan-rumah/store/kunjungan-rumah-reducer.test.ts` sudah gagal sebelum refactor struktur folder. Dua file test (`lib/uji/uji-db.test.ts`, `lib/service/form-builder/pesan-field-terpakai.test.ts`) gagal dimuat karena mengimpor modul database. Jangan turunkan gate ini tanpa alasan tertulis.
+Baseline saat ini: `tsc` exit 0, `eslint` 0 problem, dan 635 test lulus dari 43 file. Tidak ada test yang gagal dan tidak ada file test yang gagal dimuat. Baseline ini ditegakkan CI di `.github/workflows/quality.yml`; jangan turunkan tanpa alasan tertulis.
 
 ## Aturan yang paling sering dilanggar
 

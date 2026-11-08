@@ -63,7 +63,7 @@ export interface FieldCariWargaProps {
   invalid?: boolean
   placeholder?: string
   required?: boolean
-  onWargaDipilih?: (row: SasaranSuggestion) => void
+  onWargaDipilih?: (row: SasaranSuggestion, nilai: string) => void
 }
 
 export function FieldCariWarga({
@@ -141,8 +141,9 @@ export function FieldCariWarga({
       // Kolom yang dipilih. Untuk NIK, 8.277 dari 20.454 baris import tidak punya
       // NIK: nilainya string kosong, jadi `onChange("")` dan petugas bisa ketik
       // sendiri. Tipe barisnya sudah `string`, jadi tidak perlu penjaga null.
-      onChange(row[PROPERTI_KOLOM[kolom]])
-      onWargaDipilih?.(row)
+      const nilai = row[PROPERTI_KOLOM[kolom]]
+      onChange(nilai)
+      onWargaDipilih?.(row, nilai)
     },
     [kolom, onChange, onWargaDipilih],
   )

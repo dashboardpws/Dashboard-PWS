@@ -10,9 +10,16 @@
  * handler, secret salah dibalas 401 JSON bersih, dan hasilnya selalu JSON -
  * tidak ada HTML yang sia-sia dirender untuk setiap hit cron.
  *
- * Secret dibaca dari header `Authorization: Bearer <CRON_SECRET>` (cara Vercel)
- * ATAU `?secret=<CRON_SECRET>` (cara uji manual). Dijadwalkan di `vercel.json`;
- * jadwal Vercel memakai UTC, jadi `0 7 * * *` = 14.00 WIB.
+ * Secret dibaca HANYA dari header `Authorization: Bearer <CRON_SECRET>`
+ * (cara Vercel). Query string `?secret=` sengaja tidak didukung: URL ikut
+ * tercatat di access log, proxy, dan Referer. Uji manual memakai curl dengan
+ * header yang sama. Dijadwalkan di `vercel.json`; jadwal Vercel memakai UTC,
+ * jadi `0 7 * * *` = 14.00 WIB.
+ *
+ * GET tidak bisa diganti POST: jadwal Vercel hanya memanggil GET. Efek samping
+ * tetap aman karena tanpa header Bearer yang benar handler menolak sebelum
+ * menyentuh data. Retry dan prefetch tidak menggandakan push karena pengiriman
+ * diklaim lewat kunci idempotensi di `cron.server.ts`.
  */
 
 import { createFileRoute } from '@tanstack/react-router'

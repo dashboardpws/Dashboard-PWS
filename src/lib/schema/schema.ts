@@ -331,3 +331,23 @@ export const pushSubscriptions = pgTable(
   },
   (t) => [unique('push_subscriptions_endpoint_unique').on(t.endpoint)],
 )
+
+/**
+ * Penanda pengiriman cron notifikasi.
+ *
+ * Cron bisa dipanggil ulang: retry Vercel, uji manual, atau dua instance yang
+ * tumpang tindih. Tanpa penanda, setiap panggilan mengirim push yang sama lagi.
+ * Kuncinya (`YYYY-MM-DD:<sidik peringatan>`, lihat `lib/notifikasi/idempotensi.ts`)
+ * membuat pengiriman untuk hari dan daftar peringatan yang sama hanya terjadi
+ * sekali.
+ *
+ * Baris dipakai sebagai klaim sebelum kirim: `INSERT ... ON CONFLICT DO NOTHING`
+ * yang berhasil berarti proses ini pemilik pengiriman. Kalau push gagal total,
+ * baris dihapus supaya panggilan berikutnya boleh mencoba lagi.
+ */
+export const cronNotifikasiTerkirim = pgTable('cron_notifikasi_terkirim', {
+  kunci: varchar({ length: 80 }).primaryKey(),
+  hari: date().notNull(),
+  terkirim: integer().notNull().default(0),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+})

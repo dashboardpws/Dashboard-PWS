@@ -39,13 +39,25 @@ pnpm dev
 
 ## Environment variables
 
-| Variabel                        | Wajib | Keterangan                                                            |
-| ------------------------------- | ----- | --------------------------------------------------------------------- |
-| `DATABASE_URL`                  | ya    | Koneksi Postgres. Server-only.                                        |
-| `SECRET_KEY`                    | ya    | Base64, dipakai `jose` untuk menandatangani session JWT. Server-only. |
-| `PIN`                           | ya    | PIN login global. Server-only.                                        |
-| `VITE_SUPABASE_URL`             | tidak | Dipakai `src/lib/supabase-storage.ts` untuk unggah foto.              |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | tidak | Kunci publik Supabase.                                                |
+| Variabel                                                 | Wajib          | Keterangan                                                                   |
+| -------------------------------------------------------- | -------------- | ---------------------------------------------------------------------------- |
+| `DATABASE_URL`                                           | ya             | Koneksi Postgres. Server-only.                                               |
+| `SECRET_KEY`                                             | ya             | Base64, dipakai `jose` untuk menandatangani session JWT. Server-only.        |
+| `PIN`                                                    | ya             | PIN login global. Server-only.                                               |
+| `CRON_SECRET`                                            | ya di produksi | Bearer untuk `/cron/notifikasi`. Tanpa nilai ini endpoint selalu 401.        |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | tidak          | Kunci Web Push. Buat dengan `npx web-push generate-vapid-keys`. Server-only. |
+| `VITE_VAPID_PUBLIC_KEY`                                  | tidak          | Salinan publik `VAPID_PUBLIC_KEY`, ikut ter-bundle ke browser.               |
+| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`              | tidak          | Upload foto dan signed URL. Bucket `foto` wajib privat. Server-only.         |
+
+Uji cron manual:
+
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/cron/notifikasi
+```
+
+Hanya header Bearer yang diterima; `?secret=` tidak didukung karena URL bocor ke
+access log. Panggilan ulang pada hari yang sama dengan daftar peringatan yang
+sama tidak mengirim push dua kali (lihat tabel `cron_notifikasi_terkirim`).
 
 ## Route
 

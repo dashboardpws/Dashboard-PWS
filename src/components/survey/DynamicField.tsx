@@ -66,7 +66,7 @@ export interface DynamicFieldProps {
   /** Tandai field wajib yang kosong. UX saja — server yang menolak. */
   invalid?: boolean
   /** Jalankan rule lintas field setelah suggestion warga dipilih. */
-  onWargaDipilih?: (row: SasaranSuggestion) => void
+  onWargaDipilih?: (row: SasaranSuggestion, nilai: string) => void
   /**
    * Tampilkan bentuk field tanpa bisa diisi. Dipakai pratinjau di Form Builder:
    * field digambar persis seperti di halaman isi, tapi tidak menerima ketikan

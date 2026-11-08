@@ -50,6 +50,11 @@ import type { KolomWarga } from '@/lib/service/form-builder/sumber-opsi'
 import { catatAudit } from '@/lib/server/form-builder/audit.server'
 import { pastikanPetugasValid } from '@/lib/server/petugas/user-registry.server'
 import { parseFormDefinition } from '@/lib/form-builder/form-schema'
+import { muatAturanForm } from '@/lib/server/form-builder/runtime-extend.server'
+import type {
+  RuleAutofill,
+  RuleVisibilitas,
+} from '@/lib/form-builder/engine/types'
 
 type Db = typeof db
 /** Handle transaksi dari `db.transaction(...)`, sama seperti form-version.server. */
@@ -222,6 +227,12 @@ export interface DefinisiRuntime {
     publishedAt: Date | null
   }
   sections: SectionRuntime[]
+  /**
+   * Aturan lintas-field yang aktif untuk versi ini. Hanya diisi jalur halaman
+   * isi (`ambilFormulirUntukIsi`); pemakaian lain cukup membiarkannya kosong.
+   */
+  rulesAutofill?: RuleAutofill[]
+  rulesVisibilitas?: RuleVisibilitas[]
 }
 
 /**
@@ -489,7 +500,13 @@ async function muatDefinisiRuntime(
 export async function ambilFormulirUntukIsi(
   formVersionId: string,
 ): Promise<DefinisiRuntime> {
-  return await muatDefinisiRuntime(db, formVersionId)
+  const definisi = await muatDefinisiRuntime(db, formVersionId)
+  const aturan = await muatAturanForm(formVersionId)
+  return {
+    ...definisi,
+    rulesAutofill: aturan.autofill,
+    rulesVisibilitas: aturan.visibilitas,
+  }
 }
 
 // ---------------------------------------------------------------------------
