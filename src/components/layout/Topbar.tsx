@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
-import { Button, Drawer, Group, Modal, Text } from '@mantine/core'
+import { ActionIcon, Button, Drawer, Group, Modal, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
-import { Menu, FileText, Settings, LogOut } from 'lucide-react'
+import { Menu, FileText, Settings, LogOut, HelpCircle } from 'lucide-react'
 import { NotifikasiBell } from '@/components/notifikasi/NotifikasiBell'
 import { NotifikasiToast } from '@/components/notifikasi/NotifikasiToast'
 import { PushOtomatis } from '@/components/notifikasi/PushOtomatis'
@@ -10,6 +10,7 @@ import ThemeToggle from '@/components/ui/ThemeToggle'
 import { getNavForms, onNavFormsChange } from '@/lib/nav/nav-forms-cache'
 import type { BarisFormulirTerisi } from '@/lib/server/survey/form-runtime.server'
 import { useAuth } from '@/providers/auth'
+import { useTour } from '@/providers/tour'
 
 export function Topbar() {
   const [drawerOpened, { open: openDrawer, close: closeDrawer }] =
@@ -18,6 +19,7 @@ export function Topbar() {
     useDisclosure(false)
 
   const { logout } = useAuth()
+  const { mulaiTour, tersedia: adaTour } = useTour()
   const navigate = useNavigate()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [navForms, setNavForms] = useState<BarisFormulirTerisi[]>([])
@@ -83,8 +85,23 @@ export function Topbar() {
           </button>
         </div>
 
-        {/* Kanan: Notifikasi & Theme Toggle */}
+        {/* Kanan: Panduan, Notifikasi & Theme Toggle */}
         <div className="ml-auto flex items-center gap-3 max-md:gap-2">
+          {adaTour ? (
+            <ActionIcon
+              type="button"
+              variant="light"
+              radius="xl"
+              size="lg"
+              color="var(--lagoon-deep)"
+              onClick={mulaiTour}
+              aria-label="Mulai panduan halaman ini"
+              title="Panduan halaman ini"
+              className="hover:text-accent!"
+            >
+              <HelpCircle size={20} />
+            </ActionIcon>
+          ) : null}
           <PushOtomatis />
           <NotifikasiBell />
           <NotifikasiToast />

@@ -63,53 +63,60 @@ function DaftarFormulir() {
         description={descMap[jenis] ?? 'Form yang bisa diisi sekarang.'}
       />
 
-      {error ? <p className="mt-3 text-sm text-danger">{error}</p> : null}
-      {loading ? (
-        <p className="mt-3 text-[13px] text-muted">Memuat daftar form…</p>
-      ) : null}
+      {/* Penanda tur dipasang di wrapper, bukan di daftar, supaya langkah tour
+          tetap punya target saat belum ada form yang diterbitkan. */}
+      <div data-tour="form-list">
+        {error ? <p className="mt-3 text-sm text-danger">{error}</p> : null}
+        {loading ? (
+          <p className="mt-3 text-[13px] text-muted">Memuat daftar form…</p>
+        ) : null}
 
-      {!loading && filteredRows.length === 0 ? (
-        <EmptyState title="Belum ada form yang bisa diisi." className="mt-3.5">
-          <p>
-            Form baru akan muncul di sini setelah Admin menyusun pertanyaannya
-            lalu menerbitkannya di Kelola. Form yang belum diterbitkan tidak
-            bisa diisi.
-          </p>
-        </EmptyState>
-      ) : null}
+        {!loading && filteredRows.length === 0 ? (
+          <EmptyState
+            title="Belum ada form yang bisa diisi."
+            className="mt-3.5"
+          >
+            <p>
+              Form baru akan muncul di sini setelah Admin menyusun pertanyaannya
+              lalu menerbitkannya di Kelola. Form yang belum diterbitkan tidak
+              bisa diisi.
+            </p>
+          </EmptyState>
+        ) : null}
 
-      {filteredRows.length > 0 ? (
-        <SectionCard
-          title={`Form yang bisa diisi${jenis ? ` (${titleMap[jenis]})` : ''}`}
-          sub="Pilih form untuk mulai mengisi."
-        >
-          <ul className="grid gap-2">
-            {filteredRows.map((row) => (
-              <li key={row.formVersionId}>
-                <Link
-                  to="/isi/$formVersionId"
-                  params={{ formVersionId: row.formVersionId }}
-                  className="grid gap-1 rounded-lg border border-line bg-surface px-3 py-2.5 hover:border-accent"
-                >
-                  <span className="flex flex-wrap items-center gap-2">
-                    <b className="text-[13px] text-ink">{row.nama}</b>
-                    <Badge variant="ok">Versi {row.version}</Badge>
-                  </span>
-                  {row.deskripsi ? (
-                    <span className="text-[12px] text-muted">
-                      {row.deskripsi}
+        {filteredRows.length > 0 ? (
+          <SectionCard
+            title={`Form yang bisa diisi${jenis ? ` (${titleMap[jenis]})` : ''}`}
+            sub="Pilih form untuk mulai mengisi."
+          >
+            <ul className="grid gap-2">
+              {filteredRows.map((row) => (
+                <li key={row.formVersionId}>
+                  <Link
+                    to="/isi/$formVersionId"
+                    params={{ formVersionId: row.formVersionId }}
+                    className="grid gap-1 rounded-lg border border-line bg-surface px-3 py-2.5 hover:border-accent"
+                  >
+                    <span className="flex flex-wrap items-center gap-2">
+                      <b className="text-[13px] text-ink">{row.nama}</b>
+                      <Badge variant="ok">Versi {row.version}</Badge>
                     </span>
-                  ) : null}
-                  <span className="text-[11px] text-muted">
-                    {jumlah(row.jumlahSection)} section ·{' '}
-                    {jumlah(row.jumlahField)} pertanyaan
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </SectionCard>
-      ) : null}
+                    {row.deskripsi ? (
+                      <span className="text-[12px] text-muted">
+                        {row.deskripsi}
+                      </span>
+                    ) : null}
+                    <span className="text-[11px] text-muted">
+                      {jumlah(row.jumlahSection)} section ·{' '}
+                      {jumlah(row.jumlahField)} pertanyaan
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </SectionCard>
+        ) : null}
+      </div>
     </AppShell>
   )
 }

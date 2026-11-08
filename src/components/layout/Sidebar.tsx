@@ -575,6 +575,7 @@ export function Sidebar({
       <nav
         className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 pb-4 pt-4"
         aria-label="Navigasi utama"
+        data-tour="nav-sidebar"
       >
         {items.map((item) => {
           if (item.isDropdownTrigger) {

@@ -323,21 +323,23 @@ function Laporan() {
       />
 
       {/* Common Filter Bar */}
-      <SectionCard
-        className="no-print"
-        title="Filter Umum"
-        sub="Filter tanggal dan kelurahan berlaku untuk Isian Form, Kegiatan, dan Riwayat Submit."
-      >
-        <div className="flex flex-wrap items-end gap-3">
-          <DateRange
-            dari={dari}
-            sampai={sampai}
-            onDari={setDari}
-            onSampai={setSampai}
-          />
-          <KelurahanSelect value={kel} onChange={setKel} />
-        </div>
-      </SectionCard>
+      <div data-tour="laporan-filter">
+        <SectionCard
+          className="no-print"
+          title="Filter Umum"
+          sub="Filter tanggal dan kelurahan berlaku untuk Isian Form, Kegiatan, dan Riwayat Submit."
+        >
+          <div className="flex flex-wrap items-end gap-3">
+            <DateRange
+              dari={dari}
+              sampai={sampai}
+              onDari={setDari}
+              onSampai={setSampai}
+            />
+            <KelurahanSelect value={kel} onChange={setKel} />
+          </div>
+        </SectionCard>
+      </div>
 
       {/* SECTION 1: Isian Form (Kunjungan Rumah) */}
       <CollapsibleSection

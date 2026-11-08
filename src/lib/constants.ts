@@ -44,6 +44,9 @@ export const APP_BRAND = {
 // tidak dibaca aplikasi lagi.
 export const STORAGE_KEYS = {
   rekap: 'pws-rekap',
+  // Versi tur onboarding yang sudah dilihat di perangkat ini. Disimpan sebagai
+  // angka, bukan boolean, supaya versi tur baru bisa muncul sekali lagi.
+  tour: 'pws-tour',
 } as const
 
 export const SESSION_IDLE_MS = 60 * 60 * 1000 // idle 1 jam → geser terus tiap akses (sliding)

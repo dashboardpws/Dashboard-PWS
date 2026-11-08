@@ -14,6 +14,7 @@ import '@mantine/notifications/styles.css'
 import appCss from '@/styles.css?url'
 // import { ToastProvider } from '@/providers/toast'
 import { AuthProvider } from '@/providers/auth'
+import { TourProvider } from '@/providers/tour'
 import { THEME_INIT_SCRIPT } from '@/lib/theme'
 import icon from '@/assets/brandIcon.png'
 
@@ -65,8 +66,10 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <AuthProvider>
           <MantineProvider>
             <Notifications position="top-right" zIndex={1000} />
-            <ServiceWorkerRegistration />
-            {children}
+            <TourProvider>
+              <ServiceWorkerRegistration />
+              {children}
+            </TourProvider>
           </MantineProvider>
         </AuthProvider>
         {import.meta.env.DEV ? (

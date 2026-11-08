@@ -69,7 +69,10 @@ function Notifikasi() {
       </p>
 
       {/* Metric Cards */}
-      <div className="mt-4 grid grid-cols-3 gap-3 max-md:grid-cols-2">
+      <div
+        className="mt-4 grid grid-cols-3 gap-3 max-md:grid-cols-2"
+        data-tour="notifikasi-ringkasan"
+      >
         <StatCard
           caption="Notifikasi aktif"
           value={loading ? '...' : ringkasan.total}

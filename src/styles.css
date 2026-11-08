@@ -342,6 +342,19 @@ pre code {
   display: none !important;
 }
 
+/* Tour onboarding: tooltip ikut token warna aplikasi, termasuk mode gelap. */
+.mantine-Tour-tooltip {
+  background-color: var(--color-surface);
+  color: var(--color-ink);
+  border: 1px solid var(--color-line);
+}
+.mantine-Tour-title {
+  color: var(--color-ink-strong);
+}
+.mantine-Tour-body {
+  color: var(--color-ink-2);
+}
+
 /* Custom Variants Button Mantine */
 .mantine-Button-root[data-variant='default'] {
   border-color: var(--color-line);

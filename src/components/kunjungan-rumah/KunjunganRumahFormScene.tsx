@@ -201,11 +201,13 @@ export function KunjunganRumahFormScene({ record }: Props) {
 
   return (
     <AppShell>
-      <PageHeader
-        title={editMode ? 'Edit Kunjungan Rumah' : 'Kunjungan Rumah'}
-      />
-      {!isMobile ? <Stepper steps={steps} /> : null}
-      {!isMobile ? <FillBar pct={fillPercent} /> : null}
+      <div data-tour="kunjungan-rumah-header">
+        <PageHeader
+          title={editMode ? 'Edit Kunjungan Rumah' : 'Kunjungan Rumah'}
+        />
+        {!isMobile ? <Stepper steps={steps} /> : null}
+        {!isMobile ? <FillBar pct={fillPercent} /> : null}
+      </div>
 
       {isMobile ? (
         <div className="relative mt-3.5 rounded-xl border border-line bg-surface p-3.5">

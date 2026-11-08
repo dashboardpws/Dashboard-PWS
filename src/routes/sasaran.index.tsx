@@ -152,35 +152,37 @@ function Sasaran() {
         description="Daftar warga dari database beserta status kunjungan rumahnya."
       />
 
-      <FilterCard
-        title="Saring Data"
-        sub="Temukan sasaran tertentu dengan cepat."
-      >
-        <Toolbar>
-          <Input
-            value={queryDraft}
-            onChange={(e) => setQueryDraft(e.target.value)}
-            placeholder="Cari nama atau NIK…"
-            aria-label="Cari sasaran"
-            className="max-w-60 max-md:max-w-none"
-          />
-          <Select
-            value={status}
-            onChange={(e) => setFilter({ status: e.target.value })}
-            aria-label="Filter status"
-            className="max-w-45 max-md:max-w-none"
-          >
-            <option value="all">Semua status</option>
-            <option>Sudah</option>
-            <option>Belum</option>
-          </Select>
-          <KelurahanSelect
-            value={kel}
-            onChange={(k) => setFilter({ kel: k })}
-            className="max-w-45 max-md:max-w-none"
-          />
-        </Toolbar>
-      </FilterCard>
+      <div data-tour="sasaran-filter">
+        <FilterCard
+          title="Saring Data"
+          sub="Temukan sasaran tertentu dengan cepat."
+        >
+          <Toolbar>
+            <Input
+              value={queryDraft}
+              onChange={(e) => setQueryDraft(e.target.value)}
+              placeholder="Cari nama atau NIK…"
+              aria-label="Cari sasaran"
+              className="max-w-60 max-md:max-w-none"
+            />
+            <Select
+              value={status}
+              onChange={(e) => setFilter({ status: e.target.value })}
+              aria-label="Filter status"
+              className="max-w-45 max-md:max-w-none"
+            >
+              <option value="all">Semua status</option>
+              <option>Sudah</option>
+              <option>Belum</option>
+            </Select>
+            <KelurahanSelect
+              value={kel}
+              onChange={(k) => setFilter({ kel: k })}
+              className="max-w-45 max-md:max-w-none"
+            />
+          </Toolbar>
+        </FilterCard>
+      </div>
 
       <SectionCard
         title="Data Sasaran"
