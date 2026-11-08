@@ -18,7 +18,7 @@ import {
   pendidikanEnum,
 } from './type-enum'
 
-export const dataWargaImport = pgTable(
+export const dataWargaImport = pgTable.withRLS(
   'data_warga_import',
   {
     rawId: varchar('raw_id').primaryKey(),
@@ -60,7 +60,7 @@ export const dataWargaImport = pgTable(
   ],
 )
 
-export const riwayatKsImport = pgTable(
+export const riwayatKsImport = pgTable.withRLS(
   'riwayat_ks_import',
   {
     rawId: varchar('raw_id')
