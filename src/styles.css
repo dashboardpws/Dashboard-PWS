@@ -311,6 +311,22 @@ pre code {
 }
 
 @media print {
+  /* Cetak selalu pakai palet terang. Tanpa ini, dark mode ikut mencetak teks
+     terang di atas kertas putih. */
+  :root,
+  :root[data-theme='dark'],
+  :root.dark {
+    --color-canvas: #ffffff;
+    --color-surface: #ffffff;
+    --color-surface-warm: #ffffff;
+    --color-surface-2: #f1f5f9;
+    --color-line: #cbd5e1;
+    --color-line-2: #cbd5e1;
+    --color-ink: #1e2a3a;
+    --color-ink-2: #334155;
+    --color-ink-strong: #0f172a;
+    --color-muted: #475569;
+  }
   body {
     background: #fff !important;
   }
@@ -320,6 +336,27 @@ pre code {
   }
   .no-print {
     display: none !important;
+  }
+
+  /* Kop laporan dicetak sendirian lewat cetakElemen(). Bingkai card layar
+     dilepas supaya hasilnya seperti dokumen, bukan kartu aplikasi. */
+  .kop-surat {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+  }
+  .kop-tabel {
+    overflow: visible !important;
+  }
+  .kop-tabel tr {
+    break-inside: avoid;
+  }
+  .kop-tabel thead {
+    display: table-header-group;
+  }
+  @page {
+    margin: 12mm;
   }
 }
 

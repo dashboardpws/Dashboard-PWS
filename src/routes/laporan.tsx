@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { RoutePending } from '@/components/ui/RoutePending'
 import {
@@ -33,6 +33,7 @@ import { KopSection } from '@/components/laporan/KopSection'
 import { KopSurat } from '@/components/laporan/KopSurat'
 import { KopTable } from '@/components/laporan/KopTable'
 import { paginate } from '@/lib/laporan/report-shared'
+import { cetakElemen } from '@/lib/laporan/cetak'
 import { CollapsibleSection } from '@/components/ui/CollapsibleSection'
 
 // Search param di-narrow dari `unknown` ke `string`. Tanpa return type eksplisit,
@@ -123,6 +124,11 @@ function Laporan() {
   // Shared TTD (empty for physical signature)
   const [ttdNama, setTtdNama] = useState('')
   const [ttdJabatan, setTtdJabatan] = useState('')
+
+  // Elemen kop tiap section. Tombol cetak memakai ref ini supaya dialog print
+  // hanya memuat section yang bersangkutan, bukan seluruh halaman.
+  const kopIsianRef = useRef<HTMLDivElement>(null)
+  const kopKegiatanRef = useRef<HTMLDivElement>(null)
 
   // Auto-expand sections based on URL param
   const [openSection1, setOpenSection1] = useState(
@@ -413,64 +419,69 @@ function Laporan() {
           }
           onDownloadCsv={downloadCsvKunjunganRumah}
           onCopySummary={copySummary}
+          onCetak={() => cetakElemen(kopIsianRef.current)}
         />
 
-        <KopSurat
-          judul={judul}
-          subtitle={
-            <>
-              Periode {fmtDate(dari)} – {fmtDate(sampai)} · {namaFormFilter} ·{' '}
-              {filtered.length} isian form · {wargaUnik} warga
-            </>
-          }
-          ttdNama={ttdNama}
-          ttdJabatan={ttdJabatan}
-        >
-          <KopTable
-            headers={[
-              'No',
-              'Tanggal',
-              'Form',
-              'Nama',
-              'Wilayah',
-              'Petugas',
-              'Status',
-            ]}
-            colSpan={7}
-            emptyMessage="Tidak ada data untuk filter ini."
-            rows={kopRows}
-            renderRow={(r, i) => (
-              <tr
-                key={r.id}
-                className="border-b border-surface-2 last:border-none"
-              >
-                <td className="px-2.5 py-2">{i + 1}</td>
-                <td className="whitespace-nowrap px-2.5 py-2">
-                  {fmtDate(r.tanggal)}
-                </td>
-                <td className="px-2.5 py-2">
-                  <div className="font-semibold truncate">{r.formNama}</div>
-                  <div className="text-muted">Versi {r.formVersion}</div>
-                </td>
-                <td className="px-2.5 py-2">
-                  <div className="font-semibold truncate">{r.nama}</div>
-                  <div className="text-muted truncate">
-                    {(r.nikKk ?? r.nik)
-                      ? `NIK ${r.nikKk ?? r.nik}`
-                      : 'Tanpa warga'}
-                  </div>
-                </td>
-                <td className="whitespace-nowrap px-2.5 py-2">
-                  Kel. {r.kelurahan}
-                </td>
-                <td className="px-2.5 py-2 text-muted truncate">{r.petugas}</td>
-                <td className="px-2.5 py-2">
-                  <StatusBadge value="Selesai" />
-                </td>
-              </tr>
-            )}
-          />
-        </KopSurat>
+        <div ref={kopIsianRef}>
+          <KopSurat
+            judul={judul}
+            subtitle={
+              <>
+                Periode {fmtDate(dari)} – {fmtDate(sampai)} · {namaFormFilter} ·{' '}
+                {filtered.length} isian form · {wargaUnik} warga
+              </>
+            }
+            ttdNama={ttdNama}
+            ttdJabatan={ttdJabatan}
+          >
+            <KopTable
+              headers={[
+                'No',
+                'Tanggal',
+                'Form',
+                'Nama',
+                'Wilayah',
+                'Petugas',
+                'Status',
+              ]}
+              colSpan={7}
+              emptyMessage="Tidak ada data untuk filter ini."
+              rows={kopRows}
+              renderRow={(r, i) => (
+                <tr
+                  key={r.id}
+                  className="border-b border-surface-2 last:border-none"
+                >
+                  <td className="px-2.5 py-2">{i + 1}</td>
+                  <td className="whitespace-nowrap px-2.5 py-2">
+                    {fmtDate(r.tanggal)}
+                  </td>
+                  <td className="px-2.5 py-2">
+                    <div className="font-semibold truncate">{r.formNama}</div>
+                    <div className="text-muted">Versi {r.formVersion}</div>
+                  </td>
+                  <td className="px-2.5 py-2">
+                    <div className="font-semibold truncate">{r.nama}</div>
+                    <div className="text-muted truncate">
+                      {(r.nikKk ?? r.nik)
+                        ? `NIK ${r.nikKk ?? r.nik}`
+                        : 'Tanpa warga'}
+                    </div>
+                  </td>
+                  <td className="whitespace-nowrap px-2.5 py-2">
+                    Kel. {r.kelurahan}
+                  </td>
+                  <td className="px-2.5 py-2 text-muted truncate">
+                    {r.petugas}
+                  </td>
+                  <td className="px-2.5 py-2">
+                    <StatusBadge value="Selesai" />
+                  </td>
+                </tr>
+              )}
+            />
+          </KopSurat>
+        </div>
 
         <SectionCard
           className="no-print"
@@ -655,58 +666,63 @@ function Laporan() {
           csvLabel="Unduh CSV Kegiatan"
           onDownloadCsv={downloadKegiatanCsv}
           onCopySummary={copyKegiatanSummary}
+          onCetak={() => cetakElemen(kopKegiatanRef.current)}
         />
 
-        <KopSurat
-          judul={gJudul}
-          subtitle={
-            <>
-              Periode {fmtDate(dari)} – {fmtDate(sampai)} ·{' '}
-              {filteredKegiatan.length} kegiatan · {totalHadir}/{totalPeserta}{' '}
-              hadir ({pctHadir}%)
-            </>
-          }
-          ttdNama={ttdNama}
-          ttdJabatan={ttdJabatan}
-        >
-          <KopTable
-            headers={[
-              'No',
-              'Tanggal',
-              'Nama Kegiatan',
-              'Wilayah',
-              'Petugas',
-              'Peserta',
-              'Deskripsi',
-            ]}
-            colSpan={7}
-            emptyMessage="Belum ada kegiatan untuk filter ini. Isi di halaman Kegiatan."
-            rows={gKopRows}
-            renderRow={(r, i) => (
-              <tr
-                key={i}
-                className="border-b border-surface-2 last:border-none"
-              >
-                <td className="px-2.5 py-2">{i + 1}</td>
-                <td className="whitespace-nowrap px-2.5 py-2">
-                  {fmtDate(r.tgl)} {r.jam ? `· ${r.jam}` : ''}
-                </td>
-                <td className="px-2.5 py-2">
-                  <div className="font-semibold">{r.nama}</div>
-                  <div className="text-muted">{r.jenis}</div>
-                </td>
-                <td className="whitespace-nowrap px-2.5 py-2">
-                  Kel. {r.kel} {r.posy ? `· ${r.posy}` : ''} · {r.lokasi}
-                </td>
-                <td className="px-2.5 py-2">{r.petugas}</td>
-                <td className="whitespace-nowrap px-2.5 py-2">
-                  {r.hadir}/{r.total}
-                </td>
-                <td className="px-2.5 py-2 text-muted">{r.deskripsi || '—'}</td>
-              </tr>
-            )}
-          />
-        </KopSurat>
+        <div ref={kopKegiatanRef}>
+          <KopSurat
+            judul={gJudul}
+            subtitle={
+              <>
+                Periode {fmtDate(dari)} – {fmtDate(sampai)} ·{' '}
+                {filteredKegiatan.length} kegiatan · {totalHadir}/{totalPeserta}{' '}
+                hadir ({pctHadir}%)
+              </>
+            }
+            ttdNama={ttdNama}
+            ttdJabatan={ttdJabatan}
+          >
+            <KopTable
+              headers={[
+                'No',
+                'Tanggal',
+                'Nama Kegiatan',
+                'Wilayah',
+                'Petugas',
+                'Peserta',
+                'Deskripsi',
+              ]}
+              colSpan={7}
+              emptyMessage="Belum ada kegiatan untuk filter ini. Isi di halaman Kegiatan."
+              rows={gKopRows}
+              renderRow={(r, i) => (
+                <tr
+                  key={i}
+                  className="border-b border-surface-2 last:border-none"
+                >
+                  <td className="px-2.5 py-2">{i + 1}</td>
+                  <td className="whitespace-nowrap px-2.5 py-2">
+                    {fmtDate(r.tgl)} {r.jam ? `· ${r.jam}` : ''}
+                  </td>
+                  <td className="px-2.5 py-2">
+                    <div className="font-semibold">{r.nama}</div>
+                    <div className="text-muted">{r.jenis}</div>
+                  </td>
+                  <td className="whitespace-nowrap px-2.5 py-2">
+                    Kel. {r.kel} {r.posy ? `· ${r.posy}` : ''} · {r.lokasi}
+                  </td>
+                  <td className="px-2.5 py-2">{r.petugas}</td>
+                  <td className="whitespace-nowrap px-2.5 py-2">
+                    {r.hadir}/{r.total}
+                  </td>
+                  <td className="px-2.5 py-2 text-muted">
+                    {r.deskripsi || '—'}
+                  </td>
+                </tr>
+              )}
+            />
+          </KopSurat>
+        </div>
 
         <SectionCard
           className="no-print"

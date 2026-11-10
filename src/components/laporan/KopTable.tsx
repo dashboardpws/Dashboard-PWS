@@ -16,7 +16,7 @@ export function KopTable<T>({
   renderRow,
 }: KopTableProps<T>) {
   return (
-    <div className="mt-4 overflow-auto rounded-lg border border-line">
+    <div className="kop-tabel mt-4 overflow-auto rounded-lg border border-line">
       <table className="w-full border-collapse text-[11px]">
         <thead>
           <tr>

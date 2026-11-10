@@ -16,6 +16,8 @@ export interface KopSectionProps {
   csvLabel?: string
   onDownloadCsv: () => void
   onCopySummary: () => void
+  /** Mencetak hanya kop laporan section ini. Default: cetak seluruh halaman. */
+  onCetak?: () => void
 }
 
 export function KopSection({
@@ -32,6 +34,7 @@ export function KopSection({
   csvLabel = 'Unduh CSV',
   onDownloadCsv,
   onCopySummary,
+  onCetak,
 }: KopSectionProps) {
   return (
     <SectionCard className="no-print" title={title} sub={sub}>
@@ -61,7 +64,7 @@ export function KopSection({
         <Button variant="ghost" onClick={onCopySummary}>
           Salin ringkasan
         </Button>
-        <Button variant="primary" onClick={() => window.print()}>
+        <Button variant="primary" onClick={onCetak ?? (() => window.print())}>
           <Printer size={14} />
           Cetak / Simpan PDF
         </Button>

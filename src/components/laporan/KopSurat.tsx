@@ -18,7 +18,7 @@ export function KopSurat({
   children,
 }: KopSuratProps) {
   return (
-    <div className="mt-3.5 rounded-[10px] border border-dashed border-line bg-surface p-4 text-xs">
+    <div className="kop-surat mt-3.5 rounded-[10px] border border-dashed border-line bg-surface p-4 text-xs">
       <KopBrandRow />
       <div className="mt-5 text-center">
         <b className="text-sm text-ink">{judul}</b>
