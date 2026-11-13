@@ -227,6 +227,19 @@ describe('deriveTindakLanjut', () => {
     ])
     expect(items.map((i) => i.nik)).toEqual(['222'])
   })
+
+  it('waktuSimpan memutuskan hasil terbaru pada hari yang sama tanpa bergantung urutan input', () => {
+    const lama = {
+      ...r('kontrol', '111', '2026-05-01', 'Kontrol ulang'),
+      waktuSimpan: '2026-05-01T08:00:00.000Z',
+    }
+    const baru = {
+      ...r('selesai', '111', '2026-05-01', 'Selesai — sehat / terkendali'),
+      waktuSimpan: '2026-05-01T09:00:00.000Z',
+    }
+    expect(deriveTindakLanjut([lama, baru])).toEqual([])
+    expect(deriveTindakLanjut([baru, lama])).toEqual([])
+  })
 })
 
 describe('applyWarningStates', () => {

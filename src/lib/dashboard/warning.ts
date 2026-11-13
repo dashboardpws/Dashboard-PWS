@@ -80,6 +80,8 @@ export interface KunjunganRecordLike {
   kelurahan: string
   tanggal: string
   hasil: string | null
+  /** Stempel server untuk memutuskan dua kunjungan pada tanggal yang sama. */
+  waktuSimpan?: string
 }
 
 export interface WarningInput {
@@ -150,6 +152,16 @@ export function computePeriod(
 
 /* ───────────── Turunan tindak lanjut dari field yang sudah ada ───────────── */
 
+/** Tanpa waktuSimpan pada dua record lama, urutan input tetap menjadi fallback. */
+export function kunjunganLebihBaru(
+  kandidat: Pick<KunjunganRecordLike, 'tanggal' | 'waktuSimpan'>,
+  pembanding: Pick<KunjunganRecordLike, 'tanggal' | 'waktuSimpan'>,
+): boolean {
+  if (kandidat.tanggal !== pembanding.tanggal)
+    return kandidat.tanggal > pembanding.tanggal
+  return (kandidat.waktuSimpan ?? '') > (pembanding.waktuSimpan ?? '')
+}
+
 /**
  * Per NIK, ambil kunjungan TERBARU. Jika hasilnya ada di `openHasil`, tindak lanjut
  * masih terbuka; jika kunjungan terbaru "Selesai", otomatis tertutup (tidak diemit).
@@ -163,7 +175,7 @@ export function deriveTindakLanjut(
   for (const r of records) {
     if (!r.nik) continue
     const cur = latest.get(r.nik)
-    if (!cur || r.tanggal > cur.tanggal) latest.set(r.nik, r)
+    if (!cur || kunjunganLebihBaru(r, cur)) latest.set(r.nik, r)
   }
   const open = cfg.tindakLanjut.openHasil
   return [...latest.values()]

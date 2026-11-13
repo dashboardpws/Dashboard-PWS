@@ -45,6 +45,7 @@ describe('keVisitRecord', () => {
       kelurahan: 'Trajeng',
       tanggal: '2026-10-01',
       jadwal: '2026-10-15',
+      waktuSimpan: '2026-10-01T08:00:00.000Z',
     })
   })
 
@@ -128,6 +129,24 @@ describe('deriveJadwal', () => {
       }),
     ])
     expect(list).toHaveLength(0)
+  })
+
+  it('waktuSimpan menentukan kunjungan terbaru pada tanggal yang sama', () => {
+    const lama = visit({
+      id: 'lama',
+      nik: '1',
+      hasil: KONTROL,
+      waktuSimpan: '2026-10-01T08:00:00.000Z',
+    })
+    const baru = visit({
+      id: 'baru',
+      nik: '1',
+      hasil: SEHAT,
+      jadwal: '',
+      waktuSimpan: '2026-10-01T09:00:00.000Z',
+    })
+    expect(deriveJadwal([lama, baru])).toEqual([])
+    expect(deriveJadwal([baru, lama])).toEqual([])
   })
 
   it('jadwal yang sudah lewat tetap keluar supaya jadi warning terlambat', () => {

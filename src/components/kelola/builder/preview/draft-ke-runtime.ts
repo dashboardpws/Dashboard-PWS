@@ -102,9 +102,12 @@ export function fieldKeRuntime(
     aktif: field.aktif,
     opsi: opsiKeRuntime(field.opsi),
     opsiDinamis: opsiLokal(field),
-    // Sumber yang butuh query tidak boleh ditandai "tidak dikenali": daftarnya
-    // memang belum diambil, bukan salah konfigurasi.
-    sumberOpsiTidakDikenali: false,
+    // Sumber valid yang butuh query memang belum diambil, bukan salah konfigurasi.
+    // Hanya type/key di luar katalog yang ditandai tidak dikenali.
+    sumberOpsiTidakDikenali: Boolean(
+      field.optionSourceType &&
+      !cariSumber(field.optionSourceType, field.optionSourceKey),
+    ),
     sumberOpsiLabel:
       cariSumber(field.optionSourceType, field.optionSourceKey)?.label ?? null,
     saran:

@@ -5,7 +5,11 @@
 
 import type { AuthUser } from './auth'
 import type { HasilPin, StatusLockout } from './pin-attempt'
-import { BATAS_GAGAL, hitungCooldown, normalkanPin } from './pin-attempt'
+import {
+  BATAS_GAGAL,
+  hitungCooldown,
+  pinBenar as pinBenarKebijakan,
+} from './pin-attempt'
 import {
   SESSION_IDLE_MS,
   SESSION_PROFILE,
@@ -52,13 +56,9 @@ function sleep(ms: number): Promise<void> {
  * diuji tanpa database.
  */
 function pinBenar(dariUser: string, dariEnv: string): boolean {
-  const a = normalkanPin(dariUser)
-  const b = normalkanPin(dariEnv)
-  // Fail closed, sama seperti versi di pin-attempt.ts: PIN kosong berarti
-  // `PIN` tidak terisi atau field dikosongkan, keduanya harus ditolak.
-  if (a.length === 0 || b.length === 0) return false
-  if (a.length !== b.length) return false
-  return timingSafeEqual(Buffer.from(a), Buffer.from(b))
+  return pinBenarKebijakan(dariUser, dariEnv, (a, b) =>
+    timingSafeEqual(Buffer.from(a), Buffer.from(b)),
+  )
 }
 
 function isSecureCookie(): boolean {

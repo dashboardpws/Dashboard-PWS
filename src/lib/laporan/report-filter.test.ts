@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formIdOf } from './report-filter'
+import { cocokDenganForm, filterByForm, formIdOf } from './report-filter'
 import type { BarisFormFilter } from './report-filter'
 import type { SurveyRow } from '@/lib/api/server-fns'
 
@@ -57,29 +57,29 @@ describe('filter isian form per formId', () => {
     row('Form Tidak Dikenal'),
   ]
 
-  const filterByForm = (
-    formId: number | 'all',
-    forms: BarisFormFilter[],
-    all: SurveyRow[],
-  ) => all.filter((r) => formId === 'all' || formIdOf(r, forms) === formId)
-
   it("formId 'all' membiarkan semua baris lewat", () => {
-    expect(filterByForm('all', FORMS, rows)).toHaveLength(3)
+    expect(filterByForm(rows, 'all', FORMS)).toHaveLength(3)
   })
 
   it('formId numerik menyaring tanpa melempar', () => {
-    expect(() => filterByForm(1, FORMS, rows)).not.toThrow()
-    expect(filterByForm(1, FORMS, rows)).toHaveLength(1)
-    expect(filterByForm(2, FORMS, rows)).toHaveLength(1)
+    expect(() => filterByForm(rows, 1, FORMS)).not.toThrow()
+    expect(filterByForm(rows, 1, FORMS)).toHaveLength(1)
+    expect(filterByForm(rows, 2, FORMS)).toHaveLength(1)
   })
 
   it('baris dengan form tak dikenal tersaring saat formId tertentu aktif', () => {
     // formIdOf mengembalikan -1, tidak boleh ikut lolos kalau user memilih form 1.
-    const hasil = filterByForm(1, FORMS, rows)
+    const hasil = filterByForm(rows, 1, FORMS)
     expect(hasil.every((r) => r.formNama === 'Kunjungan Rumah RT')).toBe(true)
   })
 
   it('formId yang tidak ada mengembalikan 0 baris', () => {
-    expect(filterByForm(999, FORMS, rows)).toHaveLength(0)
+    expect(filterByForm(rows, 999, FORMS)).toHaveLength(0)
+  })
+
+  it('predicate produksi dipakai langsung untuk semua dan form tertentu', () => {
+    expect(cocokDenganForm(rows[0]!, 'all', FORMS)).toBe(true)
+    expect(cocokDenganForm(rows[0]!, 1, FORMS)).toBe(true)
+    expect(cocokDenganForm(rows[1]!, 1, FORMS)).toBe(false)
   })
 })

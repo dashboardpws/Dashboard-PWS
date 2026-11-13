@@ -61,6 +61,18 @@ describe('pinBenar', () => {
     expect(pinBenar('123', '123456')).toBe(false)
   })
 
+  it('memakai comparator server dengan input yang sudah dinormalisasi', () => {
+    const diterima: string[][] = []
+    const bandingkan = (a: string, b: string) => {
+      diterima.push([a, b])
+      return a === b
+    }
+    expect(pinBenar('0123456', '123456', bandingkan)).toBe(true)
+    expect(diterima).toEqual([['123456', '123456']])
+    expect(pinBenar('', '', bandingkan)).toBe(false)
+    expect(diterima).toHaveLength(1)
+  })
+
   it('menolak PIN kosong, termasuk saat PIN env kosong', () => {
     // `PIN` yang tidak terisi di environment akan jadi string kosong. Kalau dua
     // sisi kosong dianggap cocok, siapa pun bisa login dengan mengosongkan

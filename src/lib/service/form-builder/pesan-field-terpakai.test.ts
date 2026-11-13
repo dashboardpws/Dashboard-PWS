@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { pesanFieldTerpakai } from '@/lib/server/form-builder/build.server'
+import { pesanFieldTerpakai } from './pesan-field-terpakai'
 
-// Uji ini sengaja hanya memakai bagian pesan, bukan `buildFormVersion`:
-// helper `uji-db.ts` melarang memanggil fungsi yang membuka `db.transaction`
-// sendiri dari dalam transaksi uji, karena akan deadlock. Jalur database-nya
-// dicek manual lewat editor, bukan lewat test.
+// Pesan ini murni: test tidak perlu memuat build.server atau DATABASE_URL.
 
 describe('pesanFieldTerpakai', () => {
   const nama = (...pasangan: [string, string][]) => new Map(pasangan)

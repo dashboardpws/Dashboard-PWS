@@ -31,10 +31,9 @@ import * as katalog from '@/lib/enum-values'
 // `as const` pada tiap daftar menjadikannya tuple readonly, jadi `Object.entries`
 // menghasilkan tipe yang tidak bisa disaring dengan type predicate. Satu cast ke
 // `readonly string[]` cukup karena yang diuji justru bentuk lariknya.
-const SEMUA_DAFTAR = Object.entries(
-  katalog as Record<string, readonly string[]>,
-).filter(
-  (entri) =>
+const SEMUA_EKSPOR = Object.entries(katalog as Record<string, unknown>)
+const SEMUA_DAFTAR = SEMUA_EKSPOR.filter(
+  (entri): entri is [string, readonly string[]] =>
     Array.isArray(entri[1]) && entri[1].every((v) => typeof v === 'string'),
 )
 
@@ -44,6 +43,17 @@ const typeEnumSrc = readFileSync(
 )
 
 describe('katalog nilai enum', () => {
+  it('setiap ekspor adalah array string', () => {
+    const salahBentuk = SEMUA_EKSPOR.filter(
+      ([, nilai]) =>
+        !Array.isArray(nilai) || !nilai.every((v) => typeof v === 'string'),
+    ).map(([nama]) => nama)
+    expect(salahBentuk).toEqual([])
+    expect(SEMUA_DAFTAR.map(([nama]) => nama)).toEqual(
+      SEMUA_EKSPOR.map(([nama]) => nama),
+    )
+  })
+
   it('hanya berisi array string dan tidak kosong', () => {
     // Ambang bawah, bukan jumlah daftar yang harus dijaga: yang diuji adalah
     // katalognya masih hidup (tidak ada daftar yang hilang diam-diam). Jumlahnya
@@ -68,7 +78,8 @@ describe('katalog nilai enum', () => {
   it('nilai tidak kosong dan tidak hanya spasi', () => {
     for (const [nama, nilai] of SEMUA_DAFTAR) {
       for (const v of nilai) {
-        expect(v.trim(), `${nama} punya nilai kosong`).toBe(v)
+        expect(v.trim().length, `${nama} punya nilai kosong`).toBeGreaterThan(0)
+        expect(v.trim(), `${nama} punya spasi di tepi nilai`).toBe(v)
       }
     }
   })

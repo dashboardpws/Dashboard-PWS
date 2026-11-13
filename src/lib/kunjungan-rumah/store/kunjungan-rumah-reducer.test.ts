@@ -806,6 +806,22 @@ describe('APPLY_SASARAN', () => {
     expect(sesudah.anggota).toHaveLength(2)
   })
 
+  it.each([
+    ['SWASTA', 'Swasta'],
+    ['Tidak Bekerja', 'Tidak bekerja'],
+    ['Scooling', ''],
+  ])(
+    'memetakan pekerjaan keluarga %s menjadi opsi %s',
+    (pekerjaan, expected) => {
+      const state = dispatch(stateDenganIsi(), {
+        type: 'ISI_ANGGOTA_KELUARGA',
+        rows: [suggestion({ pekerjaan })],
+      })
+      expect(state.anggota).toHaveLength(1)
+      expect(state.anggota[0]!.pekerjaan).toBe(expected)
+    },
+  )
+
   it('ISI_ANGGOTA_KELUARGA membiarkan baris kosong utuh untuk diisi kader', () => {
     // NIK dan tanggal lahir kosong tidak ditebak; komponen form yang menandai
     // field kosong itu, dan server menolak menyimpan sampai dilengkapi.
@@ -1076,6 +1092,9 @@ describe('reducer tidak pernah memutasi state yang diberikan', () => {
         sasaran: 'ibu-hamil',
         templates,
       },
+      { type: 'GANTI_SASARAN', anggotaId: 'a1', sasaran: 'dewasa', templates },
+      { type: 'RESET_DATA_SASARAN' },
+      { type: 'ISI_PENILAIAN_DARI_RIWAYAT', penilaianByKey: {} },
       { type: 'REMOVE_PENILAIAN', id: 'p1' },
       { type: 'SET_VALUE', id: 'p1', key: 'k', value: 'v' },
       { type: 'SET_CHECK', id: 'p1', key: 'k', checked: true },
@@ -1113,11 +1132,45 @@ describe('reducer tidak pernah memutasi state yang diberikan', () => {
       { type: 'FILL_DEMO' },
       { type: 'MISTERIUS' } as unknown as KunjunganRumahAction,
     ]
-    // 30 = seluruh union `KunjunganRumahAction` + satu action tak dikenal.
-    // Kalau action baru ditambah di reducer tanpa ditambah di sini, tes ini
-    // gagal dan assertion-nya yang perlu ditinjau — bukan angka yang diturunkan
-    // diam-diam.
-    expect(semua).toHaveLength(30)
+    // Record ini memaksa action baru ditambahkan ke matriks saat kompilasi.
+    const tercakup = Object.fromEntries(
+      semua.map((action) => [action.type, true]),
+    )
+    const wajib: Record<KunjunganRumahAction['type'], true> = {
+      REPLACE_STATE: true,
+      SET_FIELD: true,
+      SET_SAN_FIELD: true,
+      ADD_ANGGOTA: true,
+      UPDATE_ANGGOTA: true,
+      REMOVE_ANGGOTA: true,
+      ADD_PENILAIAN: true,
+      GANTI_SASARAN: true,
+      REMOVE_PENILAIAN: true,
+      SET_VALUE: true,
+      SET_CHECK: true,
+      BATCH_CLEAR_VALUES: true,
+      TOGGLE_PRIORITAS: true,
+      ADD_MASALAH: true,
+      UPDATE_MASALAH: true,
+      REMOVE_MASALAH: true,
+      SET_HASIL: true,
+      SET_JADWAL: true,
+      SET_TTD: true,
+      SET_TAMBAHAN_FIELD: true,
+      APPLY_SASARAN: true,
+      RESET_DATA_SASARAN: true,
+      SET_INVALID: true,
+      ADD_FOTOS: true,
+      SET_FOTO_CAPTION: true,
+      REMOVE_FOTO: true,
+      RESET: true,
+      LOAD_RECORD: true,
+      ISI_ANGGOTA_KELUARGA: true,
+      ISI_PENILAIAN_DARI_RIWAYAT: true,
+      ISI_SANITASI_DARI_RIWAYAT: true,
+      FILL_DEMO: true,
+    }
+    expect(tercakup).toMatchObject(wajib)
 
     // `beku` menggagalkan test ini kalau reducer menulis ke state lama: modul
     // ES berjalan dalam mode strict, jadi penulisan ke properti beku melempar.

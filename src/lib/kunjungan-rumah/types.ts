@@ -1,3 +1,4 @@
+import { SASARAN_KEYS } from './template/kunjungan-rumah-form'
 import type {
   AnggotaKeluarga,
   KeluargaInfo,
@@ -88,6 +89,24 @@ function makeTambahan(raw: unknown): Record<string, string> {
   return out
 }
 
+function makeValues(raw: unknown): Record<string, string> {
+  const out: Record<string, string> = {}
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out
+  for (const [key, value] of Object.entries(raw)) {
+    if (typeof value === 'string') out[key] = value
+  }
+  return out
+}
+
+function makeChecks(raw: unknown): Record<string, boolean> {
+  const out: Record<string, boolean> = {}
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out
+  for (const [key, value] of Object.entries(raw)) {
+    if (typeof value === 'boolean') out[key] = value
+  }
+  return out
+}
+
 function makeSanitasi(raw: unknown): Sanitasi {
   const out: Sanitasi = { ...SANITASI_DEFAULTS }
   if (!raw || typeof raw !== 'object') return out
@@ -114,22 +133,29 @@ export function sanitizeRecord(raw: unknown): KunjunganRumahRecord | null {
 
   const pn = Array.isArray(o.penilaian) ? o.penilaian : []
   const penilaian = pn
-    .filter((p): p is Record<string, unknown> => !!p && typeof p === 'object')
+    .filter(
+      (p): p is Record<string, unknown> =>
+        !!p && typeof p === 'object' && !Array.isArray(p),
+    )
+    // Sasaran liar tidak boleh lolos sebagai cast: konsumen mengakses template
+    // berdasarkan kunci ini dan akan crash. Record tanpa sasaran tetap memakai
+    // default lama "dewasa" agar kompatibilitasnya tidak berubah.
+    .filter(
+      (p) =>
+        typeof p.sasaran !== 'string' ||
+        (SASARAN_KEYS as readonly string[]).includes(p.sasaran),
+    )
     .map((p) => ({
       id: typeof p.id === 'string' ? p.id : createRecordId(),
       anggotaId: typeof p.anggotaId === 'string' ? p.anggotaId : '',
       sasaran: (typeof p.sasaran === 'string'
         ? p.sasaran
         : 'dewasa') as PenilaianForm['sasaran'],
-      values:
-        p.values && typeof p.values === 'object'
-          ? (p.values as Record<string, string>)
-          : {},
-      checks:
-        p.checks && typeof p.checks === 'object'
-          ? (p.checks as Record<string, boolean>)
-          : {},
-      prioritas: Array.isArray(p.prioritas) ? (p.prioritas as string[]) : [],
+      values: makeValues(p.values),
+      checks: makeChecks(p.checks),
+      prioritas: Array.isArray(p.prioritas)
+        ? p.prioritas.filter((v): v is string => typeof v === 'string')
+        : [],
     }))
 
   return {

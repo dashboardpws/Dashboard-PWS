@@ -43,7 +43,7 @@ pnpm test    # vitest run
 pnpm lint    # eslint
 ```
 
-Baseline saat ini: `tsc` exit 0, `eslint` 0 problem, dan 635 test lulus dari 43 file. Tidak ada test yang gagal dan tidak ada file test yang gagal dimuat. Baseline ini ditegakkan CI di `.github/workflows/quality.yml`; jangan turunkan tanpa alasan tertulis.
+Baseline saat ini: `tsc` exit 0, `eslint` 0 problem, dan 688 test lulus dari 45 file. Tidak ada test yang gagal dan tidak ada file test yang gagal dimuat. Baseline ini ditegakkan CI di `.github/workflows/quality.yml`; jangan turunkan tanpa alasan tertulis.
 
 ## Aturan yang paling sering dilanggar
 

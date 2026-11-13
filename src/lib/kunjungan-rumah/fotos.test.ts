@@ -31,6 +31,9 @@ describe('prepareFotos', () => {
       (added[0]?.dataUrl ?? '').startsWith('data:image/jpeg;base64,'),
     ).toBe(true)
     expect(added[0]?.name).toBe('a.jpg')
+    expect(added[0]?.id).toEqual(expect.any(String))
+    expect(added[0]?.id).not.toBe('')
+    expect(Number.isNaN(Date.parse(added[0]?.takenAt ?? ''))).toBe(false)
   })
 
   it('lewati bukan-gambar dan file >2MB', async () => {

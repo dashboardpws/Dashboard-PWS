@@ -167,16 +167,15 @@ describe('penyimpan session yang gagal gugur diam', () => {
 })
 
 describe('pilihKandidatToast bersama data nyata dari buildWarnings', () => {
-  it('semua kandidat lulus saringan yang sama', () => {
+  it('memilih warning aktif dalam urutan severity yang diharapkan', () => {
     const kandidat = pilihKandidatToast(contoh(), [])
-    for (const w of kandidat) {
-      expect(['critical', 'attention', 'reminder', 'info']).toContain(
-        w.severity,
-      )
-      expect(w.status).toBe('active')
-    }
-    // Kuota memang bisa memotong sebelum konten; yang penting jumlahnya tidak
-    // pernah melebihi kuota sesi.
+    expect(kandidat.map((w) => w.id)).toEqual([
+      'sasaran-belum',
+      'cakupan:Trajeng',
+      'tindak-lanjut',
+      'jadwal-terlambat',
+    ])
+    expect(kandidat.every((w) => w.status === 'active')).toBe(true)
     expect(kandidat.length).toBeLessThanOrEqual(BATAS_TOAST_PER_SESI)
   })
 })

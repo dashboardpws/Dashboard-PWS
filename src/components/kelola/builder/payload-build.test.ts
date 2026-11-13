@@ -218,3 +218,71 @@ describe('normalisasiPayloadBuild', () => {
     expect(payload.fields[0]?.deskripsi).toBeNull()
   })
 })
+
+it('mempertahankan identitas, urutan section/field, dan kedua jenis rule pada payload server', () => {
+  const document = buatDokumen({
+    sections: [
+      {
+        id: 's2-db',
+        clientId: 's2',
+        nama: 'Dua',
+        deskripsi: null,
+        aktif: true,
+      },
+      {
+        id: 's1-db',
+        clientId: 's1',
+        nama: 'Satu',
+        deskripsi: null,
+        aktif: false,
+      },
+    ],
+    fields: ['f2', 'f1'].map((id) => ({
+      id: `${id}-db`,
+      clientId: id,
+      sectionClientId: 's2',
+      nama: id,
+      label: id,
+      tipe: 'text',
+      wajib: true,
+      aktif: true,
+      placeholder: null,
+      deskripsi: null,
+      jumlahKolom: 2,
+      optionSourceType: null,
+      optionSourceKey: null,
+      opsi: [],
+    })),
+    rulesAutofill: [
+      {
+        id: 'auto',
+        triggerFieldId: 'f1',
+        targetFieldId: 'f2',
+        sumber: 'warga',
+        kolom: 'nik',
+        transform: 'nik',
+        mode: 'isi_kosong',
+        aktif: true,
+        urutan: 3,
+      },
+    ],
+    rulesVisibilitas: [
+      {
+        id: 'vis',
+        triggerFieldId: 'f1',
+        targetType: 'field',
+        targetId: 'f2',
+        operator: 'eq',
+        nilaiAcuan: 'Ya',
+        aktif: true,
+        urutan: 2,
+      },
+    ],
+  })
+  const before = structuredClone(document)
+  expect(normalisasiPayloadBuild(document)).toEqual({
+    ...document,
+    actorId: null,
+  })
+  expect(document).toEqual(before)
+})

@@ -45,23 +45,9 @@ type ExistingField = {
   optionSourceKey: string | null
 }
 
-/** Pesan untuk field yang sudah punya isian, dipertahankan untuk utilitas murni. */
-export function pesanFieldTerpakai(
-  dipakai: { fieldId: string; total: number }[],
-  namaField: Map<string, string>,
-): string {
-  const total = dipakai.reduce((n, d) => n + d.total, 0)
-  const contoh = dipakai
-    .slice(0, 3)
-    .map((d) => `"${namaField.get(d.fieldId) ?? d.fieldId}" (${d.total} isian)`)
-    .join(', ')
-  const sisa =
-    dipakai.length > 3 ? `, dan ${dipakai.length - 3} field lainnya` : ''
-  return (
-    `Field ${contoh}${sisa} sudah punya ${total} isian, jadi tidak bisa dihapus. ` +
-    'Nonaktifkan fieldnya lewat ikon mata, atau hapus isiannya dulu.'
-  )
-}
+// Dipertahankan sebagai re-export agar konsumen lama tidak berubah; implementasi
+// pesan tetap murni dan dapat diuji tanpa memuat modul database.
+export { pesanFieldTerpakai } from '@/lib/service/form-builder/pesan-field-terpakai'
 
 function validasiSections(sections: SectionInput[]): HasilValidasi {
   const namaMap = new Map<string, string>()

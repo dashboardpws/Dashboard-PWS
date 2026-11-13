@@ -26,6 +26,20 @@ describe('umurTahun', () => {
     expect(umurTahun('', ACUAN)).toBeNull()
     expect(umurTahun('bukan-tanggal', ACUAN)).toBeNull()
     expect(umurTahun('2000-01-01', 'bukan-tanggal')).toBeNull()
+    for (const tidakSah of [
+      '2000-02-30',
+      '2001-02-29',
+      '2000-13-01',
+      '2000-01-32',
+    ]) {
+      expect(umurTahun(tidakSah, ACUAN)).toBeNull()
+      expect(umurTahun('2000-01-01', tidakSah)).toBeNull()
+    }
+  })
+
+  it('menerima tanggal kabisat yang benar-benar ada', () => {
+    expect(umurTahun('2000-02-29', '2024-02-29')).toBe(24)
+    expect(umurTahun('2024-02-29', '2025-02-28')).toBe(0)
   })
 
   it('tidak menerima tanggal lahir di masa depan', () => {

@@ -173,6 +173,24 @@ describe('draftKeRuntime', () => {
     expect(hasil.sections[0]!.fields[0]!.label).toBe('(tanpa label)')
   })
 
+  it('label kosong jatuh ke nama teknis sebelum teks pengganti', () => {
+    const hasil = draftKeRuntime(
+      documentOf(
+        [section({ clientId: 's1' })],
+        [
+          field({
+            clientId: 'f1',
+            sectionClientId: 's1',
+            nama: 'nama_fallback',
+            label: ' ',
+          }),
+        ],
+      ),
+    )
+
+    expect(hasil.sections[0]!.fields[0]!.label).toBe('nama_fallback')
+  })
+
   it('jumlah kolom group diteruskan', () => {
     const hasil = draftKeRuntime(
       documentOf(
@@ -204,6 +222,7 @@ describe('draftKeRuntime: sumber opsi', () => {
             tipe: 'select',
             optionSourceType: 'enum',
             optionSourceKey: 'agama',
+            opsi: [{ clientId: 'o1', value: 'Lokal', label: '', aktif: true }],
           }),
         ],
       ),
@@ -213,8 +232,8 @@ describe('draftKeRuntime: sumber opsi', () => {
     expect(f.opsiDinamis?.map((o) => o.value)).toContain('Islam')
     expect(f.opsiDinamis?.map((o) => o.value)).toContain('Kristen')
     expect(f.sumberOpsiLabel).toBe('Agama')
-    // Opsi statis sengaja tidak dipakai kalau sumber aktif.
-    expect(f.opsi).toEqual([])
+    // Adapter mempertahankan opsi statis; renderer yang memilih sumber aktif.
+    expect(f.opsi.map((o) => o.value)).toEqual(['Lokal'])
   })
 
   it('sumber yang butuh database tidak dikarang di pratinjau', () => {
@@ -240,7 +259,7 @@ describe('draftKeRuntime: sumber opsi', () => {
     expect(f.sumberOpsiLabel).toContain('petugas')
   })
 
-  it('sumber data warga tanpa key tidak diarang', () => {
+  it('sumber data warga tanpa key memakai sumber pertama tanpa mengarang opsi', () => {
     const hasil = draftKeRuntime(
       documentOf(
         [section({ clientId: 's1' })],
@@ -250,7 +269,7 @@ describe('draftKeRuntime: sumber opsi', () => {
             sectionClientId: 's1',
             tipe: 'select',
             optionSourceType: 'warga',
-            optionSourceKey: 'nama_art',
+            optionSourceKey: null,
           }),
         ],
       ),
@@ -258,7 +277,7 @@ describe('draftKeRuntime: sumber opsi', () => {
 
     const f = hasil.sections[0]!.fields[0]!
     expect(f.opsiDinamis).toBeNull()
-    expect(f.sumberOpsiLabel).toContain('Nama warga')
+    expect(f.sumberOpsiLabel).toContain('Kelurahan')
   })
 
   it('daftar saran mengisi saran dan opsiDinamis', () => {
@@ -307,7 +326,7 @@ describe('draftKeRuntime: sumber opsi', () => {
     expect(f.saran).toEqual([])
   })
 
-  it('sumber tak dikenal tidak diarang, tapi labelnya tetap tampil', () => {
+  it('sumber tak dikenal ditandai tanpa mengarang label', () => {
     const hasil = draftKeRuntime(
       documentOf(
         [section({ clientId: 's1' })],
@@ -325,6 +344,30 @@ describe('draftKeRuntime: sumber opsi', () => {
 
     const f = hasil.sections[0]!.fields[0]!
     expect(f.opsiDinamis).toBeNull()
+    expect(f.sumberOpsiTidakDikenali).toBe(true)
     expect(f.sumberOpsiLabel).toBeNull()
+  })
+
+  it('sumber cari warga diteruskan ke pencarian interaktif', () => {
+    const hasil = draftKeRuntime(
+      documentOf(
+        [section({ clientId: 's1' })],
+        [
+          field({
+            clientId: 'f1',
+            sectionClientId: 's1',
+            tipe: 'text',
+            optionSourceType: 'cari_warga',
+            optionSourceKey: 'nik',
+          }),
+        ],
+      ),
+    )
+
+    const f = hasil.sections[0]!.fields[0]!
+    expect(f.cariWarga).toBe('nik')
+    expect(f.opsiDinamis).toBeNull()
+    expect(f.sumberOpsiTidakDikenali).toBe(false)
+    expect(f.sumberOpsiLabel).toContain('NIK')
   })
 })

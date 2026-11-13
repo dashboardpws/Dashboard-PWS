@@ -693,7 +693,7 @@ export function kunjunganRumahReducer(
               : 'Kepala Keluarga',
             statusKawin: row.statusKawin ? opsiKawin(row.statusKawin) : '',
             pendidikan: row.pendidikan ? opsiPendidikan(row.pendidikan) : '',
-            pekerjaan: row.pekerjaan || '',
+            pekerjaan: opsiPekerjaan(row.pekerjaan),
             agama: row.agama || '',
           },
         ]

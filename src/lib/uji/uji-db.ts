@@ -16,7 +16,7 @@
  * seperti itu tidak boleh dipanggil dari dalam `dalamTransaksiUji()`; pakai SQL
  * langsung atau fungsi yang menerima `tx`.
  */
-import { db } from '@/lib/server/db.server'
+import type { db } from '@/lib/server/db.server'
 
 type Db = typeof db
 type DbTx = Parameters<Parameters<Db['transaction']>[0]>[0]
@@ -48,12 +48,16 @@ const BELUM_ADA = Symbol('belum-ada')
 
 export async function dalamTransaksiUji<T>(
   fn: (tx: DbTx) => Promise<T>,
-  transaction: TransactionRunner = db.transaction,
+  transaction?: TransactionRunner,
 ): Promise<T> {
+  // Impor lazy hanya pada pemakaian sungguhan. Unit test yang menyuntik runner
+  // tidak boleh memuat db.server dan membutuhkan DATABASE_URL hanya untuk koleksi.
+  const runner =
+    transaction ?? (await import('@/lib/server/db.server')).db.transaction
   let hasil: T | typeof BELUM_ADA = BELUM_ADA
 
   try {
-    await transaction(async (tx) => {
+    await runner(async (tx) => {
       hasil = await fn(tx)
       // Melempar apa pun yang bukan sentinel juga menggagalkan transaksi. Itu
       // disengaja: AssertionError di dalam `fn` tidak boleh berubah jadi commit

@@ -38,6 +38,17 @@ async function main(): Promise<void> {
 
   const { opsi } = await resolveOpsiDinamis({ optionSourceType: 'users' })
   console.log(`Opsi dinamis untuk field Petugas: ${opsi.length}`)
+  const idOpsi = new Set(opsi.map((o) => o.value))
+  for (const p of petugas) {
+    if (!idOpsi.has(p.id)) {
+      throw new Error(
+        `Petugas aktif ${p.nama} tidak muncul sebagai opsi dinamis.`,
+      )
+    }
+  }
+  if (idOpsi.size !== opsi.length) {
+    throw new Error('Opsi dinamis petugas mengandung ID duplikat.')
+  }
 
   const created: string[] = []
 
@@ -74,9 +85,33 @@ async function main(): Promise<void> {
       `OK dibaca balik: nama="${ketemu.nama}" kel=${ketemu.kel} hadir=${ketemu.hadir}/${ketemu.total} ` +
         `peserta=${ketemu.peserta.length} petugas="${ketemu.petugas}" jam="${ketemu.jam}"`,
     )
-    if (ketemu.peserta.length !== 2)
-      throw new Error('Jumlah peserta tidak kembali utuh.')
-    if (ketemu.hadir !== 1) throw new Error('Jumlah hadir tidak kembali utuh.')
+    const diharapkan = {
+      nama: 'Uji asap kegiatan',
+      jenis: 'Penyuluhan',
+      petugas: petugas[0]!.nama,
+      petugasId: petugas[0]!.id,
+      tgl: '2026-09-28',
+      jam: '09:00',
+      lokasi: 'Balai RW 01',
+      kel: 'Trajeng',
+      posy: 'Melati 1',
+      target: '10 ibu',
+      deskripsi: 'Dibuat oleh smoke test.',
+      hadir: 1,
+      total: 2,
+      peserta: [
+        { nama: 'Ibu Warsini', kel: 'Trajeng', hadir: true },
+        { nama: 'Ibu Lastri', kel: 'Trajeng', hadir: false },
+      ],
+    }
+    for (const [key, nilai] of Object.entries(diharapkan)) {
+      if (
+        JSON.stringify(ketemu[key as keyof typeof ketemu]) !==
+        JSON.stringify(nilai)
+      ) {
+        throw new Error(`Field ${key} tidak kembali utuh setelah simpan/baca.`)
+      }
+    }
 
     // Submission kegiatan tidak punya warga, jadi tidak boleh ikut terhitung
     // sebagai kunjungan rumah di statistik dashboard/sasaran.

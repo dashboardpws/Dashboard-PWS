@@ -297,7 +297,7 @@ export function barisDataWargaDariForm(input: {
     pekerjaan: kePekerjaan(kk?.pekerjaan || suggestion?.pekerjaan),
   }
 
-  if (nik && !isValidNik(nik)) return { nilai: null, hilang: ['nik'] }
+  if (!nik || !isValidNik(nik)) return { nilai: null, hilang: ['nik'] }
 
   const hilang = [
     ...Object.entries(kandidat)

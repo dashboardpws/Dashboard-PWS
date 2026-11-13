@@ -180,6 +180,19 @@ describe('barisDataWargaDariForm', () => {
     expect(hilang).toEqual(['nik'])
   })
 
+  it.each(['', '   '])(
+    'NIK kosong atau hanya spasi dilaporkan sebagai nik',
+    (nik) => {
+      const { nilai, hilang } = barisDataWargaDariForm({
+        info: { ...info, nik },
+        anggota: [],
+        suggestion,
+      })
+      expect(nilai).toBeNull()
+      expect(hilang).toEqual(['nik'])
+    },
+  )
+
   it('tidak ada anggota dengan NIK sasaran utama -> anggota dilaporkan', () => {
     const { nilai, hilang } = barisDataWargaDariForm({
       info,

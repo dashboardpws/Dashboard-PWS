@@ -3,6 +3,7 @@ import { initialKunjunganRumahState } from './store/kunjungan-rumah-reducer'
 import { createDefaultKunjunganRumahTemplates } from './template/kunjungan-rumah-templates'
 import type { KrFieldBinding } from './kr-state-bridge'
 import {
+  templateTerlihatKR,
   answersToKrState,
   bersihkanFieldTersembunyiKR,
   buatKrFieldBindings,
@@ -163,5 +164,38 @@ describe('bridge state Form KR', () => {
     expect(hasil.changed).toBe(true)
     expect(hasil.state.sanitasi.jkn).toBe(false)
     expect(hasil.state.info.nik).toBe(state.info.nik)
+  })
+})
+
+describe('templateTerlihatKR', () => {
+  it('menggabungkan status field dan section tanpa mengaktifkan field nonaktif atau mengubah template asal', () => {
+    const templates = createDefaultKunjunganRumahTemplates()
+    templates.keluargaInfo = templates.keluargaInfo.slice(0, 4).map((f, i) => ({
+      ...f,
+      runtimeId: `f${i}`,
+      runtimeSectionId: `s${i}`,
+      active: i !== 2,
+    }))
+    const before = structuredClone(templates)
+    const bindings = buatKrFieldBindings(templates)
+    const visible = templateTerlihatKR(
+      templates,
+      {
+        fieldAktif: new Set(['f0', 'f1', 'f2']),
+        sectionAktif: new Set(['s0', 's2', 's3']),
+        toClearField: new Set(),
+        toClearSection: new Set(),
+      },
+      bindings,
+    )
+    expect(visible.keluargaInfo.map((f) => f.active)).toEqual([
+      true,
+      false,
+      false,
+      false,
+    ])
+    expect(visible.sanitasi).toEqual(templates.sanitasi)
+    expect(visible.sasaran).toEqual(templates.sasaran)
+    expect(templates).toEqual(before)
   })
 })

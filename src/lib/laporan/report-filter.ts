@@ -27,3 +27,20 @@ export function formIdOf(
 ): number {
   return forms.find((f) => f.nama === r.formNama)?.formId ?? -1
 }
+
+/** Predicate yang juga dipakai route laporan, bukan replika di test. */
+export function cocokDenganForm(
+  r: Pick<SurveyRow, 'formNama'>,
+  formId: number | 'all',
+  forms: BarisFormFilter[],
+): boolean {
+  return formId === 'all' || formIdOf(r, forms) === formId
+}
+
+export function filterByForm<T extends Pick<SurveyRow, 'formNama'>>(
+  rows: readonly T[],
+  formId: number | 'all',
+  forms: BarisFormFilter[],
+): T[] {
+  return rows.filter((r) => cocokDenganForm(r, formId, forms))
+}
