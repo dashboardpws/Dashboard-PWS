@@ -41,17 +41,22 @@ export function normalkanPin(nilai: string): string {
  * dini — tapi HANYA aman kalau panjang kedua buffer sama, makanya panjang
  * dicek lebih dulu di sini.
  *
- * Versi ini tanpa `node:crypto` supaya bisa diuji di environment `"node"`
- * tanpa mock. Server tetap memakai `timingSafeEqual` yang aslinya, lewat
- * `pinBenar` di `src/lib/auth/session.server.ts` — perbandingannya sama, hanya mekanismenya.
+ * Versi bawaan memakai loop tanpa `node:crypto` agar modul ini tetap aman
+ * diimpor halaman login. Server menyuntik `timingSafeEqual`; normalisasi, fail
+ * closed, dan pemeriksaan panjang tetap memakai implementasi yang diuji di sini.
  */
-export function pinBenar(dariUser: string, dariEnv: string): boolean {
+export function pinBenar(
+  dariUser: string,
+  dariEnv: string,
+  bandingkanSamaPanjang?: (a: string, b: string) => boolean,
+): boolean {
   const a = normalkanPin(dariUser)
   const b = normalkanPin(dariEnv)
   // Fail closed: PIN kosong berarti `PIN` tidak terisi di environment atau
   // field dikosongkan. Dua-duanya harus menolak, bukan dianggap cocok.
   if (a.length === 0 || b.length === 0) return false
   if (a.length !== b.length) return false
+  if (bandingkanSamaPanjang) return bandingkanSamaPanjang(a, b)
   let beda = 0
   for (let i = 0; i < a.length; i += 1) {
     beda |= a.charCodeAt(i) ^ b.charCodeAt(i)

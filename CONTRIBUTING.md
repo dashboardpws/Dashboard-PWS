@@ -132,7 +132,7 @@ Skrip lain di `scripts/`: `seed-form-defaults.ts` dan `seed-reference.ts`.
 
 Smoke test membuat baris lalu menghapusnya sendiri di akhir, dengan NIK sintetis `90000...`. Kalau ada langkah yang gagal sebelum pembersihan, cari submission sisa dan hapus manual.
 
-Skrip yang menulis ke database memanggil `pastikanDatabaseUji()` dari `src/lib/uji/database-uji.ts`. Fungsi itu menolak `DATABASE_URL` yang namanya tidak mengandung penanda `uji`, `trial`, `test`, `staging`, `dev`, `localhost`, atau `127.0.0.1`. Jangan menyalin regex-nya ke skrip lain. Batas yang sudah diketahui dicatat di `database-uji.ts`.
+Skrip yang menulis ke database memanggil `pastikanDatabaseUji()` dari `src/lib/uji/database-uji.ts`. Fungsi itu menolak URL rusak dan database remote yang namanya tidak mengandung penanda `uji`, `trial`, `test`, `staging`, atau `dev`; host `localhost`, `127.0.0.1`, dan `::1` juga diizinkan. Penanda pada kredensial, hostname remote, atau query string tidak dihitung. Jangan menyalin regex-nya ke skrip lain. Batas yang sudah diketahui dicatat di `database-uji.ts`.
 
 ## Mau mengubah apa
 

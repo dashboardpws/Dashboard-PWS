@@ -7,20 +7,19 @@
  * lupa memperbarui yang lain — skrip yang tersisa tetap terlihat aman padahal
  * sudah tidak terlindungi. Sekarang hanya ada satu definisi.
  *
- * Yang TIDAK diubah dari versi sebelumnya: pola pencocokan tetap sama persis.
- * Restriktifnya dan celahnya sengaja dibiarkan apa adanya supaya tidak memutus
- * pemakaian yang sudah berjalan. Perlu baca catatan {@link CATATAN_RESIKO} dulu
- * sebelumissiveDB diubah nama penandanya.
+ * Penanda hanya diperiksa pada nama database, kecuali host lokal yang memang
+ * diizinkan. Kredensial, hostname remote, dan query string tidak boleh membuat
+ * database produksi terlihat seperti database uji.
  */
 
 /**
  * Penanda yang membuat sebuah URL dianggap milik database uji.
  *
- * Dicocokkan terhadap SELURUH URL sekaligus nama database, jadi `localhost` di
- * bagian host tetap terdeteksi walaupun nama database-nya biasa saja.
+ * Dicocokkan terhadap nama database. Host `localhost`, `127.0.0.1`, dan `::1`
+ * diperiksa terpisah supaya database lokal dengan nama biasa tetap bisa dipakai.
  *
- * Sengaja longgar: pola ini menyaring kesalahan-kesalahan yang paling sering
- * terjadi, bukan menjerat setiap kemungkinan. Lihat {@link CATATAN_RESIKO}.
+ * Pencocokan substring sengaja longgar untuk nama database, tetapi tidak lagi
+ * dilakukan pada kredensial atau bagian URL lain. Lihat {@link CATATAN_RESIKO}.
  */
 export const NAMA_DB_DIIZINKAN =
   /(uji|trial|test|staging|dev|localhost|127\.0\.0\.1)/i
@@ -29,16 +28,13 @@ export const NAMA_DB_DIIZINKAN =
  * Batas yang diketahui dari {@link NAMA_DB_DIIZINKAN}, disengaja dan belum
  * ditutup:
  *
- *   - Pencocokan berupa substring pada seluruh URL, jadi database produksi
- *     bernama `pws_dev_backup` atau `staging_lama` ikut lolos.
- *   - Database uji yang namanya tidak mengandung satu pun penanda akan ditolak
- *     walau lokal. Ikuti saja aturan di depan, atau setel nama database uji
- *     supaya memuat `uji`.
+ *   - Pencocokan berupa substring pada nama database, jadi database remote
+ *     bernama `pws_dev_backup` atau `staging_lama` tetap ikut lolos.
+ *   - Host lokal dipercaya berdasarkan hostname. Ini bukan daftar putih per
+ *     lingkungan dan tidak membuktikan isi database benar-benar data uji.
  *
- * Menutup celah pertama berarti memakai daftar putih per lingkungan, yang harus
- * diisi manual di tiap mesin — hambatan yang lebih besar daripada risikonya
- * untuk repo ini. Kalau suatu saat skrip uji dipakai pada data produksi sungguhan,
- * pola ini harus diganti, bukan hanya diperketat.
+ * Kalau skrip uji nanti dijalankan pada remote yang berisi data produksi, pola
+ * nama ini harus diganti dengan daftar putih lingkungan yang eksplisit.
  */
 export const CATATAN_RESIKO =
   'Pola nama database uji masih longgar: cocok pada substring, jadi nama ' +
@@ -58,15 +54,20 @@ export function pastikanDatabaseUji(konteks = 'skrip ini'): string {
   const url = process.env.DATABASE_URL ?? ''
   if (!url) throw new Error('DATABASE_URL belum diisi.')
 
-  const nama = (() => {
-    try {
-      return new URL(url).pathname.replace(/^\//, '')
-    } catch {
-      return ''
-    }
-  })()
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    throw new Error(
+      `DATABASE_URL tidak valid untuk ${konteks}; penjaga database uji menolak URL yang tidak bisa diparse.`,
+    )
+  }
 
-  if (!NAMA_DB_DIIZINKAN.test(`${url} ${nama}`)) {
+  const nama = parsed.pathname.replace(/^\//, '')
+  const host = parsed.hostname.toLowerCase()
+  const lokal = ['localhost', '127.0.0.1', '::1', '[::1]'].includes(host)
+
+  if (!lokal && !NAMA_DB_DIIZINKAN.test(nama)) {
     throw new Error(
       `Database "${nama || 'tidak dikenal'}" bukan database uji. ` +
         `Set DATABASE_URL ke database uji sebelum menjalankan ${konteks}.`,

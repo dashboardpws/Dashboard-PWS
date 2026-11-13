@@ -31,14 +31,37 @@ export const BATAS_DEWASA = 59
 /** Usia paling muda yang masuk kelompok `remaja`; di bawah ini butuh presisi bulan. */
 export const BATAS_REMAJA_Bawah = 6
 
+function tanggalKalenderSah(nilai: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(nilai)) return false
+  const [tahun, bulan, hari] = nilai.split('-').map(Number)
+  if (!tahun || !bulan || !hari || bulan < 1 || bulan > 12 || hari < 1)
+    return false
+  const kabisat = tahun % 4 === 0 && (tahun % 100 !== 0 || tahun % 400 === 0)
+  const hariPerBulan = [
+    31,
+    kabisat ? 29 : 28,
+    31,
+    30,
+    31,
+    30,
+    31,
+    31,
+    30,
+    31,
+    30,
+    31,
+  ]
+  return hari <= hariPerBulan[bulan - 1]!
+}
+
 /**
  * Umur dalam tahun bulat pada `ref`, atau `null` kalau tanggal lahir tidak
  * valid. Menghitung ulang ulang tahun yang belum terlampaui, sama seperti
  * `ageOn` di rekap — supaya dua tempat ini tidak berbeda opinion.
  */
 export function umurTahun(tglLahir: string, ref: string): number | null {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(tglLahir)) return null
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(ref)) return null
+  if (!tanggalKalenderSah(tglLahir)) return null
+  if (!tanggalKalenderSah(ref)) return null
   const [by, bm, bd] = tglLahir.split('-').map(Number)
   const [ry, rm, rd] = ref.split('-').map(Number)
   if (!by || !bm || !bd || !ry || !rm || !rd) return null

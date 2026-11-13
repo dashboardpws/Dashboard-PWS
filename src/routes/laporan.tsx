@@ -8,7 +8,7 @@ import {
   listKegiatan,
 } from '@/lib/api/server-fns'
 import type { KegiatanRecord } from '@/hooks/survey/use-kegiatan'
-import { formIdOf } from '@/lib/laporan/report-filter'
+import { cocokDenganForm } from '@/lib/laporan/report-filter'
 import { JENIS_KEGIATAN, KELS, PAGE_SIZE, POSY } from '@/lib/constants'
 import { downloadCsv, fmtDate, pctOf } from '@/lib/utils'
 import { useToast } from '@/providers/toast'
@@ -152,7 +152,7 @@ function Laporan() {
         r.tanggal >= dari &&
         r.tanggal <= sampai &&
         (kel === 'all' || r.kelurahan === kel) &&
-        (formId === 'all' || formIdOf(r, formAdaSubmit) === formId) &&
+        cocokDenganForm(r, formId, formAdaSubmit) &&
         (!cari ||
           r.nama.toLowerCase().includes(cari.toLowerCase()) ||
           (r.nik ?? '').includes(cari) ||

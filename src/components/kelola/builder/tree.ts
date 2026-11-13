@@ -38,6 +38,9 @@ export function flattenDatar(
   }
 
   const flat: FlatNode[] = []
+  // Identitas objek dipakai, bukan clientId: draft korup bisa punya field sah dan
+  // orphan dengan clientId sama, dan keduanya tetap harus terlihat.
+  const fieldsInFlat = new Set<DraftField>()
   let index = 0
 
   for (const s of sections) {
@@ -48,6 +51,7 @@ export function flattenDatar(
       index: index++,
     })
     for (const f of fieldsBySection.get(s.clientId) ?? []) {
+      fieldsInFlat.add(f)
       flat.push({
         kind: 'field',
         clientId: f.clientId,
@@ -59,12 +63,9 @@ export function flattenDatar(
 
   // Field yang section-nya sudah tidak ada: tempel di akhir agar tidak hilang
   // diam-diam dan admin sempat melihatnya sebelum disimpan.
-  const fieldIdsInFlat = new Set(
-    flat.filter((n) => n.kind === 'field').map((n) => n.clientId),
-  )
   const sectionIds = new Set(sections.map((s) => s.clientId))
   for (const f of fields) {
-    if (!fieldIdsInFlat.has(f.clientId) && !sectionIds.has(f.sectionClientId)) {
+    if (!fieldsInFlat.has(f) && !sectionIds.has(f.sectionClientId)) {
       flat.push({
         kind: 'field',
         clientId: f.clientId,

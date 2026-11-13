@@ -58,6 +58,8 @@ describe('NAMA_DB_DIIZINKAN', () => {
     expect(NAMA_DB_DIIZINKAN.test('dashboard_trial')).toBe(true)
     expect(NAMA_DB_DIIZINKAN.test('dashboard_test')).toBe(true)
     expect(NAMA_DB_DIIZINKAN.test('dashboard_staging')).toBe(true)
+    expect(NAMA_DB_DIIZINKAN.test('DASHBOARD_UJI')).toBe(true)
+    expect(NAMA_DB_DIIZINKAN.test('DASHBOARD_PRODUKSI')).toBe(false)
   })
 })
 
@@ -98,11 +100,29 @@ describe('pastikanDatabaseUji', () => {
     })
   })
 
-  it('menerima URL yang tidak bisa di-parse selama memuat penanda uji', () => {
-    // URL rusak tidak boleh membuat skrip berhenti sebelum sempat dicek; yang
-    // menentukan kelayakan tetap penanda di dalam teksnya.
+  it('gagal tertutup untuk URL yang tidak bisa diparse', () => {
     saatUrl('bukan-url-tetapi-ada-katanya-uji', () => {
-      expect(pastikanDatabaseUji()).toBe('')
+      expect(() => pastikanDatabaseUji()).toThrow(/tidak valid/)
+    })
+  })
+
+  it.each([
+    'postgresql://uji:secret@db.production.internal/dashboard_pws',
+    'postgresql://user:test@db.production.internal/dashboard_pws',
+    'postgresql://user:pass@db.dev.production.internal/dashboard_pws',
+    'postgresql://user:pass@db.production.internal/dashboard_pws?schema=staging',
+  ])('menolak penanda uji di luar nama database: %s', (url) => {
+    saatUrl(url, () => {
+      expect(() => pastikanDatabaseUji()).toThrow(/bukan database uji/)
+    })
+  })
+
+  it('menerima nama database uji pada remote dan nama biasa pada host lokal', () => {
+    saatUrl('postgresql://user:pass@db.internal/DASHBOARD_UJI', () => {
+      expect(pastikanDatabaseUji()).toBe('DASHBOARD_UJI')
+    })
+    saatUrl('postgresql://user:pass@LOCALHOST:5432/dashboard_pws', () => {
+      expect(pastikanDatabaseUji()).toBe('dashboard_pws')
     })
   })
 

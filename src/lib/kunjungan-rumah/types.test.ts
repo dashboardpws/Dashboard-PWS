@@ -52,4 +52,31 @@ describe('sanitizeRecord', () => {
     expect(rec!.penilaian[0]!.sasaran).toBe('lansia')
     expect(rec!.penilaian[0]!.prioritas).toEqual([])
   })
+
+  it('membuang sasaran tak dikenal dan membersihkan isian penilaian bersarang', () => {
+    const rec = sanitizeRecord({
+      id: 'r3',
+      waktuSimpan: '2026-01-01T00:00:00.000Z',
+      info: {},
+      penilaian: [
+        { id: 'liar', sasaran: 'tidak-ada' },
+        ['bukan', 'objek', 'penilaian'],
+        {
+          id: 'valid',
+          sasaran: 'dewasa',
+          values: { teks: 'simpan', angka: 123 },
+          checks: { benar: true, salah: 'true' },
+          prioritas: ['TB', 42, 'DM'],
+        },
+      ],
+    })
+    expect(rec!.penilaian).toEqual([
+      expect.objectContaining({
+        id: 'valid',
+        values: { teks: 'simpan' },
+        checks: { benar: true },
+        prioritas: ['TB', 'DM'],
+      }),
+    ])
+  })
 })

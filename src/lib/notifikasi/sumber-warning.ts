@@ -1,5 +1,5 @@
 import { hasilKind } from '@/lib/kunjungan-rumah/hasil'
-import { deriveTindakLanjut } from '@/lib/dashboard/warning'
+import { deriveTindakLanjut, kunjunganLebihBaru } from '@/lib/dashboard/warning'
 import type {
   JadwalItem,
   KunjunganRecordLike,
@@ -31,6 +31,8 @@ export interface VisitLike {
   hasil: string
   /** YYYY-MM-DD, atau string kosong bila form tidak meminta jadwal ulang. */
   jadwal: string
+  /** Stempel server untuk memutuskan kunjungan pada tanggal yang sama. */
+  waktuSimpan?: string
 }
 
 const TEKS = (v: unknown): string => (typeof v === 'string' ? v.trim() : '')
@@ -67,6 +69,7 @@ export function keVisitRecord(records: unknown[]): VisitLike[] {
       tanggal: isoTanggal(info.tglPengumpulan) || isoTanggal(rec.waktuSimpan),
       hasil: TEKS(rec.hasil),
       jadwal: isoTanggal(rec.jadwal),
+      waktuSimpan: TEKS(rec.waktuSimpan) || undefined,
     })
   }
   return out
@@ -83,6 +86,7 @@ export function keKunjunganRecordLike(
     kelurahan: v.kelurahan,
     tanggal: v.tanggal,
     hasil: v.hasil || null,
+    waktuSimpan: v.waktuSimpan,
   }))
 }
 
@@ -92,7 +96,7 @@ function kunjunganTerbaru(visits: VisitLike[]): VisitLike[] {
   for (const v of visits) {
     if (!v.nik) continue
     const cur = latest.get(v.nik)
-    if (!cur || v.tanggal > cur.tanggal) latest.set(v.nik, v)
+    if (!cur || kunjunganLebihBaru(v, cur)) latest.set(v.nik, v)
   }
   return [...latest.values()]
 }

@@ -69,10 +69,6 @@ describe('flattenDatar', () => {
     const flat = flattenDatar(sections, fields)
 
     expect(flat.map((n) => n.index)).toEqual([0, 1, 2, 3])
-    expect(flat.map((n) => n.index)).toEqual(
-      [...flat.map((n) => n.index)].sort((a, b) => a - b),
-    )
-    expect(new Set(flat.map((n) => n.index)).size).toBe(flat.length)
   })
 
   it('section punya parentKey null, field punya parentKey section-nya', () => {
@@ -136,14 +132,28 @@ describe('flattenDatar', () => {
     ).toEqual(['c', 'a', 'b'])
   })
 
-  it('tidak melempar saat clientId duplikat', () => {
-    // Editor bisa saja mengirim draft dengan clientId yang sama dua kali.
-    // Yang penting output-nya tetap punya index unik dan tidak menggagalkan render.
+  it('mempertahankan semua node saat clientId duplikat', () => {
     const flat = flattenDatar(
       [section('s1')],
       [field('f1', 's1'), field('f1', 's1')],
     )
-    expect(new Set(flat.map((n) => n.index)).size).toBe(flat.length)
+    expect(flat).toEqual([
+      { kind: 'section', clientId: 's1', parentKey: null, index: 0 },
+      { kind: 'field', clientId: 'f1', parentKey: 's1', index: 1 },
+      { kind: 'field', clientId: 'f1', parentKey: 's1', index: 2 },
+    ])
+  })
+
+  it('tidak membuang orphan yang clientId-nya sama dengan field sah', () => {
+    const flat = flattenDatar(
+      [section('s1')],
+      [field('f1', 's1'), field('f1', 's-hilang')],
+    )
+    expect(flat).toEqual([
+      { kind: 'section', clientId: 's1', parentKey: null, index: 0 },
+      { kind: 'field', clientId: 'f1', parentKey: 's1', index: 1 },
+      { kind: 'field', clientId: 'f1', parentKey: null, index: 2 },
+    ])
   })
 })
 

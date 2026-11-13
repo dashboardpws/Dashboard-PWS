@@ -8,7 +8,6 @@ import {
   hitungPerSeverity,
   labelSingkat,
   ringkasanNotifikasi,
-  urutSemua,
   untukLonceng,
 } from './ringkasan'
 import type { FilterNotifikasi } from './types'
@@ -73,7 +72,7 @@ describe('filterWarnings', () => {
       ...TANPA,
       type: 'jadwal_terlambat',
     })
-    expect(rows.every((w) => w.type === 'jadwal_terlambat')).toBe(true)
+    expect(rows.map((w) => w.id)).toEqual(['jadwal-terlambat'])
   })
 
   it('filter wilayah menyisakan warning milik wilayah itu dan warning global', () => {
@@ -90,7 +89,9 @@ describe('filterWarnings', () => {
 
     // Tambaan 45/50 -> tidak ada warning miliknya, jadi yang tersisa hanya global.
     const tambaan = filterWarnings(contoh(), { ...TANPA, region: 'Tambaan' })
-    expect(tambaan.every((w) => w.region === null)).toBe(true)
+    const global = semua.filter((w) => w.region === null)
+    expect(tambaan.map((w) => w.id)).toEqual(global.map((w) => w.id))
+    expect(tambaan.length).toBeGreaterThan(0)
     expect(tambaan.length).toBeLessThan(trajeng.length)
   })
 
@@ -100,9 +101,10 @@ describe('filterWarnings', () => {
     const semua = filterWarnings(contoh(), TANPA)
     const global = semua.filter((w) => w.region === null)
     expect(global.length).toBeGreaterThan(0)
-    expect(
-      filterWarnings(contoh(), { ...TANPA, region: 'Trajeng' }),
-    ).not.toHaveLength(0)
+    const trajeng = filterWarnings(contoh(), { ...TANPA, region: 'Trajeng' })
+    expect(trajeng.filter((w) => w.region === null).map((w) => w.id)).toEqual(
+      global.map((w) => w.id),
+    )
   })
 
   it('gabungan filter yang tidak cocok menghasilkan daftar kosong', () => {
@@ -124,10 +126,26 @@ describe('filterWarnings', () => {
 })
 
 describe('hitungPerSeverity', () => {
-  it('menghitung hanya warning aktif', () => {
-    const hitung = hitungPerSeverity(contoh())
-    const total = Object.values(hitung).reduce((a, b) => a + b, 0)
-    expect(total).toBe(urutSemua(contoh()).length)
+  it('menghitung hanya warning aktif dengan jumlah independen per severity', () => {
+    const dasar = contoh()[0]!
+    const list = [
+      { ...dasar, id: 'c1', severity: 'critical' as const },
+      { ...dasar, id: 'c2', severity: 'critical' as const },
+      { ...dasar, id: 'a1', severity: 'attention' as const },
+      { ...dasar, id: 'r1', severity: 'reminder' as const },
+      {
+        ...dasar,
+        id: 'd1',
+        severity: 'critical' as const,
+        status: 'dismissed' as const,
+      },
+    ]
+    expect(hitungPerSeverity(list)).toEqual({
+      critical: 2,
+      attention: 1,
+      reminder: 1,
+      info: 0,
+    })
   })
 
   it('memiliki kunci untuk keempat severity walau nol', () => {
@@ -141,12 +159,23 @@ describe('hitungPerSeverity', () => {
 })
 
 describe('ringkasanNotifikasi', () => {
-  it('total, kritis, dan warning teratas konsisten dengan daftar', () => {
-    const list = contoh()
+  it('total, kritis, dan warning teratas dihitung dari data independen', () => {
+    const dasar = contoh()[0]!
+    const list = [
+      { ...dasar, id: 'i1', severity: 'info' as const },
+      { ...dasar, id: 'c1', severity: 'critical' as const },
+      { ...dasar, id: 'a1', severity: 'attention' as const },
+      {
+        ...dasar,
+        id: 'd1',
+        severity: 'critical' as const,
+        status: 'dismissed' as const,
+      },
+    ]
     const r = ringkasanNotifikasi(list)
-    expect(r.total).toBe(urutSemua(list).length)
-    expect(r.kritis).toBe(hitungPerSeverity(list).critical)
-    expect(r.teratas?.severity).toBe('critical')
+    expect(r.total).toBe(3)
+    expect(r.kritis).toBe(1)
+    expect(r.teratas?.id).toBe('c1')
   })
 
   it('daftar kosong memberi teratas null', () => {
@@ -172,6 +201,24 @@ describe('untukLonceng', () => {
     expect(hidden).toBe(banyak.length - BATAS_LONTENG)
   })
 
+  it('limit khusus tetap memfilter status dan mengurutkan severity', () => {
+    const dasar = contoh()[0]!
+    const list = [
+      { ...dasar, id: 'i1', severity: 'info' as const },
+      { ...dasar, id: 'c1', severity: 'critical' as const },
+      { ...dasar, id: 'a1', severity: 'attention' as const },
+      {
+        ...dasar,
+        id: 'd1',
+        severity: 'critical' as const,
+        status: 'dismissed' as const,
+      },
+    ]
+    const { rows, hidden } = untukLonceng(list, 2)
+    expect(rows.map((w) => w.id)).toEqual(['c1', 'a1'])
+    expect(hidden).toBe(1)
+  })
+
   it('daftar kosong memberi hidden 0', () => {
     expect(untukLonceng([])).toEqual({ rows: [], hidden: 0 })
   })
@@ -181,7 +228,8 @@ describe('labelSingkat', () => {
   it('menyambung judul dan deskripsi bila ada', () => {
     const w = contoh()[0]
     if (!w) throw new Error('contoh() harus menghasilkan warning')
-    expect(labelSingkat(w)).toContain(w.title)
+    expect(w.description).not.toBe('')
+    expect(labelSingkat(w)).toBe(`${w.title} - ${w.description}`)
   })
 
   it('tidak menambah pemisah bila deskripsi kosong', () => {
