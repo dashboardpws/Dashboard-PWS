@@ -4,6 +4,8 @@ import {
   buildWarnings,
   computePeriod,
   deriveTindakLanjut,
+  filterJadwalTerlambat,
+  warningTarget,
 } from './warning'
 import type { CoverageRegion } from './warning'
 
@@ -201,6 +203,104 @@ describe('buildWarnings', () => {
       },
     )
     expect(w.some((x) => x.type === 'jadwal_terlambat')).toBe(false)
+  })
+})
+
+describe('filterJadwalTerlambat', () => {
+  const j = (
+    id: string,
+    tanggal: string,
+    status: 'terjadwal' | 'selesai' | 'batal' = 'terjadwal',
+    kelurahan = 'A',
+  ) => ({
+    id,
+    nik: null,
+    nama: id,
+    kelurahan,
+    tanggal,
+    status,
+  })
+
+  it('hanya terjadwal, sebelum hari ini, dan di dalam periode', () => {
+    const hasil = filterJadwalTerlambat(
+      [
+        j('1', '2026-06-14'),
+        j('2', '2026-06-15'),
+        j('3', '2026-06-01', 'selesai'),
+        j('4', '2026-06-01', 'batal'),
+        j('5', '2026-05-01'),
+      ],
+      { now: at(2026, 6, 15) },
+    )
+    expect(hasil.map((x) => x.id)).toEqual(['1', '5'])
+  })
+
+  it('menghormati filter wilayah', () => {
+    const hasil = filterJadwalTerlambat(
+      [
+        j('1', '2026-06-14', 'terjadwal', 'A'),
+        j('2', '2026-06-14', 'terjadwal', 'B'),
+      ],
+      { now: at(2026, 6, 15), region: 'B' },
+    )
+    expect(hasil.map((x) => x.id)).toEqual(['2'])
+  })
+
+  it('mengabaikan jadwal di luar periode', () => {
+    const hasil = filterJadwalTerlambat(
+      [j('1', '2026-02-01'), j('2', '2026-06-14')],
+      {
+        now: at(2026, 6, 15),
+        period: { startDate: '2026-04-01', endDate: '2026-06-30' },
+      },
+    )
+    expect(hasil.map((x) => x.id)).toEqual(['2'])
+  })
+
+  it('kosong saat periode belum mulai', () => {
+    const hasil = filterJadwalTerlambat([j('1', '2025-12-31')], {
+      now: at(2025, 12, 1),
+      period: { startDate: '2026-01-01', endDate: '2026-12-31' },
+    })
+    expect(hasil).toEqual([])
+  })
+
+  it('jumlahnya sama dengan hitungan warning agregat', () => {
+    const jadwal = [
+      j('1', '2026-06-14'),
+      j('2', '2026-05-01', 'terjadwal', 'A'),
+      j('3', '2026-06-01', 'selesai'),
+    ]
+    const hasil = filterJadwalTerlambat(jadwal, { now: at(2026, 6, 15) })
+    const w = buildWarnings(
+      { regions: regions([['A', 10, 10]]), jadwal },
+      { now: at(2026, 6, 15) },
+    ).find((x) => x.type === 'jadwal_terlambat')
+    expect(w?.title).toBe(`${hasil.length} jadwal kunjungan terlambat`)
+  })
+})
+
+describe('warningTarget', () => {
+  it('jadwal terlambat diarahkan ke daftar di /notifikasi', () => {
+    const target = warningTarget({
+      id: 'jadwal-terlambat',
+      type: 'jadwal_terlambat',
+      severity: 'attention',
+      title: '1 jadwal kunjungan terlambat',
+      description: '',
+      period: { startDate: '2026-01-01', endDate: '2026-06-30' },
+      region: null,
+      status: 'active',
+      source: 'jadwal',
+      sourceId: null,
+      createdAt: '2026-06-15T00:00:00.000Z',
+      resolvedAt: null,
+    })
+    expect(target).toEqual({
+      to: '/notifikasi',
+      search: {},
+      hash: 'jadwal-terlewat',
+    })
   })
 })
 

@@ -76,6 +76,7 @@ export function NotifikasiList({
                 <Link
                   to={target.to}
                   search={target.search as never}
+                  hash={target.hash}
                   className="mt-0.5 block font-semibold text-ink hover:underline"
                 >
                   {w.title}

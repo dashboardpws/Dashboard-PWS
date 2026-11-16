@@ -150,6 +150,46 @@ export function computePeriod(
   }
 }
 
+/* ───────────── Seleksi jadwal ───────────── */
+
+/**
+ * Jadwal kunjungan yang sudah lewat dan belum selesai.
+ *
+ * Dipakai dua tempat: `buildWarnings()` untuk menghitung warning agregat, dan
+ * halaman `/notifikasi` untuk menampilkan record penyebabnya. Satu fungsi supaya
+ * angka di judul warning tidak mungkin berbeda dengan jumlah baris daftar.
+ */
+export function filterJadwalTerlambat(
+  jadwal: JadwalItem[],
+  opts: {
+    now?: Date
+    period?: { startDate: string; endDate: string }
+    region?: string | null
+  } = {},
+): JadwalItem[] {
+  const now = opts.now ?? new Date()
+  const period = computePeriod(
+    opts.period?.startDate ?? WARNING_CONFIG.period.startDate,
+    opts.period?.endDate ?? WARNING_CONFIG.period.endDate,
+    now,
+  )
+  // Sama seperti builder: sebelum periode mulai tidak ada yang bisa terlambat.
+  if (period.status === 'upcoming') return []
+
+  const todayISO = toISODate(now)
+  const region = opts.region ?? null
+  return jadwal.filter((j) => {
+    const tanggal = j.tanggal.slice(0, 10)
+    return (
+      j.status === 'terjadwal' &&
+      tanggal < todayISO &&
+      tanggal >= period.startDate &&
+      tanggal <= period.endDate &&
+      (region === null || j.kelurahan === region)
+    )
+  })
+}
+
 /* ───────────── Turunan tindak lanjut dari field yang sudah ada ───────────── */
 
 /** Tanpa waktuSimpan pada dua record lama, urutan input tetap menjadi fallback. */
@@ -216,7 +256,6 @@ export function buildWarnings(
   const periodRef = { startDate: period.startDate, endDate: period.endDate }
   const createdAt = now.toISOString()
   const today = startOfDay(now)
-  const todayISO = toISODate(now)
   const suffix = region ? `:${region}` : ''
 
   const inRegion = (name: string) => region === null || name === region
@@ -260,13 +299,11 @@ export function buildWarnings(
   }
 
   // 2. Jadwal terlambat: terjadwal, tanggal < hari ini, belum selesai
-  const late = (input.jadwal ?? []).filter(
-    (j) =>
-      j.status === 'terjadwal' &&
-      j.tanggal.slice(0, 10) < todayISO &&
-      inRegion(j.kelurahan) &&
-      inPeriod(j.tanggal),
-  )
+  const late = filterJadwalTerlambat(input.jadwal ?? [], {
+    now,
+    period: periodRef,
+    region,
+  })
   if (late.length > 0) {
     out.push(
       mk({
@@ -412,12 +449,18 @@ export function selectTopWarnings(list: Warning[], limit: number) {
   }
 }
 
-/** Tujuan drill-down per warning. Untuk jadwal & tindak lanjut masih diarahkan ke
- *  /laporan — ganti jika ada halaman khusus. Halaman tujuan harus punya
- *  validateSearch untuk key `status` dan `kel` agar filter terbaca. */
+/** Tujuan drill-down per warning.
+ *
+ *  - Cakupan & sasaran → daftar sasaran yang belum dikunjungi.
+ *  - Jadwal terlambat → daftar isian penyebab di `/notifikasi`; hash dipakai
+ *    supaya halaman langsung menggulir ke section jadwal terlewat.
+ *  - Tindak lanjut masih diarahkan ke `/laporan`.
+ *
+ *  Halaman `/sasaran` membaca `status` dan `kel` lewat `validateSearch`. */
 export function warningTarget(w: Warning): {
-  to: '/sasaran' | '/laporan'
+  to: '/sasaran' | '/laporan' | '/notifikasi'
   search: Record<string, string>
+  hash?: string
 } {
   switch (w.type) {
     case 'sasaran_belum_dikunjungi':
@@ -426,6 +469,8 @@ export function warningTarget(w: Warning): {
         to: '/sasaran',
         search: { status: 'Belum', ...(w.region ? { kel: w.region } : {}) },
       }
+    case 'jadwal_terlambat':
+      return { to: '/notifikasi', search: {}, hash: 'jadwal-terlewat' }
     default:
       return { to: '/laporan', search: w.region ? { kel: w.region } : {} }
   }

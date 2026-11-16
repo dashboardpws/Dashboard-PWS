@@ -84,6 +84,7 @@ export function PerluPerhatian({
                     <Link
                       to={t.to}
                       search={t.search as never}
+                      hash={t.hash}
                       className="font-semibold text-ink hover:underline"
                     >
                       {w.title}

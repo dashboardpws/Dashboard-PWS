@@ -74,6 +74,7 @@ export function NotifikasiToast() {
             <Link
               to={target.to}
               search={target.search as never}
+              hash={target.hash}
               onClick={() => notifications.hide(item.id)}
               aria-label={labelSingkat(item)}
               className="block text-sm font-semibold text-ink hover:underline"

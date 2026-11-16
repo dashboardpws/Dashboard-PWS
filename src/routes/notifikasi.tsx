@@ -1,17 +1,19 @@
-import { useMemo, useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { useEffect, useMemo, useState } from 'react'
+import { createFileRoute, useLocation } from '@tanstack/react-router'
 
 import { AppShell } from '@/components/layout'
 import { PageHeader, SectionCard, StatCard, Select } from '@/components/ui'
 import { requireAuth } from '@/lib/auth/auth'
 import { fmtDate } from '@/lib/utils'
-import { computePeriod } from '@/lib/dashboard/warning'
+import { computePeriod, filterJadwalTerlambat } from '@/lib/dashboard/warning'
+import { WARNING_CONFIG } from '@/lib/dashboard/warning.config'
 import {
   SEVERITY_META,
   SEVERITY_URUTAN,
   WARNING_TYPE_LABEL,
 } from '@/components/dashboard/severity'
 import { FILTER_SEMUA } from '@/lib/notifikasi/ringkasan'
+import { JadwalTerlewatList } from '@/components/notifikasi/JadwalTerlewatList'
 import { NotifikasiList } from '@/components/notifikasi/NotifikasiList'
 import { useNotifikasi } from '@/hooks/notifikasi/use-notifikasi'
 import type { FilterNotifikasi } from '@/lib/notifikasi/types'
@@ -44,6 +46,36 @@ function Notifikasi() {
 
   // Periode hanya untuk keterangan; objek stabil supaya tidak recompute tiap render.
   const period = useMemo(() => computePeriod(), [])
+
+  const location = useLocation()
+
+  // Sumber daftar sama dengan sumber warning agregat. Filter wilayah ikut
+  // diterapkan supaya jumlah baris tidak berbeda dengan angka di warning.
+  const jadwalTerlewat = useMemo(
+    () =>
+      filterJadwalTerlambat(data.jadwal, {
+        region: region === FILTER_SEMUA ? undefined : region,
+      }),
+    [data.jadwal, region],
+  )
+
+  // Filter jenis/severity hanya menyaring warning. Section jadwal ikut
+  // disembunyikan saat filter sedang tidak mencakup jadwal terlambat.
+  const tampilkanJadwal =
+    (type === FILTER_SEMUA || type === 'jadwal_terlambat') &&
+    (severity === FILTER_SEMUA ||
+      severity === WARNING_CONFIG.jadwalTerlambat.severity) &&
+    jadwalTerlewat.length > 0
+
+  // Hash dari warning baru bisa digulir setelah data selesai dimuat, karena
+  // section-nya belum ada saat navigasi pertama kali diproses.
+  useEffect(() => {
+    if (location.hash !== 'jadwal-terlewat') return
+    if (loading || !tampilkanJadwal) return
+    document
+      .getElementById('jadwal-terlewat')
+      ?.scrollIntoView({ block: 'start' })
+  }, [location.hash, loading, tampilkanJadwal])
 
   const adaFilter =
     severity !== FILTER_SEMUA ||
@@ -89,6 +121,19 @@ function Notifikasi() {
           sub={`${loading ? '...' : totalKunjungan} record kunjungan`}
         />
       </div>
+
+      {/* Daftar record penyebab warning jadwal; warning tetap agregat di bawah. */}
+      {tampilkanJadwal ? (
+        <div id="jadwal-terlewat" className="scroll-mt-4">
+          <SectionCard
+            className="mt-4"
+            title="Jadwal kunjungan terlewat"
+            sub={`${jadwalTerlewat.length} isian perlu diperbarui.`}
+          >
+            <JadwalTerlewatList items={jadwalTerlewat} />
+          </SectionCard>
+        </div>
+      ) : null}
 
       {/* Main Section */}
       <SectionCard
