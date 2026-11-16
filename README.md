@@ -66,7 +66,7 @@ sama tidak mengirim push dua kali (lihat tabel `cron_notifikasi_terkirim`).
 | `/pin`                 | Login PIN. Redirect ke `/` kalau sesi sudah ada.           |
 | `/`                    | Dashboard: statistik dan tren kegiatan.                    |
 | `/sasaran`             | Daftar warga sasaran, dengan filter dan ekspor CSV.        |
-| `/sasaran/$id`         | Detail sasaran per NIK.                                    |
+| `/sasaran/$ref`        | Detail sasaran per ref publik (bukan NIK).                 |
 | `/kunjungan-rumah`     | Formulir kunjungan rumah baru.                             |
 | `/kunjungan-rumah/$id` | Buka/ubah kunjungan rumah yang tersimpan.                  |
 | `/kegiatan`            | Wizard kegiatan Posyandu.                                  |

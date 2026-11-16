@@ -48,30 +48,37 @@ import type { FormDefinition } from '@/lib/form-builder/form-schema'
 // tabel tertentu. Dua tabel impor punya policy RESTRICTIVE di `data-import.ts`;
 // policy itu tidak memberi akses, hanya menambah syarat.
 
-export const dataWargaTable = pgTable.withRLS('data_warga', {
-  nik: varchar({ length: 16 }).notNull().primaryKey(),
-  nama_art: varchar({ length: 255 }).notNull(),
-  nama_kk: varchar({ length: 255 }).notNull(),
-  hubungan_keluarga: hubunganKeluargaEnum().notNull(),
-  alamat: text().notNull(),
-  tgl_lahir: date().notNull(),
-  rt: varchar({ length: 3 }).notNull(),
-  rw: varchar({ length: 3 }).notNull(),
-  kecamatan: text().notNull(),
-  kelurahan: text().notNull(),
-  kota: text().notNull(),
-  status_kawin: statusKawinEnum().notNull(),
-  staff: uuid()
-    .notNull()
-    .references(() => users.id),
-  jenis_kelamin: jenisKelaminEnum().notNull(),
-  wanita_usia_hamil: boolean().notNull(),
-  agama: agama().notNull(),
-  pendidikan: pendidikanEnum().notNull(),
-  pekerjaan: pekerjaan().notNull(),
-  createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-})
+export const dataWargaTable = pgTable.withRLS(
+  'data_warga',
+  {
+    nik: varchar({ length: 16 }).notNull().primaryKey(),
+    // Ref publik untuk URL detail. NIK tetap primary key internal, tetapi tidak
+    // boleh dipakai sebagai path karena bocor ke history, access log, dan Referer.
+    publicId: uuid('public_id').notNull().defaultRandom(),
+    nama_art: varchar({ length: 255 }).notNull(),
+    nama_kk: varchar({ length: 255 }).notNull(),
+    hubungan_keluarga: hubunganKeluargaEnum().notNull(),
+    alamat: text().notNull(),
+    tgl_lahir: date().notNull(),
+    rt: varchar({ length: 3 }).notNull(),
+    rw: varchar({ length: 3 }).notNull(),
+    kecamatan: text().notNull(),
+    kelurahan: text().notNull(),
+    kota: text().notNull(),
+    status_kawin: statusKawinEnum().notNull(),
+    staff: uuid()
+      .notNull()
+      .references(() => users.id),
+    jenis_kelamin: jenisKelaminEnum().notNull(),
+    wanita_usia_hamil: boolean().notNull(),
+    agama: agama().notNull(),
+    pendidikan: pendidikanEnum().notNull(),
+    pekerjaan: pekerjaan().notNull(),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex('data_warga_public_id_idx').on(t.publicId)],
+)
 
 export const wilayahKerja = pgTable.withRLS(
   'wilayah_kerja',

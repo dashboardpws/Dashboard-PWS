@@ -47,6 +47,8 @@ export interface BarisIsianForm {
   tanggal: string
   /** NULL kalau form-nya tidak menunjuk warga per-submission (mis. kegiatan). */
   nik: string | null
+  /** Ref publik sasaran (`data_warga.public_id`) untuk URL detail. */
+  ref: string | null
   /** Nama kepala keluarga; fallback ke nama warga bila KK tidak ada. */
   nama: string
   /** NIK kepala keluarga; fallback ke `nik` warga bila tidak bisa diturunkan. */
@@ -114,6 +116,7 @@ export async function querySurveysWithWarga(
             s.id                                   AS "id",
             to_char(s."tanggal", 'YYYY-MM-DD')     AS "tanggal",
             s."wargaNik"                           AS "nik",
+            w.public_id                            AS "ref",
             COALESCE(NULLIF(btrim(w."nama_kk"), ''), w."nama_art", '—') AS "nama",
             COALESCE(kk.nik, w."nik")              AS "nikKk",
             COALESCE(w."kelurahan", '—')           AS "kelurahan",
@@ -288,6 +291,7 @@ export async function queryRingkasanSubmit(
             s.id                                   AS "id",
             to_char(s."tanggal", 'YYYY-MM-DD')     AS "tanggal",
             s."wargaNik"                           AS "nik",
+            w.public_id                            AS "ref",
             COALESCE(NULLIF(btrim(w."nama_kk"), ''), w."nama_art", '—') AS "nama",
             COALESCE(kk.nik, w."nik")              AS "nikKk",
             COALESCE(w."kelurahan", '—')           AS "kelurahan",

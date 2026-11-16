@@ -25,6 +25,7 @@ import {
   keStatusKawin,
 } from '@/lib/kunjungan-rumah/sasaran/warga-row'
 import { dataWargaTable } from '@/lib/schema/schema'
+import { refSasaranValid } from '@/lib/sasaran/ref'
 import { db } from './db.server'
 import { sql } from 'drizzle-orm'
 import { isValidNik } from '@/lib/utils'
@@ -664,8 +665,11 @@ export async function queryWargaList() {
  * Baris sasaran gabungan (`data_warga` + `data_warga_import`) yang ditampilkan
  * di halaman /sasaran.
  *
+ * - `ref`      — `public_id` UUID untuk URL detail. NIK sengaja tidak dipakai
+ *   sebagai path karena bocor ke history, access log, dan Referer.
  * - `rawId`    — identitas asal baris: NIK untuk `data_warga`, `raw_id`
- *   (`WRG-000001`) untuk import. Dipakai sebagai pengunci detail, bukan NIK.
+ *   (`WRG-000001`) untuk import. Dipakai untuk kebutuhan internal/riwayat,
+ *   bukan untuk URL.
  * - `nik`      — NIK asli 16 digit kalau valid; kalau tidak ada/tersimpan salah
  *   (bukan 16 digit), diganti "NIK sementara" hasil derive nomor `raw_id`
  *   (`WRG-000123` → `0000000000000123`) sebagai penanda data perlu diperbarui.
@@ -677,6 +681,7 @@ export async function queryWargaList() {
  * (`provinsi`, `iks_besar`) tidak diproyeksikan, dan tidak ada yang ditebak.
  */
 export type BarisWargaGabungan = {
+  ref: string
   rawId: string
   nik: string
   nikValid: boolean
@@ -697,6 +702,7 @@ export type BarisWargaGabungan = {
  *  `rt`/`rw` sudah varchar; NIK selalu valid, `rawId` = NIK. */
 const SELECT_GABUNGAN_WARGA = sql`
     1                                 AS "prioritas",
+    public_id                         AS "ref",
     nik                              AS "raw_id",
     nik                              AS "nik_tampil",
     true                             AS "nik_valid",
@@ -722,6 +728,7 @@ const SELECT_GABUNGAN_WARGA = sql`
  *  diperbarui. Kolom tanpa padanan dikosongkan, bukan ditebak. */
 const SELECT_GABUNGAN_IMPORT = sql`
     2                                 AS "prioritas",
+    public_id                         AS "ref",
     raw_id                           AS "raw_id",
     CASE WHEN length(btrim(nik)) = 16 THEN btrim(nik)
          ELSE lpad(regexp_replace(raw_id, '[^0-9]', '', 'g'), 16, '0')
@@ -815,7 +822,7 @@ export async function querySasaranListPaged(
   const rows = await db.execute(sql`
         WITH gabungan AS (
             SELECT DISTINCT ON (u."nik_tampil")
-                u."raw_id", u."nik_tampil", u."nik_valid", u."needs_update",
+                u."ref", u."raw_id", u."nik_tampil", u."nik_valid", u."needs_update",
                 u."nama_art", u."nama_kk", u."kelurahan", u."kecamatan", u."kota",
                 u."rt", u."rw", u."alamat", u."tgl_lahir", u."jenis_kelamin"
             FROM (
@@ -835,6 +842,7 @@ export async function querySasaranListPaged(
     `)
   const rowsOut = (rows as unknown as Array<Record<string, unknown>>).map(
     (r) => ({
+      ref: String(r.ref ?? ''),
       rawId: String(r.raw_id ?? ''),
       nik: String(r.nik_tampil ?? ''),
       nikValid: Boolean(r.nik_valid),
@@ -857,29 +865,31 @@ export async function querySasaranListPaged(
   return { rows: rowsOut, total }
 }
 
-/** Ambil satu baris sasaran gabungan berdasarkan NIK tampil (NIK asli 16 digit
- *  atau NIK sementara hasil derive). Baris `data_warga` diutamakan kalau NIK-nya
- *  juga ada di import — sama seperti daftar. Dipakai halaman detail (ejaan
- *  `querySasaranDetail`), bukan scan daftar penuh. */
-export async function querySasaranByNik(
-  nik: string,
+/** Ambil satu baris sasaran gabungan berdasarkan ref publik (`public_id`).
+ *  Baris `data_warga` diutamakan kalau ref-nya ada di dua sumber — sama seperti
+ *  daftar. Dipakai halaman detail, bukan scan daftar penuh. */
+export async function querySasaranByRef(
+  ref: string,
 ): Promise<BarisWargaGabungan | null> {
-  const cari = nik.trim()
-  if (!cari) return null
+  const cari = ref.trim()
+  // Cegah cast `::uuid` gagal untuk path sembarang; hasilnya sama seperti
+  // "tidak ditemukan", bukan error 500.
+  if (!refSasaranValid(cari)) return null
   const rows = await db.execute(sql`
         SELECT ${SELECT_GABUNGAN_WARGA}
         FROM data_warga
-        WHERE nik = ${cari}
+        WHERE public_id = ${cari}::uuid
         UNION ALL
         SELECT ${SELECT_GABUNGAN_IMPORT}
         FROM data_warga_import
-        WHERE btrim(nik) = ${cari} OR lpad(regexp_replace(raw_id, '[^0-9]', '', 'g'), 16, '0') = ${cari}
+        WHERE public_id = ${cari}::uuid
         ORDER BY "prioritas"
         LIMIT 1
     `)
   const [row] = rows as unknown as Array<Record<string, unknown>>
   if (!row) return null
   return {
+    ref: String(row.ref ?? ''),
     rawId: String(row.raw_id ?? ''),
     nik: String(row.nik_tampil ?? ''),
     nikValid: Boolean(row.nik_valid),

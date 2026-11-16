@@ -29,7 +29,7 @@ import {
 import {
   queryAnggotaKeluarga,
   queryRiwayatKsUntukWarga,
-  querySasaranByNik,
+  querySasaranByRef,
   querySasaranListPaged,
   querySasaranWarga,
   querySurveyStatsByNik,
@@ -147,6 +147,7 @@ export const listSurveyors = createServerFn({ method: 'GET' })
 
 // ---- read model DB untuk UI (pengganti data dummy) ----
 export interface SasaranListRow {
+  ref: string
   rawId: string
   nik: string
   nikValid: boolean
@@ -175,6 +176,8 @@ export interface SurveyRow {
   id: string
   tanggal: string
   nik: string | null
+  /** Ref publik sasaran untuk URL detail; null bila survey tidak punya warga. */
+  ref: string | null
   /** Nama kepala keluarga; fallback ke nama warga bila KK tidak ada. */
   nama: string
   /** NIK kepala keluarga; fallback ke `nik` warga bila tidak bisa diturunkan. */
@@ -226,6 +229,7 @@ export const getSasaranList = createServerFn({ method: 'GET' })
       // tidak akan pernah ketemu, dan itu memang benar (belum dikunjungi).
       const st = byNik.get(w.nik)
       return {
+        ref: w.ref,
         rawId: w.rawId,
         nik: w.nik,
         nikValid: w.nikValid,
@@ -246,23 +250,19 @@ export type SasaranDetailRow = BarisWargaGabungan & RiwayatSasaran
 
 export const getSasaranDetail = createServerFn({ method: 'GET' })
   .middleware([authSessionToken])
-  .validator((data: { nik: string }) => data)
+  .validator((data: { ref: string }) => data)
   .handler(
     async ({
       data,
     }): Promise<{ warga: SasaranDetailRow | null; surveys: SurveyRow[] }> => {
-      const [warga, surveys] = await Promise.all([
-        querySasaranByNik(data.nik),
-        querySurveysWithWarga(500, data.nik),
-      ])
-      // NIK yang hanya ada di `data_warga_import` juga ketemu di sini, jadi
-      // detail menampilkan data awal import dan tidak lagi "tidak ditemukan"
-      // — pencariannya per NIK (bukan scan daftar penuh seperti sebelumnya).
-      const found = warga
+      const found = await querySasaranByRef(data.ref)
       if (!found) return { warga: null, surveys: [] as SurveyRow[] }
-      const riwayat = await queryRiwayatKsUntukNik(
-        found.rawId ? found.rawId : data.nik,
-      )
+
+      // Survey dan riwayat tetap dikunci NIK/rawId internal, bukan ref URL.
+      const [surveys, riwayat] = await Promise.all([
+        querySurveysWithWarga(500, found.nik),
+        queryRiwayatKsUntukNik(found.rawId ? found.rawId : found.nik),
+      ])
       return {
         warga: { ...found, ...riwayat },
         surveys,

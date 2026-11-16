@@ -23,7 +23,7 @@ import { Route as CronNotifikasiRouteImport } from './routes/cron.notifikasi'
 import { Route as IsiFormVersionIdRouteImport } from './routes/isi.$formVersionId'
 import { Route as KunjunganRumahIdRouteImport } from './routes/kunjungan-rumah_.$id'
 import { Route as SasaranIndexRouteImport } from './routes/sasaran.index'
-import { Route as SasaranIdRouteImport } from './routes/sasaran.$id'
+import { Route as SasaranRefRouteImport } from './routes/sasaran.$ref'
 import { Route as KelolaFormBuilderFormIdRouteImport } from './routes/kelola_.form-builder.$formId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -96,9 +96,9 @@ const SasaranIndexRoute = SasaranIndexRouteImport.update({
   path: '/',
   getParentRoute: () => SasaranRoute,
 } as any)
-const SasaranIdRoute = SasaranIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
+const SasaranRefRoute = SasaranRefRouteImport.update({
+  id: '/$ref',
+  path: '/$ref',
   getParentRoute: () => SasaranRoute,
 } as any)
 const KelolaFormBuilderFormIdRoute = KelolaFormBuilderFormIdRouteImport.update({
@@ -121,7 +121,7 @@ export interface FileRoutesByFullPath {
   '/cron/notifikasi': typeof CronNotifikasiRoute
   '/isi/$formVersionId': typeof IsiFormVersionIdRoute
   '/kunjungan-rumah/$id': typeof KunjunganRumahIdRoute
-  '/sasaran/$id': typeof SasaranIdRoute
+  '/sasaran/$ref': typeof SasaranRefRoute
   '/sasaran/': typeof SasaranIndexRoute
   '/kelola/form-builder/$formId': typeof KelolaFormBuilderFormIdRoute
 }
@@ -138,7 +138,7 @@ export interface FileRoutesByTo {
   '/cron/notifikasi': typeof CronNotifikasiRoute
   '/isi/$formVersionId': typeof IsiFormVersionIdRoute
   '/kunjungan-rumah/$id': typeof KunjunganRumahIdRoute
-  '/sasaran/$id': typeof SasaranIdRoute
+  '/sasaran/$ref': typeof SasaranRefRoute
   '/sasaran': typeof SasaranIndexRoute
   '/kelola/form-builder/$formId': typeof KelolaFormBuilderFormIdRoute
 }
@@ -157,7 +157,7 @@ export interface FileRoutesById {
   '/cron/notifikasi': typeof CronNotifikasiRoute
   '/isi/$formVersionId': typeof IsiFormVersionIdRoute
   '/kunjungan-rumah_/$id': typeof KunjunganRumahIdRoute
-  '/sasaran/$id': typeof SasaranIdRoute
+  '/sasaran/$ref': typeof SasaranRefRoute
   '/sasaran/': typeof SasaranIndexRoute
   '/kelola_/form-builder/$formId': typeof KelolaFormBuilderFormIdRoute
 }
@@ -177,7 +177,7 @@ export interface FileRouteTypes {
     | '/cron/notifikasi'
     | '/isi/$formVersionId'
     | '/kunjungan-rumah/$id'
-    | '/sasaran/$id'
+    | '/sasaran/$ref'
     | '/sasaran/'
     | '/kelola/form-builder/$formId'
   fileRoutesByTo: FileRoutesByTo
@@ -194,7 +194,7 @@ export interface FileRouteTypes {
     | '/cron/notifikasi'
     | '/isi/$formVersionId'
     | '/kunjungan-rumah/$id'
-    | '/sasaran/$id'
+    | '/sasaran/$ref'
     | '/sasaran'
     | '/kelola/form-builder/$formId'
   id:
@@ -212,7 +212,7 @@ export interface FileRouteTypes {
     | '/cron/notifikasi'
     | '/isi/$formVersionId'
     | '/kunjungan-rumah_/$id'
-    | '/sasaran/$id'
+    | '/sasaran/$ref'
     | '/sasaran/'
     | '/kelola_/form-builder/$formId'
   fileRoutesById: FileRoutesById
@@ -334,11 +334,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SasaranIndexRouteImport
       parentRoute: typeof SasaranRoute
     }
-    '/sasaran/$id': {
-      id: '/sasaran/$id'
-      path: '/$id'
-      fullPath: '/sasaran/$id'
-      preLoaderRoute: typeof SasaranIdRouteImport
+    '/sasaran/$ref': {
+      id: '/sasaran/$ref'
+      path: '/$ref'
+      fullPath: '/sasaran/$ref'
+      preLoaderRoute: typeof SasaranRefRouteImport
       parentRoute: typeof SasaranRoute
     }
     '/kelola_/form-builder/$formId': {
@@ -352,12 +352,12 @@ declare module '@tanstack/react-router' {
 }
 
 interface SasaranRouteChildren {
-  SasaranIdRoute: typeof SasaranIdRoute
+  SasaranRefRoute: typeof SasaranRefRoute
   SasaranIndexRoute: typeof SasaranIndexRoute
 }
 
 const SasaranRouteChildren: SasaranRouteChildren = {
-  SasaranIdRoute: SasaranIdRoute,
+  SasaranRefRoute: SasaranRefRoute,
   SasaranIndexRoute: SasaranIndexRoute,
 }
 

@@ -225,8 +225,8 @@ function Sasaran() {
               <Tr key={row.rawId}>
                 <Td>
                   <Link
-                    to="/sasaran/$id"
-                    params={{ id: row.nik }}
+                    to="/sasaran/$ref"
+                    params={{ ref: row.ref }}
                     className="font-semibold text-accent hover:text-accent-hover"
                   >
                     {row.nama}
@@ -252,8 +252,8 @@ function Sasaran() {
                 </Td>
                 <Td>
                   <Link
-                    to="/sasaran/$id"
-                    params={{ id: row.nik }}
+                    to="/sasaran/$ref"
+                    params={{ ref: row.ref }}
                     className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs font-bold text-ink hover:border-accent"
                   >
                     Detail
@@ -265,8 +265,8 @@ function Sasaran() {
               <MobileRow key={row.rawId}>
                 <div className="flex items-start justify-between gap-2">
                   <Link
-                    to="/sasaran/$id"
-                    params={{ id: row.nik }}
+                    to="/sasaran/$ref"
+                    params={{ ref: row.ref }}
                     className="font-semibold text-accent hover:text-accent-hover"
                   >
                     {row.nama}
@@ -289,8 +289,8 @@ function Sasaran() {
                     {row.tgl ? fmtDate(row.tgl) : 'Belum dikunjungi'}
                   </span>
                   <Link
-                    to="/sasaran/$id"
-                    params={{ id: row.nik }}
+                    to="/sasaran/$ref"
+                    params={{ ref: row.ref }}
                     className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs font-bold text-ink hover:border-accent"
                   >
                     Detail

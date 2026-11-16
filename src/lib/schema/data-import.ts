@@ -8,6 +8,8 @@ import {
   boolean,
   smallint,
   numeric,
+  uuid,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 import {
@@ -22,6 +24,9 @@ export const dataWargaImport = pgTable.withRLS(
   'data_warga_import',
   {
     rawId: varchar('raw_id').primaryKey(),
+    // Ref publik untuk URL detail; baris import tidak punya NIK valid, jadi
+    // identifier ini yang menggantikan NIK/NIK sementara di path.
+    publicId: uuid('public_id').notNull().defaultRandom(),
     namaKk: varchar('nama_kk'),
     nik: varchar('nik'),
     jumlahArt: smallint('jumlah_art'),
@@ -47,6 +52,7 @@ export const dataWargaImport = pgTable.withRLS(
     // `raw_id`. Tanpa ini `WHERE nik = $1` (dipakai saat menyimpan warga dari form
     // Kunjungan Rumah) scan seluruh tabel.
     index('data_warga_import_nik_idx').on(t.nik),
+    uniqueIndex('data_warga_import_public_id_idx').on(t.publicId),
     // Pencarian partial `nama_art`/`nama_kk`/`nik` ILIKE '%q%' butuh operator class
     // trigram, yang tidak bisa ditulis di sini — `IndexBuilder` hanya menerima
     // PgIndexMethod dan kolom, bukan opclass bebas. Index GIN-nya dibuat lewat

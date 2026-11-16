@@ -184,10 +184,10 @@ function Dashboard() {
                   <StatusBadge value="Selesai" />
                 </Td>
                 <Td>
-                  {row.nik ? (
+                  {row.ref ? (
                     <Link
-                      to="/sasaran/$id"
-                      params={{ id: row.nik }}
+                      to="/sasaran/$ref"
+                      params={{ ref: row.ref }}
                       className="text-[11px] font-semibold text-accent hover:text-accent-hover"
                     >
                       Lihat
@@ -217,10 +217,10 @@ function Dashboard() {
                     · {row.petugas}
                   </span>
                 </div>
-                {row.nik ? (
+                {row.ref ? (
                   <Link
-                    to="/sasaran/$id"
-                    params={{ id: row.nik }}
+                    to="/sasaran/$ref"
+                    params={{ ref: row.ref }}
                     className="mt-2 inline-flex text-[11px] font-semibold text-accent hover:text-accent-hover"
                   >
                     Lihat Detail

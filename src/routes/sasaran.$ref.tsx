@@ -6,16 +6,15 @@ import { fmtDate } from '@/lib/utils'
 import { DetailHeader, InfoPanel, Timeline } from '@/components/shared'
 import { PageHeader, SectionCard, Button, StatusBadge } from '@/components/ui'
 
-export const Route = createFileRoute('/sasaran/$id')({
+export const Route = createFileRoute('/sasaran/$ref')({
   beforeLoad: requireAuth,
   loader: async ({ params }) =>
-    await getSasaranDetail({ data: { nik: params.id } }),
+    await getSasaranDetail({ data: { ref: params.ref } }),
   pendingComponent: () => <RoutePending>Memuat detail sasaran…</RoutePending>,
   component: SasaranDetail,
 })
 
 function SasaranDetail() {
-  const { id } = Route.useParams()
   const navigate = useNavigate()
   const { warga: row, surveys } = Route.useLoaderData()
 
@@ -24,12 +23,12 @@ function SasaranDetail() {
       <>
         <PageHeader
           title="Sasaran tidak ditemukan"
-          description={`NIK "${id}" tidak ada di database.`}
+          description="Data sasaran tidak ada atau tautannya sudah tidak berlaku."
         />
         <div className="mt-3.5 rounded-[10px] border border-line bg-surface p-6 text-center">
           <p className="text-sm font-bold text-ink">Data sasaran tidak ada.</p>
           <p className="mt-1 text-xs text-muted">
-            NIK mungkin salah ketik atau data sudah dihapus.
+            Tautan mungkin salah atau data sudah dihapus.
           </p>
           <Button
             variant="primary"
@@ -61,7 +60,7 @@ function SasaranDetail() {
     <>
       <PageHeader
         title={`Detail Sasaran`}
-        description={`${row.nama_art} — NIK ${row.nik}`}
+        // description={`${row.nama_art} — NIK ${row.nik}`}
       />
 
       <DetailHeader
@@ -72,7 +71,7 @@ function SasaranDetail() {
         ]}
         onBack={() => navigate({ to: '/sasaran' })}
         title={row.nama_art}
-        meta={`NIK ${row.nik} · Kel. ${row.kelurahan} · ${row.jenis_kelamin}`}
+        // meta={`NIK ${row.nik} · Kel. ${row.kelurahan} · ${row.jenis_kelamin}`}
       />
 
       {row.needsUpdate ? (
