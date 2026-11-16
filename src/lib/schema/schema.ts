@@ -122,6 +122,16 @@ export const fasilitasKesehatan = pgTable.withRLS(
   ],
 )
 
+export const prioritasProgram = pgTable.withRLS('prioritas_program', {
+  id: smallint().primaryKey().notNull().generatedAlwaysAsIdentity(),
+  kode: varchar({ length: 50 }).notNull().unique(),
+  nama: varchar({ length: 50 }).notNull().unique(),
+  urutan: smallint().notNull().default(0),
+  aktif: boolean().notNull().default(true),
+  createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+})
+
 /**
  * Daftar kader — bukan tabel akun.
  *

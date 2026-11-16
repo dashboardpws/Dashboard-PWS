@@ -9,7 +9,8 @@ import {
 } from '@/lib/api/server-fns'
 import type { KegiatanRecord } from '@/hooks/survey/use-kegiatan'
 import { cocokDenganForm } from '@/lib/laporan/report-filter'
-import { JENIS_KEGIATAN, KELS, PAGE_SIZE, POSY } from '@/lib/constants'
+import { JENIS_KEGIATAN, KELS, PAGE_SIZE } from '@/lib/constants'
+import { useFasilitas } from '@/hooks/faskes/use-fasilitas'
 import { downloadCsv, fmtDate, pctOf } from '@/lib/utils'
 import { useToast } from '@/providers/toast'
 import { AppShell } from '@/components/layout'
@@ -73,6 +74,13 @@ function Laporan() {
     formAdaSubmit,
   } = Route.useLoaderData()
   const kegiatanRows = kegiatanRaw as unknown as KegiatanRecord[]
+  const { opsi: fasilitas } = useFasilitas()
+  const opsiPosyandu = [
+    ...new Set([
+      ...fasilitas.filter((f) => f.tipe === 'Posyandu').map((f) => f.nama),
+      ...kegiatanRows.map((r) => r.posy).filter(Boolean),
+    ]),
+  ]
   const toast = useToast()
   const { period, section } = Route.useSearch()
 
@@ -599,7 +607,7 @@ function Laporan() {
             className="max-w-42.5 max-md:max-w-none"
           >
             <option value="all">Semua posyandu</option>
-            {POSY.map((p) => (
+            {opsiPosyandu.map((p) => (
               <option key={p}>{p}</option>
             ))}
           </Select>

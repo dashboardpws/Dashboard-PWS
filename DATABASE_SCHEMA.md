@@ -30,6 +30,7 @@ flowchart LR
 | --------------------- | ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
 | `wilayah_kerja`       | Daftar kecamatan/kelurahan yang dilayani.                                                   | Induk `fasilitas_kesehatan`.                                                                  |
 | `fasilitas_kesehatan` | Fasilitas Posyandu/Pustu dan alamatnya.                                                     | Memiliki `wilayahKerjaId`; menjadi induk `users`.                                             |
+| `prioritas_program`   | Katalog prioritas kunjungan rumah dengan kode stabil dan nama tampilan yang dapat dikelola. | Record KR tetap menyimpan kode lama; prioritas hanya dinonaktifkan, tidak dihapus.            |
 | `users`               | Daftar kader/petugas yang dapat dipilih sebagai pencatat. Bukan tabel akun login per orang. | `fasKesId` menunjuk fasilitas; direferensikan oleh `surveys`, `data_warga`, dan `audit_logs`. |
 | `data_warga`          | Data warga yang telah dimasukkan ke sumber data utama aplikasi.                             | `surveys.wargaNik` menunjuk NIK di tabel ini.                                                 |
 | `data_warga_import`   | Data hasil impor yang dipakai untuk pencarian dan pemilihan sasaran.                        | Sumber `riwayat_ks_import`; masih dipakai oleh `sasaran.server.ts` dan resolver opsi.         |

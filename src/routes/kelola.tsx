@@ -10,6 +10,8 @@ import { TABS } from '@/lib/kelola/types'
 import type { KelolaTab } from '@/lib/kelola/types'
 import { FormBuilderSection } from '@/components/kelola/FormBuilderSection'
 import { UserSection } from '@/components/kelola/UserSection'
+import { PrioritasSection } from '@/components/kelola/PrioritasSection'
+import { FasilitasSection } from '@/components/kelola/FasilitasSection'
 
 export const Route = createFileRoute('/kelola')({
   beforeLoad: requireAuth,
@@ -24,6 +26,7 @@ function Kelola() {
     loading: registryLoading,
     save,
     setAktif,
+    refresh: refreshRegistry,
   } = useUserRegistry()
   // Hook ini hanya dipakai untuk angka ringkasan di bawah. Definisi formnya
   // sendiri disunting di tab Form Builder — termasuk form kunjungan rumah,
@@ -106,6 +109,10 @@ function Kelola() {
       </div>
 
       {tab === 'form-builder' ? <FormBuilderSection /> : null}
+      {tab === 'priority' ? <PrioritasSection /> : null}
+      {tab === 'facility' ? (
+        <FasilitasSection onChanged={() => void refreshRegistry()} />
+      ) : null}
 
       {tab === 'staff' ? (
         <UserSection

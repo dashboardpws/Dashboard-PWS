@@ -2,7 +2,8 @@ import { useMemo } from 'react'
 import { X } from 'lucide-react'
 import { ChipGroup } from '@/components/ui/ChipGroup'
 import { Checkbox } from '@/components/ui/Checkbox'
-import { PRIOS } from '@/lib/constants'
+import type { BarisPrioritas } from '@/lib/prioritas/prioritas'
+import { labelPrioritas } from '@/lib/prioritas/prioritas'
 import { fieldSasaranAktif } from '@/lib/service/kunjungan-rumah/conditional'
 import type { KunjunganRumahTemplates } from '@/lib/kunjungan-rumah/template/kunjungan-rumah-templates'
 import type {
@@ -17,6 +18,7 @@ interface Props {
   state: KunjunganRumahState
   templates: KunjunganRumahTemplates
   dispatch: React.Dispatch<KunjunganRumahAction>
+  prioritas: readonly BarisPrioritas[]
 }
 
 const TBC_SHARED_IDS = new Set([
@@ -33,7 +35,13 @@ function spanClass(columns: number | undefined): string {
   return ''
 }
 
-export function SasaranForm({ p, state, templates, dispatch }: Props) {
+export function SasaranForm({
+  p,
+  state,
+  templates,
+  dispatch,
+  prioritas,
+}: Props) {
   const tpl = templates.sasaran[p.sasaran]
   const fields = useMemo(
     () =>
@@ -234,7 +242,17 @@ export function SasaranForm({ p, state, templates, dispatch }: Props) {
           Prioritas program
         </span>
         <ChipGroup
-          options={PRIOS.map((prio) => ({ value: prio, label: prio }))}
+          options={[
+            ...new Set([
+              ...prioritas
+                .filter((item) => item.aktif)
+                .map((item) => item.kode),
+              ...p.prioritas,
+            ]),
+          ].map((kode) => ({
+            value: kode,
+            label: labelPrioritas(kode, prioritas),
+          }))}
           selected={p.prioritas}
           chipProps={{ size: 'sm' }}
           onToggle={(value) =>

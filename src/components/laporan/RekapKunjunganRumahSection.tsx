@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Printer, RotateCcw } from 'lucide-react'
 
-import { POSY } from '@/lib/constants'
+import { useFasilitas } from '@/hooks/faskes/use-fasilitas'
 import {
   NUMBER_FIELDS,
   autoValueOf,
@@ -65,6 +65,7 @@ export function RekapKunjunganRumahSection({
   // `listKaderAktif()` sudah menyaring yang tidak aktif, jadi tidak perlu filter
   // lagi di sini.
   const { staff } = useKaderAktif()
+  const { opsi: fasilitas } = useFasilitas()
 
   const [period, setPeriod] = useState(defaultPeriod ?? DEFAULT_MONTH)
   const [kel, setKel] = useState(defaultKel ?? 'all')
@@ -75,6 +76,12 @@ export function RekapKunjunganRumahSection({
 
   const { templates, records, getValue, setValue, clearScope } =
     useRekapKunjunganRumah()
+  const opsiPosyandu = [
+    ...new Set([
+      ...fasilitas.filter((f) => f.tipe === 'Posyandu').map((f) => f.nama),
+      ...records.map((r) => r.info.posyandu).filter(Boolean),
+    ]),
+  ]
 
   const scopeId = rekapScopeId(
     kel === 'all' ? null : kel,
@@ -137,7 +144,7 @@ export function RekapKunjunganRumahSection({
             className="max-w-42.5 max-md:max-w-none"
           >
             <option value="all">Semua posyandu</option>
-            {POSY.map((p) => (
+            {opsiPosyandu.map((p) => (
               <option key={p}>{p}</option>
             ))}
           </Select>

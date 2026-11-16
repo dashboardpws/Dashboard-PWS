@@ -7,14 +7,22 @@ import { Tag } from '@/components/ui/Tag'
 import { fmtDate } from '@/lib/utils'
 import type { KunjunganRumahTemplates } from '@/lib/kunjungan-rumah/template/kunjungan-rumah-templates'
 import type { KunjunganRumahRecord } from '@/lib/kunjungan-rumah/types'
+import type { BarisPrioritas } from '@/lib/prioritas/prioritas'
+import { labelPrioritas } from '@/lib/prioritas/prioritas'
 
 interface Props {
   records: KunjunganRumahRecord[]
   templates: KunjunganRumahTemplates
   onDelete?: (id: string) => void
+  prioritas: readonly BarisPrioritas[]
 }
 
-export function HistorySection({ records, templates, onDelete }: Props) {
+export function HistorySection({
+  records,
+  templates,
+  onDelete,
+  prioritas,
+}: Props) {
   return (
     <HistoryPanel
       items={records.map((r) => (
@@ -31,7 +39,10 @@ export function HistorySection({ records, templates, onDelete }: Props) {
             {r.penilaian
               .flatMap((p) => p.prioritas)
               .map((prio, j) => (
-                <Tag key={`${prio}-${j}`} priority={prio} />
+                <Tag
+                  key={`${prio}-${j}`}
+                  priority={labelPrioritas(prio, prioritas)}
+                />
               ))}
             <span className="text-muted">{fmtDate(r.info.tglPengumpulan)}</span>
           </div>

@@ -24,6 +24,8 @@ import { MasalahSection } from './MasalahSection'
 import { HasilSection } from './HasilSection'
 import { GenericSection } from './GenericSection'
 import { HistorySection } from './HistorySection'
+import { usePrioritas } from '@/hooks/prioritas/use-prioritas'
+import { useFasilitas } from '@/hooks/faskes/use-fasilitas'
 
 interface Props {
   /** Record yang sedang diedit. null/kosong = mode input baru. */
@@ -79,6 +81,8 @@ function buildBlocks(
 }
 
 export function KunjunganRumahFormScene({ record }: Props) {
+  const { prioritas } = usePrioritas()
+  const { opsi: opsiFasilitas } = useFasilitas()
   const {
     templates,
     handleWargaSelected,
@@ -271,6 +275,7 @@ export function KunjunganRumahFormScene({ record }: Props) {
                       templates={templates}
                       dispatch={dispatch}
                       onWargaSelected={handleWargaSelected}
+                      fasilitas={opsiFasilitas}
                     />
                   )
                 if (section.kind === 'anggota')
@@ -313,6 +318,7 @@ export function KunjunganRumahFormScene({ record }: Props) {
                 templates={templates}
                 dispatch={dispatch}
                 bahaCount={bahaCount}
+                prioritas={prioritas}
               />
             </SectionCard>
           )
@@ -486,6 +492,7 @@ export function KunjunganRumahFormScene({ record }: Props) {
           records={records}
           templates={templates}
           onDelete={handleDelete}
+          prioritas={prioritas}
         />
       </SectionCard>
     </AppShell>

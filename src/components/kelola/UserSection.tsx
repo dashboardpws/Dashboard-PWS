@@ -49,6 +49,7 @@ export function UserSection({ pengguna, fasilitas, save, setAktif }: Props) {
   const toast = useToast()
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState('all')
+  const [filterFasilitas, setFilterFasilitas] = useState('all')
   const [dlg, setDlg] = useState<FormDlg | null>(null)
 
   const terfilter = useMemo(
@@ -56,11 +57,13 @@ export function UserSection({ pengguna, fasilitas, save, setAktif }: Props) {
       pengguna.filter(
         (p) =>
           (filter === 'all' || (filter === 'on' ? p.aktif : !p.aktif)) &&
+          (filterFasilitas === 'all' ||
+            String(p.fasKesId) === filterFasilitas) &&
           (!q ||
             p.nama.toLowerCase().includes(q.toLowerCase()) ||
             p.fasKes.toLowerCase().includes(q.toLowerCase())),
       ),
-    [pengguna, filter, q],
+    [pengguna, filter, filterFasilitas, q],
   )
 
   const setForm = (key: keyof FormDlg['form'], value: string) =>
@@ -170,6 +173,19 @@ export function UserSection({ pengguna, fasilitas, save, setAktif }: Props) {
             <option value="on">Aktif</option>
             <option value="off">Nonaktif</option>
           </Select>
+          <Select
+            value={filterFasilitas}
+            onChange={(e) => setFilterFasilitas(e.target.value)}
+            aria-label="Filter fasilitas"
+            className="max-w-45 max-md:max-w-none"
+          >
+            <option value="all">Semua fasilitas</option>
+            {fasilitas.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.nama}
+              </option>
+            ))}
+          </Select>
           <span className="ml-auto text-xs text-muted">
             {terfilter.length} dari {pengguna.length} kader
           </span>
@@ -179,6 +195,7 @@ export function UserSection({ pengguna, fasilitas, save, setAktif }: Props) {
           columns={[
             { key: 'nama', label: 'Nama' },
             { key: 'wilayah', label: 'Wilayah tugas' },
+            { key: 'fasilitas', label: 'Fasilitas' },
             { key: 'kontak', label: 'Kontak' },
             { key: 'status', label: 'Status' },
             { key: 'aksi', label: '' },
@@ -187,12 +204,11 @@ export function UserSection({ pengguna, fasilitas, save, setAktif }: Props) {
           emptyMessage="Tidak ada kader cocok."
           renderRow={(p) => (
             <Tr key={p.id}>
-              <Td>
+              <Td className='truncate'>
                 <div className="font-semibold text-ink">{p.nama}</div>
               </Td>
-              <Td>
-                Kel. {p.kel} · {p.fasKes}
-              </Td>
+              <Td>Kel. {p.kel}</Td>
+              <Td>{p.fasKes}</Td>
               <Td className="whitespace-nowrap">{p.phone ?? '—'}</Td>
               <Td>
                 <StatusBadge

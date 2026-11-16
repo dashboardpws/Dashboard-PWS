@@ -22,6 +22,7 @@ import type {
   KunjunganRumahAction,
   KunjunganRumahState,
 } from '@/lib/kunjungan-rumah/store/kunjungan-rumah-reducer'
+import type { OpsiFasilitas } from '@/lib/petugas/user-registry'
 
 const PLACEHOLDER: Partial<Record<string, string>> = {
   alamat: 'cth. Jl. Trajeng gg. II no. 8',
@@ -40,6 +41,7 @@ interface Props {
   templates: KunjunganRumahTemplates
   dispatch: React.Dispatch<KunjunganRumahAction>
   onWargaSelected?: (row: SasaranSuggestion) => void
+  fasilitas: OpsiFasilitas[]
 }
 
 export function KeluargaInfoSection({
@@ -47,6 +49,7 @@ export function KeluargaInfoSection({
   templates,
   dispatch,
   onWargaSelected,
+  fasilitas,
 }: Props) {
   const keluargaInfoFields = useMemo(
     () =>
@@ -335,6 +338,13 @@ export function KeluargaInfoSection({
           )
         }
         const val = state.info[f.id] ?? ''
+        const opsiFaskes = fasilitas.filter((item) =>
+          f.id === 'posyandu'
+            ? item.tipe === 'Posyandu'
+            : f.id === 'pustu'
+              ? item.tipe === 'Pustu'
+              : false,
+        )
         const invalid =
           !!state.invalid[f.id] ||
           (f.id === 'tglPengumpulan'
@@ -382,6 +392,27 @@ export function KeluargaInfoSection({
                 <option value="">— Pilih —</option>
                 {(f.options ?? []).map((o) => (
                   <option key={o}>{o}</option>
+                ))}
+              </Select>
+            ) : (f.id === 'posyandu' || f.id === 'pustu') &&
+              opsiFaskes.length > 0 ? (
+              <Select
+                value={val}
+                onChange={(e) =>
+                  dispatch({
+                    type: 'SET_FIELD',
+                    key: f.id,
+                    value: e.target.value,
+                  })
+                }
+                aria-describedby={invalid ? errorId : undefined}
+              >
+                <option value="">— Pilih —</option>
+                {val && !opsiFaskes.some((item) => item.nama === val) ? (
+                  <option value={val}>{val}</option>
+                ) : null}
+                {opsiFaskes.map((item) => (
+                  <option key={item.id}>{item.nama}</option>
                 ))}
               </Select>
             ) : (

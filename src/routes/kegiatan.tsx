@@ -4,7 +4,8 @@ import { useKegiatan } from '@/hooks/survey/use-kegiatan'
 import { useKegiatanRecords } from '@/hooks/survey/use-kegiatan-records'
 import { usePetugasOpsi } from '@/hooks/petugas/use-petugas-opsi'
 import type { KegiatanRow } from '@/hooks/survey/use-kegiatan-records'
-import { JENIS_KEGIATAN, KELS, POSY } from '@/lib/constants'
+import { JENIS_KEGIATAN, KELS } from '@/lib/constants'
+import { useFasilitas } from '@/hooks/faskes/use-fasilitas'
 import { fmtDate } from '@/lib/utils'
 import { useToast } from '@/providers/toast'
 import { AppShell } from '@/components/layout'
@@ -41,6 +42,13 @@ function Kegiatan() {
   const k = useKegiatan()
   const toast = useToast()
   const { records, loading: recordsLoading, saveRecord } = useKegiatanRecords()
+  const { opsi: fasilitas } = useFasilitas()
+  const opsiPosyandu = [
+    ...new Set([
+      ...fasilitas.filter((f) => f.tipe === 'Posyandu').map((f) => f.nama),
+      ...records.map((r) => r.posy).filter(Boolean),
+    ]),
+  ]
   const { petugasOpsi, loading: petugasLoading } = usePetugasOpsi()
   const [saved, setSaved] = useState<KegiatanRow | null>(null)
   const [fotoErr, setFotoErr] = useState('')
@@ -211,7 +219,7 @@ function Kegiatan() {
             onChange={(e) => k.setField('posy', e.target.value)}
           >
             <option value="">— Pilih —</option>
-            {POSY.map((p) => (
+            {opsiPosyandu.map((p) => (
               <option key={p}>{p}</option>
             ))}
           </Select>

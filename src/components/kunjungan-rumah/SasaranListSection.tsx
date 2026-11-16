@@ -4,12 +4,14 @@ import type {
   KunjunganRumahState,
 } from '@/lib/kunjungan-rumah/store/kunjungan-rumah-reducer'
 import { SasaranForm } from './SasaranForm'
+import type { BarisPrioritas } from '@/lib/prioritas/prioritas'
 
 interface Props {
   state: KunjunganRumahState
   templates: KunjunganRumahTemplates
   dispatch: React.Dispatch<KunjunganRumahAction>
   bahaCount: number
+  prioritas: readonly BarisPrioritas[]
 }
 
 export function SasaranListSection({
@@ -17,6 +19,7 @@ export function SasaranListSection({
   templates,
   dispatch,
   bahaCount,
+  prioritas,
 }: Props) {
   return (
     <div>
@@ -33,6 +36,7 @@ export function SasaranListSection({
               state={state}
               templates={templates}
               dispatch={dispatch}
+              prioritas={prioritas}
             />
           ))}
         </div>

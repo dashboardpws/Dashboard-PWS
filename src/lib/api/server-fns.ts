@@ -94,6 +94,17 @@ import {
   TIPE_BUTUH_OPSI,
 } from '@/lib/service/form-builder/validasi'
 import type { KunjunganRumahDashboardPageInput } from '@/lib/kunjungan-rumah/dashboard'
+import {
+  listPrioritasProgram as queryPrioritas,
+  simpanPrioritasProgram as savePrioritas,
+  setPrioritasProgramAktif as togglePrioritas,
+} from '@/lib/server/prioritas/prioritas.server'
+import {
+  hapusFasilitas as deleteFasilitas,
+  listFasilitas as queryFasilitas,
+  listWilayahKerjaOpsi as queryWilayah,
+  simpanFasilitas as saveFasilitas,
+} from '@/lib/server/faskes/fasilitas.server'
 
 /* ALUR LOGIN
 1. cek sessionToken pake beforeLoad di /laporan (form)
@@ -562,6 +573,40 @@ export const setUserRegistryAktif = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     await setPenggunaAktif(data.nama, data.aktif)
   })
+
+export const listPrioritasProgram = createServerFn({ method: 'GET' })
+  .middleware([authSessionToken])
+  .handler(async () => await queryPrioritas())
+export const simpanPrioritasProgram = createServerFn({ method: 'POST' })
+  .middleware([authSessionToken])
+  .validator((data: { kode?: string; nama: string }) => data)
+  .handler(async ({ data }) => await savePrioritas(data))
+export const setPrioritasProgramAktif = createServerFn({ method: 'POST' })
+  .middleware([authSessionToken])
+  .validator((data: { kode: string; aktif: boolean }) => data)
+  .handler(async ({ data }) => await togglePrioritas(data.kode, data.aktif))
+export const listFasilitasKelola = createServerFn({ method: 'GET' })
+  .middleware([authSessionToken])
+  .handler(async () => await queryFasilitas())
+export const listWilayahKerjaOpsi = createServerFn({ method: 'GET' })
+  .middleware([authSessionToken])
+  .handler(async () => await queryWilayah())
+export const simpanFasilitas = createServerFn({ method: 'POST' })
+  .middleware([authSessionToken])
+  .validator(
+    (data: {
+      id?: number
+      nama: string
+      tipe: string
+      alamat: string
+      wilayahKerjaId: number
+    }) => data,
+  )
+  .handler(async ({ data }) => await saveFasilitas(data))
+export const hapusFasilitas = createServerFn({ method: 'POST' })
+  .middleware([authSessionToken])
+  .validator((data: { id: number }) => data)
+  .handler(async ({ data }) => await deleteFasilitas(data.id))
 
 /** Dipakai /kelola untuk mengisi dropdown kader, dan Form Kunjungan Rumah untuk petugas. */
 export const listPetugasAktif = createServerFn({ method: 'GET' })
