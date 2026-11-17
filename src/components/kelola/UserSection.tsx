@@ -204,7 +204,7 @@ export function UserSection({ pengguna, fasilitas, save, setAktif }: Props) {
           emptyMessage="Tidak ada kader cocok."
           renderRow={(p) => (
             <Tr key={p.id}>
-              <Td className='truncate'>
+              <Td className="truncate">
                 <div className="font-semibold text-ink">{p.nama}</div>
               </Td>
               <Td>Kel. {p.kel}</Td>

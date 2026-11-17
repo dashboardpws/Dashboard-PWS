@@ -10,6 +10,7 @@ import {
   getKunjunganRumahRecord,
   getKunjunganRumahTemplateRows,
   listKunjunganRumahRecords,
+  queryKunjunganPrioritas,
   queryKunjunganRumahDashboardPage,
   queryKunjunganRumahMonthlyStats,
   removeKunjunganRumahRecord,
@@ -58,6 +59,8 @@ import type { NotifikasiData } from '@/lib/notifikasi/types'
 import { ambilNotifikasiData } from '@/lib/server/notifikasi/data.server'
 import { kelurahanStatDari } from '@/lib/server/dashboard.server'
 import type { KelurahanStat } from '@/lib/server/dashboard.server'
+import { hitungPrioritasKelurahan } from '@/lib/dashboard/prioritas-kelurahan'
+import type { PrioritasKelurahan } from '@/lib/dashboard/prioritas-kelurahan'
 import {
   listKegiatan as listKegiatanV2,
   simpanKegiatan,
@@ -203,6 +206,8 @@ export interface SurveyRow {
 export interface DashboardData {
   totals: { warga: number; dikunjungi: number; kunjunganRumah: number }
   kelurahan: KelurahanStat[]
+  /** Ringkasan prioritas program per kelurahan untuk drawer kartu dashboard. */
+  prioritasKelurahan: PrioritasKelurahan[]
   recent: SurveyRow[]
 }
 
@@ -284,13 +289,30 @@ export const getSasaranDetail = createServerFn({ method: 'GET' })
 export const getDashboardData = createServerFn({ method: 'GET' })
   .middleware([authSessionToken])
   .handler(async (): Promise<DashboardData> => {
-    const [warga, stats, recent] = await Promise.all([
-      queryWargaList(),
-      querySurveyStatsByNik(),
-      querySurveysWithWarga(50),
-    ])
+    // Prioritas berasal dari payload kunjungan rumah. Kalau query itu gagal
+    // (mis. form kunjungan belum di-seed), dashboard tetap tampil tanpa data
+    // prioritas — jangan sampai satu widget menjatuhkan seluruh halaman.
+    const [warga, stats, recent, prioritasKunjungan, daftarPrioritas] =
+      await Promise.all([
+        queryWargaList(),
+        querySurveyStatsByNik(),
+        querySurveysWithWarga(50),
+        queryKunjunganPrioritas().catch(() => []),
+        queryPrioritas().catch(() => []),
+      ])
     const visited = new Set(stats.map((s) => s.nik))
     const kelurahan = kelurahanStatDari(warga, stats)
+    const prioritasKelurahan = hitungPrioritasKelurahan({
+      warga: warga.map((w) => ({
+        nik: w.nik,
+        nama: w.nama_art,
+        kelurahan: w.kelurahan,
+        ref: w.publicId,
+      })),
+      dikunjungi: visited,
+      kunjungan: prioritasKunjungan,
+      daftarPrioritas,
+    })
     return {
       totals: {
         warga: warga.length,
@@ -298,6 +320,7 @@ export const getDashboardData = createServerFn({ method: 'GET' })
         kunjunganRumah: stats.reduce((a, s) => a + s.total, 0),
       },
       kelurahan,
+      prioritasKelurahan,
       recent,
     }
   })

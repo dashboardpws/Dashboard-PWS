@@ -49,7 +49,9 @@ export function PrioritasSection() {
               >
                 <div>
                   <b className="text-sm">{p.nama}</b>
-                  <span className="ml-2 text-[11px] text-muted lowercase">{p.kode}</span>
+                  <span className="ml-2 text-[11px] text-muted lowercase">
+                    {p.kode}
+                  </span>
                   {sistem ? (
                     <span className="ml-2 rounded bg-surface-2 px-2 py-1 text-[11px]">
                       Sistem

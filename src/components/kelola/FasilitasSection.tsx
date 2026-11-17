@@ -71,7 +71,7 @@ export function FasilitasSection({ onChanged }: { onChanged?: () => void }) {
               <div>
                 <b className="text-sm">{f.nama}</b>
                 <div className="text-xs text-muted">
-                  {f.tipe} | {f.kelurahan} | {f.kecamatan} | {f.alamat}  {' '}
+                  {f.tipe} | {f.kelurahan} | {f.kecamatan} | {f.alamat}{' '}
                   {f.jumlahKader} kader
                 </div>
               </div>

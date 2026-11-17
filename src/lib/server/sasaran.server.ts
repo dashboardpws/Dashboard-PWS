@@ -645,6 +645,7 @@ export async function queryWargaList() {
   return await db.query.dataWargaTable.findMany({
     columns: {
       nik: true,
+      publicId: true,
       nama_art: true,
       nama_kk: true,
       kelurahan: true,

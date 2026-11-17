@@ -24,6 +24,7 @@ import {
 import { paginate } from '@/lib/laporan/report-shared'
 import { useKunjunganRumahTrend } from '@/hooks/dashboard/use-kunjungan-rumah-trend'
 import { KunjunganRumahTrendChart } from '@/components/dashboard/KunjunganRumahTrendChart'
+import { PrioritasKelurahanDrawer } from '@/components/dashboard/PrioritasKelurahanDrawer'
 import { buildWarnings, computePeriod } from '@/lib/dashboard/warning'
 
 export const Route = createFileRoute('/')({
@@ -42,6 +43,17 @@ function Dashboard() {
   const [sortKey, setSortKey] = useState<string | null>('tgl')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [page, setPage] = useState(1)
+  const [kelurahanDipilih, setKelurahanDipilih] = useState<string | null>(null)
+
+  const prioritasTerpilih = useMemo(
+    () =>
+      kelurahanDipilih
+        ? (data.prioritasKelurahan.find(
+            (item) => item.kelurahan === kelurahanDipilih,
+          ) ?? null)
+        : null,
+    [data.prioritasKelurahan, kelurahanDipilih],
+  )
 
   const items: SummaryCardData[] = useMemo(
     () =>
@@ -126,7 +138,17 @@ function Dashboard() {
         />
       </div>
 
-      <KelurahanSection items={items} />
+      <KelurahanSection
+        items={items}
+        onSelect={(name) => setKelurahanDipilih(name)}
+      />
+
+      {prioritasTerpilih ? (
+        <PrioritasKelurahanDrawer
+          data={prioritasTerpilih}
+          onClose={() => setKelurahanDipilih(null)}
+        />
+      ) : null}
 
       <PerluPerhatian
         warnings={warnings}

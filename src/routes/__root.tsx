@@ -9,6 +9,7 @@ import { Notifications } from '@mantine/notifications'
 
 // Mantine CSS Styles
 import '@mantine/core/styles.css'
+import '@mantine/charts/styles.css'
 import '@mantine/notifications/styles.css'
 
 import appCss from '@/styles.css?url'

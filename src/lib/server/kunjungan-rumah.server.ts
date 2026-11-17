@@ -33,6 +33,7 @@ import type {
   MonthlyKunjunganRumahStat,
 } from '@/lib/kunjungan-rumah/dashboard'
 import { sanitizeRecord } from '@/lib/kunjungan-rumah/types'
+import type { KunjunganPrioritas } from '@/lib/dashboard/prioritas-kelurahan'
 
 export // ---- kunjungan rumah langsung ke DB — pengganti localStorage `pws-kunjungan-rumah` ----
 type JsonRecord = Record<string, unknown>
@@ -431,6 +432,42 @@ function kondisiStatus(status: KunjunganRumahDashboardStatus) {
   if (status === 'berisiko') return adaMasalah
   if (status === 'sehat') return sql`not (${adaMasalah})`
   return undefined
+}
+
+/**
+ * Bagian payload kunjungan yang dibutuhkan rekap prioritas dashboard.
+ *
+ * Sengaja hanya mengambil potongan jsonb (`info`, `anggota`, `penilaian`) alih-alih
+ * seluruh payload: record lama ikut menyimpan foto dan isian form panjang, dan
+ * dashboard tidak membutuhkannya. Bentuknya sengaja `unknown` — normalisasi
+ * dilakukan di `lib/dashboard/prioritas-kelurahan.ts` yang bisa diuji tanpa DB.
+ */
+export async function queryKunjunganPrioritas(): Promise<KunjunganPrioritas[]> {
+  const fields = await fieldVersiKunjunganRumah()
+  if (fields.length === 0) return []
+
+  const rows = await db
+    .select({
+      nik: sql<string | null>`${recordValue}->'info'->>'nik'`,
+      tanggal: surveys.tanggal,
+      waktuSimpan: sql<string | null>`${recordValue}->>'waktuSimpan'`,
+      anggota: sql<unknown>`${recordValue}->'anggota'`,
+      penilaian: sql<unknown>`${recordValue}->'penilaian'`,
+      penilaianByNik: sql<unknown>`${recordValue}->'penilaianByNik'`,
+    })
+    .from(surveys)
+    .innerJoin(surveyEntries, eq(surveyEntries.surveyId, surveys.id))
+    .where(pasanganVersiField(fields))
+    .orderBy(desc(surveys.tanggal), desc(surveys.createdAt))
+
+  return rows.map((row) => ({
+    nik: row.nik,
+    tanggal: row.tanggal,
+    waktuSimpan: row.waktuSimpan,
+    anggota: row.anggota,
+    penilaian: row.penilaian,
+    penilaianByNik: row.penilaianByNik,
+  }))
 }
 
 /** Rekap grafik dan drawer sama-sama dibatasi ke payload form kunjungan rumah. */
