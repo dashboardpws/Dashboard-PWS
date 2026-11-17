@@ -1,7 +1,9 @@
-import { useMemo, useState, useEffect, useRef } from 'react'
+import { Fragment, useMemo, useState, useEffect, useRef } from 'react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import { createFileRoute } from '@tanstack/react-router'
 import { RoutePending } from '@/components/ui/RoutePending'
 import {
+  getAnggotaSubmit,
   getFormAdaSubmit,
   getLaporanKunjunganRumah,
   getRiwayatSubmit,
@@ -9,9 +11,14 @@ import {
 } from '@/lib/api/server-fns'
 import type { KegiatanRecord } from '@/hooks/survey/use-kegiatan'
 import { cocokDenganForm } from '@/lib/laporan/report-filter'
-import { JENIS_KEGIATAN, KELS, PAGE_SIZE } from '@/lib/constants'
+import {
+  JENIS_KEGIATAN,
+  KELS,
+  KODE_FORM_BAWAAN,
+  PAGE_SIZE,
+} from '@/lib/constants'
 import { useFasilitas } from '@/hooks/faskes/use-fasilitas'
-import { downloadCsv, fmtDate, pctOf } from '@/lib/utils'
+import { cn, downloadCsv, fmtDate, pctOf } from '@/lib/utils'
 import { useToast } from '@/providers/toast'
 import { AppShell } from '@/components/layout'
 import { DataTable } from '@/components/shared'
@@ -28,6 +35,8 @@ import {
 } from '@/components/ui'
 import { requireAuth } from '@/lib/auth/auth'
 import { RiwayatSubmitSection } from '@/components/laporan/RiwayatSubmitSection'
+import { AnggotaSubmitDetail } from '@/components/laporan/AnggotaSubmitDetail'
+import type { AnggotaRingkas } from '@/lib/laporan/anggota-submit'
 import { FilterToolbar } from '@/components/laporan/FilterToolbar'
 import { KelStatsGrid } from '@/components/laporan/KelStatsGrid'
 import { KopSection } from '@/components/laporan/KopSection'
@@ -120,6 +129,15 @@ function Laporan() {
     'LAPORAN KUNJUNGAN RUMAH PWS — KOTA PASURUAN',
   )
 
+  // Collapse ART di Pratinjau Data: satu baris terbuka sekaligus, dan hasil per
+  // submit di-cache supaya buka-tutup tidak memanggil server berulang.
+  const [bukaId, setBukaId] = useState<string | null>(null)
+  const [anggotaCache, setAnggotaCache] = useState<
+    Record<string, AnggotaRingkas[]>
+  >({})
+  const [memuatId, setMemuatId] = useState<string | null>(null)
+  const [galatId, setGalatId] = useState<string | null>(null)
+
   // Section 2: Kegiatan Pemberdayaan
   const [gJenis, setGJenis] = useState('all')
   const [gPosy, setGPosy] = useState('all')
@@ -193,6 +211,34 @@ function Laporan() {
     PAGE_SIZE,
   )
   const kopRows = filtered.slice(0, 60)
+
+  // Filter/halaman berubah = baris yang terbuka belum tentu masih tampil.
+  // Tutup collapse-nya daripada menunjuk submit yang sudah tidak ada di tabel.
+  useEffect(() => {
+    setBukaId(null)
+  }, [dari, sampai, kel, formId, cari, page])
+
+  const muatAnggota = async (surveyId: string) => {
+    setMemuatId(surveyId)
+    setGalatId(null)
+    try {
+      const hasil = await getAnggotaSubmit({ data: { surveyId } })
+      setAnggotaCache((cache) => ({ ...cache, [surveyId]: hasil }))
+    } catch {
+      setGalatId(surveyId)
+    } finally {
+      setMemuatId((id) => (id === surveyId ? null : id))
+    }
+  }
+
+  const bukaAnggota = (surveyId: string) => {
+    if (bukaId === surveyId) {
+      setBukaId(null)
+      return
+    }
+    setBukaId(surveyId)
+    if (!anggotaCache[surveyId]) void muatAnggota(surveyId)
+  }
 
   const downloadCsvKunjunganRumah = () => {
     const head = [
@@ -512,55 +558,150 @@ function Laporan() {
                 { key: 'status', label: 'Status' },
               ]}
               rows={pageRows}
-              renderRow={(r, i) => (
-                <Tr key={r.id}>
-                  <Td>{(pageClamped - 1) * PAGE_SIZE + i + 1}</Td>
-                  <Td className="whitespace-nowrap">{fmtDate(r.tanggal)}</Td>
-                  <Td>
-                    <div className="font-semibold text-ink">{r.formNama}</div>
-                    <div className="text-[11px] text-muted">
-                      Versi {r.formVersion}
-                    </div>
-                  </Td>
-                  <Td>
-                    <div className="font-semibold text-ink">{r.nama}</div>
-                    <div className="text-[11px] text-muted">
-                      {(r.nikKk ?? r.nik)
-                        ? `NIK ${r.nikKk ?? r.nik}`
-                        : 'Tanpa warga'}
-                    </div>
-                  </Td>
-                  <Td className="whitespace-nowrap">Kel. {r.kelurahan}</Td>
-                  <Td className="text-muted">{r.petugas}</Td>
-                  <Td>
-                    <StatusBadge value="Selesai" />
-                  </Td>
-                </Tr>
-              )}
-              renderMobileRow={(r) => (
-                <MobileRow key={r.id}>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="font-semibold text-ink">{r.formNama}</div>
-                      <div className="text-[11px] text-muted">{r.nama}</div>
-                    </div>
-                    <StatusBadge value="Selesai" />
-                  </div>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                    <span className="text-[11px] text-muted">
-                      {fmtDate(r.tanggal)}
-                    </span>
-                    <span className="text-[11px] text-muted">
-                      · {r.petugas}
-                    </span>
-                    {r.kelurahan !== '—' ? (
-                      <span className="text-[11px] text-muted">
-                        · Kel. {r.kelurahan}
-                      </span>
+              renderRow={(r, i) => {
+                const bisaBuka = r.formKode === KODE_FORM_BAWAAN.kunjunganRumah
+                const buka = bukaId === r.id
+                return (
+                  <Fragment key={r.id}>
+                    <Tr
+                      hover={bisaBuka}
+                      className={cn(bisaBuka && 'cursor-pointer')}
+                      onClick={bisaBuka ? () => bukaAnggota(r.id) : undefined}
+                      onKeyDown={
+                        bisaBuka
+                          ? (e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault()
+                                bukaAnggota(r.id)
+                              }
+                            }
+                          : undefined
+                      }
+                      tabIndex={bisaBuka ? 0 : undefined}
+                      aria-expanded={bisaBuka ? buka : undefined}
+                    >
+                      <Td>
+                        <span className="inline-flex items-center gap-1.5">
+                          {bisaBuka ? (
+                            buka ? (
+                              <ChevronDown size={13} />
+                            ) : (
+                              <ChevronRight size={13} />
+                            )
+                          ) : null}
+                          {(pageClamped - 1) * PAGE_SIZE + i + 1}
+                        </span>
+                      </Td>
+                      <Td className="whitespace-nowrap">
+                        {fmtDate(r.tanggal)}
+                      </Td>
+                      <Td>
+                        <div className="font-semibold text-ink">
+                          {r.formNama}
+                        </div>
+                        <div className="text-[11px] text-muted">
+                          Versi {r.formVersion}
+                        </div>
+                      </Td>
+                      <Td>
+                        <div className="font-semibold text-ink">{r.nama}</div>
+                        <div className="text-[11px] text-muted">
+                          {(r.nikKk ?? r.nik)
+                            ? `NIK ${r.nikKk ?? r.nik}`
+                            : 'Tanpa warga'}
+                        </div>
+                      </Td>
+                      <Td className="whitespace-nowrap">Kel. {r.kelurahan}</Td>
+                      <Td className="text-muted">{r.petugas}</Td>
+                      <Td>
+                        <StatusBadge value="Selesai" />
+                      </Td>
+                    </Tr>
+                    {buka ? (
+                      <Tr hover={false} className="bg-surface-2/50">
+                        <Td colSpan={7} className="px-3 py-3">
+                          <AnggotaSubmitDetail
+                            anggota={anggotaCache[r.id]}
+                            memuat={memuatId === r.id}
+                            galat={galatId === r.id}
+                            onCoba={() => void muatAnggota(r.id)}
+                          />
+                        </Td>
+                      </Tr>
                     ) : null}
-                  </div>
-                </MobileRow>
-              )}
+                  </Fragment>
+                )
+              }}
+              renderMobileRow={(r) => {
+                const bisaBuka = r.formKode === KODE_FORM_BAWAAN.kunjunganRumah
+                const buka = bukaId === r.id
+                return (
+                  <MobileRow
+                    key={r.id}
+                    className={cn(bisaBuka && 'cursor-pointer')}
+                    onClick={bisaBuka ? () => bukaAnggota(r.id) : undefined}
+                    onKeyDown={
+                      bisaBuka
+                        ? (e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault()
+                              bukaAnggota(r.id)
+                            }
+                          }
+                        : undefined
+                    }
+                    tabIndex={bisaBuka ? 0 : undefined}
+                    aria-expanded={bisaBuka ? buka : undefined}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="font-semibold text-ink">
+                          {r.formNama}
+                        </div>
+                        <div className="text-[11px] text-muted">{r.nama}</div>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <StatusBadge value="Selesai" />
+                        {bisaBuka ? (
+                          buka ? (
+                            <ChevronDown size={14} />
+                          ) : (
+                            <ChevronRight size={14} />
+                          )
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                      <span className="text-[11px] text-muted">
+                        {fmtDate(r.tanggal)}
+                      </span>
+                      <span className="text-[11px] text-muted">
+                        · {r.petugas}
+                      </span>
+                      {r.kelurahan !== '—' ? (
+                        <span className="text-[11px] text-muted">
+                          · Kel. {r.kelurahan}
+                        </span>
+                      ) : null}
+                    </div>
+                    {buka ? (
+                      // Klik di dalam detail (mis. "Coba lagi") tidak boleh
+                      // menutup collapse lewat bubble ke baris kartu.
+                      <div
+                        className="mt-3 border-t border-line-2 pt-3"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <AnggotaSubmitDetail
+                          anggota={anggotaCache[r.id]}
+                          memuat={memuatId === r.id}
+                          galat={galatId === r.id}
+                          onCoba={() => void muatAnggota(r.id)}
+                        />
+                      </div>
+                    ) : null}
+                  </MobileRow>
+                )
+              }}
               toolbar={
                 <span className="text-xs font-semibold text-muted">
                   Menampilkan {filtered.length} isian form · {wargaUnik} warga

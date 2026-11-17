@@ -7,6 +7,8 @@ import { db } from './db.server'
 import { eq, sql } from 'drizzle-orm'
 import { formVersions, surveyEntries, surveys } from '@/lib/schema/schema'
 import { parseFormDefinition } from '@/lib/form-builder/form-schema'
+import { ringkasAnggota } from '@/lib/laporan/anggota-submit'
+import type { AnggotaRingkas } from '@/lib/laporan/anggota-submit'
 
 /**
  * NIK kepala keluarga dari payload `record_legacy`.
@@ -310,6 +312,34 @@ export async function queryRingkasanSubmit(
     `)
   const baris = rows as unknown as BarisIsianForm[]
   return baris[0] ?? null
+}
+
+/**
+ * ART dari payload `record_legacy` satu submit, untuk collapse Pratinjau Data.
+ *
+ * Dibaca saat baris diklik, bukan saat daftar dimuat: 500 baris × daftar ART
+ * tidak perlu dikirim untuk tabel yang belum tentu dibuka. Nama field dicari
+ * lewat `form_versions.schema` karena `survey_entries` hanya menyimpan
+ * `fieldId`; polanya sama dengan `joinNikKk` di atas. Submit dari form lain
+ * tidak punya `record_legacy`, jadi hasilnya array kosong — bukan error.
+ */
+export async function queryAnggotaSubmit(
+  surveyId: string,
+): Promise<AnggotaRingkas[]> {
+  const rows = await db.execute(sql`
+        SELECT e.value AS "value"
+        FROM survey_entries e
+        INNER JOIN surveys s ON s.id = e."surveyId"
+        INNER JOIN form_versions fv ON fv.id = s."formVersionId"
+        CROSS JOIN LATERAL jsonb_array_elements(fv."schema"->'sections') section
+        CROSS JOIN LATERAL jsonb_array_elements(section->'fields') field
+        WHERE e."surveyId" = ${surveyId}
+            AND field->>'id' = e."fieldId"::text
+            AND field->>'name' = 'penyimpanan::record_legacy'
+        LIMIT 1
+    `)
+  const payload = (rows[0] as { value?: unknown } | undefined)?.value
+  return ringkasAnggota(payload)
 }
 
 /** Form yang punya submission, untuk dropdown filter tab riwayat. */

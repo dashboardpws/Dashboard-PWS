@@ -39,6 +39,7 @@ import {
   queryRiwayatKsUntukNik,
 } from '@/lib/server/sasaran.server'
 import {
+  queryAnggotaSubmit,
   queryFormAdaSubmit,
   queryJawabanSubmit,
   queryRiwayatSubmit,
@@ -54,6 +55,7 @@ import type {
   BarisWargaGabungan,
   RiwayatSasaran,
 } from '@/lib/server/sasaran.server'
+import type { AnggotaRingkas } from '@/lib/laporan/anggota-submit'
 import { simpanPushSubscription } from '@/lib/server/notifikasi/push.server'
 import type { NotifikasiData } from '@/lib/notifikasi/types'
 import { ambilNotifikasiData } from '@/lib/server/notifikasi/data.server'
@@ -410,6 +412,19 @@ export const getDetailSubmit = createServerFn({ method: 'GET' })
       const answers = await queryJawabanSubmit(data.surveyId)
       return { answers, row: await queryRingkasanSubmit(data.surveyId) }
     },
+  )
+
+/**
+ * Daftar ART satu submit untuk collapse Pratinjau Data di halaman laporan.
+ * Dipisah dari `getDetailSubmit` supaya laporan tidak perlu menarik seluruh
+ * jawaban hanya untuk menampilkan lima kolom anggota keluarga.
+ */
+export const getAnggotaSubmit = createServerFn({ method: 'GET' })
+  .middleware([authSessionToken])
+  .validator((data: { surveyId: string }) => data)
+  .handler(
+    async ({ data }): Promise<AnggotaRingkas[]> =>
+      await queryAnggotaSubmit(data.surveyId),
   )
 
 // ---- kunjungan rumah — CRUD langsung ke DB, tanpa localStorage ----

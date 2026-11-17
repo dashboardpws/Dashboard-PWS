@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react'
-import type { HTMLAttributes, ReactNode } from 'react'
+import type { HTMLAttributes, ReactNode, TdHTMLAttributes } from 'react'
 import { cn, CARD_SHELL } from '@/lib/utils'
 import { Pagination } from '@/components/ui/Pagination'
 
@@ -12,7 +12,7 @@ import { Pagination } from '@/components/ui/Pagination'
 export function Td({
   className,
   ...props
-}: HTMLAttributes<HTMLTableCellElement>) {
+}: TdHTMLAttributes<HTMLTableCellElement>) {
   return <td className={cn('px-3 py-2.5', className)} {...props} />
 }
 
