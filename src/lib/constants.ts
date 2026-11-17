@@ -34,7 +34,7 @@ export const KODE_FORM_BAWAAN = {
 } as const
 
 export const APP_BRAND = {
-  name: 'DINAS KESEHATAN',
+  name: 'PUSKESMAS TRAJENG',
   region: 'KOTA PASURUAN',
 } as const
 
