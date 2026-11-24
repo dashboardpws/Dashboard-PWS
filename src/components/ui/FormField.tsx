@@ -1,4 +1,5 @@
 import type { LabelHTMLAttributes, ReactNode } from 'react'
+import { FieldHint } from './FieldHint'
 import { cn } from '@/lib/utils'
 
 export interface FormFieldProps extends LabelHTMLAttributes<HTMLLabelElement> {
@@ -36,14 +37,14 @@ export function FormField({
       )}
       {...props}
     >
-      <span>
-        {label}
-        {required ? <span className="text-danger"> *</span> : null}
+      <span className="flex items-start gap-1">
+        <span>
+          {label}
+          {required ? <span className="text-danger"> *</span> : null}
+        </span>
+        {hint ? <FieldHint text={hint} /> : null}
       </span>
       {children}
-      {hint ? (
-        <span className="text-[11px] font-normal text-muted">{hint}</span>
-      ) : null}
       {error ? (
         <span
           id={errorId}

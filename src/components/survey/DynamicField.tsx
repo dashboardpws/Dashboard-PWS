@@ -41,6 +41,7 @@ import {
   Select,
   Textarea,
   FormField,
+  FieldHint,
 } from '@/components/ui'
 import { MAX_BARIS_GROUP } from '@/lib/service/form-builder/validasi'
 import { FieldCariWarga } from './FieldCariWarga'
@@ -159,14 +160,14 @@ function LabelBlok(props: {
   const { label, required, hint, error, invalid, children } = props
   return (
     <div className="grid gap-1.5">
-      <span className="text-xs font-semibold text-ink">
-        {label}
-        {required ? <span className="text-danger"> *</span> : null}
+      <span className="flex items-start gap-1 text-xs font-semibold text-ink">
+        <span>
+          {label}
+          {required ? <span className="text-danger"> *</span> : null}
+        </span>
+        {hint ? <FieldHint text={hint} /> : null}
       </span>
       {children}
-      {hint ? (
-        <span className="text-[11px] font-normal text-muted">{hint}</span>
-      ) : null}
       {error ? (
         <span
           role="alert"
