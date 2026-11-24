@@ -787,7 +787,9 @@ export async function querySasaranListPaged(
     )
   }
   if (p.kel && p.kel !== 'all') {
-    where.push(sql`g."kelurahan" = ${p.kel}`)
+    where.push(
+      sql`replace(upper(btrim(g."kelurahan")), '''', '') = replace(upper(btrim(${p.kel})), '''', '')`,
+    )
   }
   if (p.status === 'Sudah' || p.status === 'Belum') {
     const ada = sql`EXISTS (
