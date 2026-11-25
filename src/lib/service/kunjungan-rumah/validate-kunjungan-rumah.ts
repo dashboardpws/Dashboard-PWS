@@ -32,17 +32,8 @@ export function validateKunjunganRumah(input: ValidateInput): {
   ok: boolean
   invalid: Record<string, boolean>
 } {
-  const {
-    info,
-    anggota,
-    penilaian,
-    masalah,
-    hasil,
-    jadwal,
-    ttd,
-    fotos,
-    templates,
-  } = input
+  const { info, anggota, penilaian, masalah, hasil, jadwal, ttd, templates } =
+    input
   const tambahan = input.tambahan ?? {}
   const nextInvalid: Record<string, boolean> = {}
   let ok = true
@@ -231,10 +222,6 @@ export function validateKunjunganRumah(input: ValidateInput): {
   }
   if (!ttd.trim()) {
     nextInvalid.ttd = true
-    ok = false
-  }
-  if (fotos.length === 0) {
-    nextInvalid.fotos = true
     ok = false
   }
 

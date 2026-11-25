@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { AppShell } from '@/components/layout/AppShell'
 import { useIsMobile } from '@/hooks/use-media-query'
@@ -191,6 +191,54 @@ export function KunjunganRumahFormScene({ record }: Props) {
     'Dokumentasi dan simpan',
   ]
 
+  // Blok berubah tiap render, tapi efek gulir hanya boleh jalan saat submit gagal.
+  const blokRef = useRef({ blocks, sasaranIndex })
+  blokRef.current = { blocks, sasaranIndex }
+
+  // Setelah Simpan ditolak, bawa kader ke field wajib pertama yang terlewat.
+  // Kunci `invalid` sudah berurutan mengikuti form, jadi cukup ambil yang pertama.
+  const kunciInvalidPertama = Object.keys(state.invalid)[0]
+  useEffect(() => {
+    if (!kunciInvalidPertama || typeof document === 'undefined') return
+    let tahap = 0
+    if (
+      kunciInvalidPertama === 'hasil' ||
+      kunciInvalidPertama === 'jadwal' ||
+      kunciInvalidPertama === 'petugasId' ||
+      kunciInvalidPertama === 'ttd' ||
+      kunciInvalidPertama === 'masalahRequired' ||
+      kunciInvalidPertama.startsWith('masalah:')
+    )
+      tahap = 2
+    else if (
+      kunciInvalidPertama === 'penilaian' ||
+      state.penilaian.some((p) => kunciInvalidPertama.startsWith(`${p.id}:`))
+    )
+      tahap = 1
+    else if (kunciInvalidPertama.includes('::')) {
+      const namaSection = kunciInvalidPertama.split('::')[0]
+      const { blocks: blokSekarang, sasaranIndex: indeksSasaran } =
+        blokRef.current
+      const indeks = blokSekarang.findIndex((block) =>
+        block.sections.some((s) => s.name === namaSection),
+      )
+      if (indeks >= 0)
+        tahap = indeks < indeksSasaran ? 0 : indeks === indeksSasaran ? 1 : 2
+    }
+
+    // Di HP, stage lain tidak dirender — pindah dulu sebelum menggulir.
+    if (isMobile && tahap !== mobileStep) {
+      setMobileStep(tahap)
+      return
+    }
+    // FormField menandai field invalid lewat aria-invalid. Lebih aman daripada
+    // menebak id error yang bisa ganda antar beberapa baris sasaran.
+    const sasaran =
+      document.querySelector<HTMLElement>('[aria-invalid="true"]') ??
+      document.getElementById(`kr-tahap-${tahap}`)
+    sasaran?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [state.invalid, kunciInvalidPertama, isMobile, mobileStep])
+
   const pindahTahap = (tahap: number) => {
     setMobileStep(tahap)
     if (typeof window !== 'undefined')
@@ -252,155 +300,165 @@ export function KunjunganRumahFormScene({ record }: Props) {
         </div>
       ) : null}
 
-      {blocks.map((block) => {
-        if (
-          isMobile &&
-          (mobileStep === 3 || !mobileStages[mobileStep]?.includes(block))
-        )
-          return null
-
-        if (block.key === 'data-keluarga') {
-          return (
-            <SectionCard
-              key={block.key}
-              title="1. Data Keluarga & Anggota"
-              sub="Informasi tempat, KK, anggota keluarga, pilih sasaran tiap anggota, dan sanitasi/lingkungan rumah."
-            >
-              {block.sections.map((section) => {
-                if (section.kind === 'keluarga')
-                  return (
-                    <KeluargaInfoSection
-                      key={section.name}
-                      state={state}
-                      templates={templates}
-                      dispatch={dispatch}
-                      onWargaSelected={handleWargaSelected}
-                      fasilitas={opsiFasilitas}
-                    />
-                  )
-                if (section.kind === 'anggota')
-                  return (
-                    <AnggotaSection
-                      key={section.name}
-                      state={state}
-                      templates={templates}
-                      dispatch={dispatch}
-                    />
-                  )
-                return (
-                  <SanitasiSection
-                    key={section.name}
-                    state={state}
-                    templates={templates}
-                    dispatch={dispatch}
-                  />
-                )
-              })}
-            </SectionCard>
+      {blocks.map((block, index) => {
+        const tahapBlock =
+          index < sasaranIndex ? 0 : index === sasaranIndex ? 1 : 2
+        const anchorTahap =
+          index === 0 || index === sasaranIndex || index === sasaranIndex + 1
+            ? `kr-tahap-${tahapBlock}`
+            : undefined
+        const konten = (() => {
+          if (
+            isMobile &&
+            (mobileStep === 3 || !mobileStages[mobileStep]?.includes(block))
           )
-        }
+            return null
 
-        if (block.key === 'sasaran') {
+          if (block.key === 'data-keluarga') {
+            return (
+              <SectionCard
+                key={block.key}
+                title="1. Data Keluarga & Anggota"
+                sub="Informasi tempat, KK, anggota keluarga, pilih sasaran tiap anggota, dan sanitasi/lingkungan rumah."
+              >
+                {block.sections.map((section) => {
+                  if (section.kind === 'keluarga')
+                    return (
+                      <KeluargaInfoSection
+                        key={section.name}
+                        state={state}
+                        templates={templates}
+                        dispatch={dispatch}
+                        onWargaSelected={handleWargaSelected}
+                        fasilitas={opsiFasilitas}
+                      />
+                    )
+                  if (section.kind === 'anggota')
+                    return (
+                      <AnggotaSection
+                        key={section.name}
+                        state={state}
+                        templates={templates}
+                        dispatch={dispatch}
+                      />
+                    )
+                  return (
+                    <SanitasiSection
+                      key={section.name}
+                      state={state}
+                      templates={templates}
+                      dispatch={dispatch}
+                    />
+                  )
+                })}
+              </SectionCard>
+            )
+          }
+
+          if (block.key === 'sasaran') {
+            return (
+              <SectionCard
+                key={block.key}
+                title="2. Form Sasaran"
+                sub="Isi identitas, hasil pemeriksaan, kondisi teramati, dan tanda bahaya sesuai Definisi Operasional."
+                actions={
+                  <span className="text-xs text-muted">
+                    {state.penilaian.length} penilaian · {bahaCount} tanda
+                    bahaya dicentang
+                  </span>
+                }
+              >
+                <SasaranListSection
+                  state={state}
+                  templates={templates}
+                  dispatch={dispatch}
+                  bahaCount={bahaCount}
+                  prioritas={prioritas}
+                />
+              </SectionCard>
+            )
+          }
+
+          if (block.key === 'hasil') {
+            return (
+              <SectionCard
+                key={block.key}
+                title="3. Hasil, Prioritas & Tindak Lanjut"
+                sub="Label prioritas program, masalah ditemukan, hasil kunjungan rumah, dan tanda tangan kader."
+              >
+                {block.sections.map((section) =>
+                  section.kind === 'masalah' ? (
+                    <MasalahSection
+                      key={section.name}
+                      state={state}
+                      templates={templates}
+                      dispatch={dispatch}
+                    />
+                  ) : (
+                    <HasilSection
+                      key={section.name}
+                      state={state}
+                      templates={templates}
+                      dispatch={dispatch}
+                    />
+                  ),
+                )}
+              </SectionCard>
+            )
+          }
+
+          const section = block.sections[0]
+          if (!section) return null
           return (
             <SectionCard
               key={block.key}
-              title="2. Form Sasaran"
-              sub="Isi identitas, hasil pemeriksaan, kondisi teramati, dan tanda bahaya sesuai Definisi Operasional."
-              actions={
-                <span className="text-xs text-muted">
-                  {state.penilaian.length} penilaian · {bahaCount} tanda bahaya
-                  dicentang
-                </span>
-              }
+              title={section.label || section.name}
+              sub={section.description ?? 'Bagian tambahan dari definisi form.'}
             >
-              <SasaranListSection
+              <GenericSection
+                section={section}
                 state={state}
-                templates={templates}
                 dispatch={dispatch}
-                bahaCount={bahaCount}
-                prioritas={prioritas}
               />
             </SectionCard>
           )
-        }
-
-        if (block.key === 'hasil') {
-          return (
-            <SectionCard
-              key={block.key}
-              title="3. Hasil, Prioritas & Tindak Lanjut"
-              sub="Label prioritas program, masalah ditemukan, hasil kunjungan rumah, dan tanda tangan kader."
-            >
-              {block.sections.map((section) =>
-                section.kind === 'masalah' ? (
-                  <MasalahSection
-                    key={section.name}
-                    state={state}
-                    templates={templates}
-                    dispatch={dispatch}
-                  />
-                ) : (
-                  <HasilSection
-                    key={section.name}
-                    state={state}
-                    templates={templates}
-                    dispatch={dispatch}
-                  />
-                ),
-              )}
-            </SectionCard>
-          )
-        }
-
-        const section = block.sections[0]
-        if (!section) return null
+        })()
         return (
-          <SectionCard
-            key={block.key}
-            title={section.label || section.name}
-            sub={section.description ?? 'Bagian tambahan dari definisi form.'}
-          >
-            <GenericSection
-              section={section}
-              state={state}
-              dispatch={dispatch}
-            />
-          </SectionCard>
+          <div key={block.key} id={anchorTahap}>
+            {konten}
+          </div>
         )
       })}
 
       {!isMobile || mobileStep === 3 ? (
         <>
-          <SectionCard
-            title="4. Dokumentasi Kegiatan"
-            sub="Foto dokumentasi kunjungan rumah — wajib minimal 1 foto, maks. 6."
-          >
-            <DokumentasiPanel
-              fotos={state.fotos.map((f) => ({
-                url: f.fileUrl ?? f.dataUrl ?? '',
-                cap: f.caption,
-              }))}
-              onAddFiles={(files) => void handleFiles(files)}
-              onSetCaption={setFotoCaption}
-              onRemoveFoto={removeFoto}
-              title={`Dokumentasi Kunjungan Rumah (${state.fotos.length}/6)`}
-            />
-            {fotoUploading ? (
-              <span className="mt-2 block text-[11px] font-semibold text-muted">
-                Mengompres foto…
-              </span>
-            ) : null}
-            {fotoErr ? (
-              <span className="mt-2 block text-[11px] font-semibold text-danger">
-                {fotoErr}
-              </span>
-            ) : null}
-            {state.invalid.fotos ? (
-              <span className="mt-2 block text-[11px] font-semibold text-danger">
-                Tambahkan minimal 1 foto dokumentasi.
-              </span>
-            ) : null}
-          </SectionCard>
+          <div id="kr-tahap-3">
+            <SectionCard
+              title="4. Dokumentasi Kegiatan"
+              sub="Foto dokumentasi kunjungan rumah — opsional, maks. 6 foto."
+            >
+              <DokumentasiPanel
+                fotos={state.fotos.map((f) => ({
+                  url: f.fileUrl ?? f.dataUrl ?? '',
+                  cap: f.caption,
+                }))}
+                onAddFiles={(files) => void handleFiles(files)}
+                onSetCaption={setFotoCaption}
+                onRemoveFoto={removeFoto}
+                title={`Dokumentasi Kunjungan Rumah (${state.fotos.length}/6)`}
+              />
+              {fotoUploading ? (
+                <span className="mt-2 block text-[11px] font-semibold text-muted">
+                  Mengompres foto…
+                </span>
+              ) : null}
+              {fotoErr ? (
+                <span className="mt-2 block text-[11px] font-semibold text-danger">
+                  {fotoErr}
+                </span>
+              ) : null}
+            </SectionCard>
+          </div>
 
           {!isMobile ? (
             <SectionCard

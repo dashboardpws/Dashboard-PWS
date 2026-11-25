@@ -72,12 +72,12 @@ describe('validateKunjunganRumah', () => {
     expect(invalid.hasil).toBe(true)
   })
 
-  it('wajibkan minimal 1 foto dokumentasi', () => {
+  it('terima tanpa foto dokumentasi', () => {
     const input = validInput()
     input.fotos = []
     const { ok, invalid } = validateKunjunganRumah(input)
-    expect(ok).toBe(false)
-    expect(invalid.fotos).toBe(true)
+    expect(ok).toBe(true)
+    expect(invalid.fotos).toBeUndefined()
   })
 
   // Kolom `pekerjaan` di `data_warga` hanya ada di baris anggota, jadi form harus

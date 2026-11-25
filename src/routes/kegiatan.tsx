@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useKegiatan } from '@/hooks/survey/use-kegiatan'
 import { useKegiatanRecords } from '@/hooks/survey/use-kegiatan-records'
@@ -94,6 +94,23 @@ function Kegiatan() {
       .catch(() => toast('Gagal menyimpan ke database. Coba lagi.'))
       .finally(() => setSaving(false))
   }
+
+  // Simpan ditolak: tunjukkan field wajib pertama, atau bagian peserta jika kosong.
+  // `invalid` sengaja jadi dependency — identitasnya berubah tiap kali validate.
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    if (k.firstMissingRequired) {
+      document
+        .querySelector<HTMLElement>('[aria-invalid="true"]')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      return
+    }
+    if (k.pesertaEmpty) {
+      document
+        .getElementById('peserta-section')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [k.invalid, k.firstMissingRequired, k.pesertaEmpty])
 
   const handleNext = () => {
     k.clearAll()
@@ -246,30 +263,32 @@ function Kegiatan() {
         </FormField>
       </SectionCard>
 
-      <SectionCard
-        title="3. Peserta & Kehadiran"
-        sub="Tambahkan peserta kegiatan."
-      >
-        <div className="grid gap-2">
-          <div className="flex items-center justify-between gap-2">
-            <b className="text-[13px] text-ink">Daftar Peserta</b>
-            <Badge variant="ok">
-              {k.hadirCount} hadir dari {k.peserta.length}
-            </Badge>
+      <div id="peserta-section">
+        <SectionCard
+          title="3. Peserta & Kehadiran"
+          sub="Tambahkan peserta kegiatan."
+        >
+          <div className="grid gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <b className="text-[13px] text-ink">Daftar Peserta</b>
+              <Badge variant="ok">
+                {k.hadirCount} hadir dari {k.peserta.length}
+              </Badge>
+            </div>
+            <PesertaPanel
+              participants={k.peserta}
+              onAdd={k.addPeserta}
+              onToggle={k.togglePeserta}
+              onRemove={k.removePeserta}
+            />
+            {k.pesertaEmpty ? (
+              <span className="text-[11px] font-semibold text-danger">
+                Tambahkan minimal 1 peserta.
+              </span>
+            ) : null}
           </div>
-          <PesertaPanel
-            participants={k.peserta}
-            onAdd={k.addPeserta}
-            onToggle={k.togglePeserta}
-            onRemove={k.removePeserta}
-          />
-          {k.pesertaEmpty ? (
-            <span className="text-[11px] font-semibold text-danger">
-              Tambahkan minimal 1 peserta.
-            </span>
-          ) : null}
-        </div>
-      </SectionCard>
+        </SectionCard>
+      </div>
 
       <SectionCard title="4. Dokumentasi" sub="Min. 3 foto kegiatan, maks. 6.">
         <DokumentasiPanel

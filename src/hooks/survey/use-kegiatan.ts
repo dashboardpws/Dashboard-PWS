@@ -223,6 +223,9 @@ export function useKegiatan() {
     ])
   }, [])
 
+  // Field wajib pertama yang kosong; route memakainya untuk menggulir setelah Simpan gagal.
+  const firstMissingRequired = REQUIRED.find((key) => invalid[key]) ?? null
+
   return {
     fields,
     setField,
@@ -238,6 +241,7 @@ export function useKegiatan() {
     setCaption,
     removeFoto,
     invalid,
+    firstMissingRequired,
     pesertaEmpty,
     fillPercent,
     validate,
