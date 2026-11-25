@@ -29,6 +29,7 @@ import { paginate } from '@/lib/laporan/report-shared'
 import { getDetailSubmit, getRiwayatSubmit } from '@/lib/api/server-fns'
 import type { BarisRiwayatSubmit, JsonNilai } from '@/lib/server/submit.server'
 import { formatNilaiJawaban } from '@/lib/survey/format-jawaban'
+import { daftarFotoJawaban } from '@/lib/survey/foto-jawaban'
 import { fmtDate } from '@/lib/utils'
 import { PAGE_SIZE } from '@/lib/constants'
 
@@ -157,6 +158,26 @@ function DetailSubmit({
                     hasil.teks
                   )}
                 </div>
+                {a.tipe === 'image' && !hasil.kosong ? (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {daftarFotoJawaban(a.value).map((foto, index) =>
+                      foto.url ? (
+                        <a
+                          key={foto.path ?? index}
+                          href={foto.url}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          <img
+                            src={foto.url}
+                            alt={foto.name || `Foto ${index + 1}`}
+                            className="h-20 w-20 rounded-lg border border-line bg-line-2 object-cover"
+                          />
+                        </a>
+                      ) : null,
+                    )}
+                  </div>
+                ) : null}
               </div>
             )
           })}

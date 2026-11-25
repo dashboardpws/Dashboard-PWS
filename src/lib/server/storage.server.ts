@@ -1,5 +1,5 @@
 /**
- * Supabase Storage untuk foto warga.
+ * Supabase Storage untuk foto warga dan lampiran field `image` form generik.
  *
  * Bucket `foto` privat. Browser tidak pernah memegang kunci Supabase; upload dan
  * pembacaan lewat server function yang sudah dijaga `authSessionToken`. Service
@@ -10,17 +10,16 @@
  * signed URL berumur pendek dan akan kedaluwarsa.
  */
 
-import { MAX_FILE_BYTES } from '@/lib/constants'
+import { MAX_FILE_BYTES, PATH_FOTO, PREFIX_FOTO_FORM } from '@/lib/constants'
 
 const BUCKET = 'foto'
 const EXPIRES_IN = 3600
-const PREFIX_DIIZINKAN = new Set(['kunjungan-rumah'])
+const PREFIX_DIIZINKAN = new Set(['kunjungan-rumah', PREFIX_FOTO_FORM])
 const EKSTENSI: Record<string, string> = {
   'image/jpeg': 'jpg',
   'image/png': 'png',
   'image/webp': 'webp',
 }
-const PATH_FOTO = /^kunjungan-rumah\/[A-Za-z0-9_-]+\.(jpg|png|webp)$/
 const DATA_URL =
   /^data:(image\/(?:jpeg|jpg|png|webp));base64,([A-Za-z0-9+/=]+)$/
 

@@ -12,6 +12,7 @@
  */
 
 import { isValidNik } from '@/lib/utils'
+import { MAX_FOTO, PATH_FOTO_FORM } from '@/lib/constants'
 import { cariSumber, SUMBER_CARI_WARGA, SUMBER_SUGGEST } from './sumber-opsi'
 
 export type KodeValidasi =
@@ -583,8 +584,9 @@ function tanggalNyata(nilai: string): boolean {
  * Bentuk jawaban dicek per tipe supaya data sampah tidak masuk. Kolom `value`
  * bertipe jsonb, jadi tanpa ini database menerima apa saja dan rekap rusak diam-diam.
  *
- * Field `image` dan `file` tidak divalidasi di sini: lampirannya belum
- * didukung, jadi belum punya kolom di database.
+ * Field `image` menerima array `{ name, path }` dari Storage privat. Field
+ * `file` masih belum didukung, jadi nilainya tidak divalidasi di sini dan
+ * ditolak saat menyimpan.
  *
  * `opsi` undefined berarti pemanggil tidak memuat daftar opsi, dan pengecekan
  * keanggotaan opsi dilewati. `opsi` yang ada tapi kosong atau seluruhnya nonaktif
@@ -677,7 +679,39 @@ export function validasiNilaiField(params: {
       return lolos
     }
 
-    case 'image':
+    case 'image': {
+      if (!Array.isArray(value)) {
+        return gagal(
+          'NILAI_TIDAK_COCOK',
+          'Field image harus berisi daftar foto.',
+        )
+      }
+      if (value.length > MAX_FOTO) {
+        return gagal(
+          'NILAI_TIDAK_COCOK',
+          `Field image maksimal ${MAX_FOTO} foto.`,
+        )
+      }
+      const buruk = value.some((foto) => {
+        if (!foto || typeof foto !== 'object' || Array.isArray(foto))
+          return true
+        const f = foto as Record<string, unknown>
+        return (
+          typeof f.path !== 'string' ||
+          !PATH_FOTO_FORM.test(f.path) ||
+          (f.name !== undefined &&
+            (typeof f.name !== 'string' || f.name.length > 200))
+        )
+      })
+      if (buruk) {
+        return gagal(
+          'NILAI_TIDAK_COCOK',
+          'Field image hanya menerima foto yang sudah diunggah.',
+        )
+      }
+      return lolos
+    }
+
     case 'file':
       return lolos
 

@@ -25,6 +25,10 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { simpanFormulir, cariSasaranWarga } from '@/lib/api/server-fns'
+import { PREFIX_FOTO_FORM } from '@/lib/constants'
+import { uploadFotoDataUrl } from '@/lib/supabase-storage'
+import { daftarFotoJawaban } from '@/lib/survey/foto-jawaban'
+import type { FotoJawaban } from '@/lib/survey/foto-jawaban'
 import { hariIni, pesanError } from '@/lib/utils'
 import type {
   DefinisiRuntime,
@@ -454,7 +458,44 @@ export function useFormRuntime({
 
     setSaving(true)
     setError(null)
+
+    // Foto diunggah di sini, bukan saat dipilih: kalau petugas membatalkan
+    // isian belum ada objek Storage yang menggantung. State ikut disalin ke path
+    // supaya retry setelah galat tidak mengunggah ulang file yang sama. dataUrl
+    // sengaja dipertahankan di state agar pratinjau tidak hilang setelah simpan.
+    const tipePerField = new Map(allFields.map((f) => [f.id, f.tipe]))
+    const jawabanState = new Map<string, unknown>()
+
     try {
+      const jawabanSimpan: typeof jawaban = []
+      for (const item of jawaban) {
+        if (tipePerField.get(item.fieldId) !== 'image') {
+          jawabanSimpan.push(item)
+          continue
+        }
+        const fotoAwal = daftarFotoJawaban(item.value)
+        const fotoPath: Array<FotoJawaban & { path: string }> = []
+        for (const foto of fotoAwal) {
+          const path =
+            foto.path ??
+            (foto.dataUrl
+              ? await uploadFotoDataUrl(foto.dataUrl, PREFIX_FOTO_FORM)
+              : '')
+          if (!path) {
+            throw new Error('Ada foto yang belum selesai disiapkan.')
+          }
+          fotoPath.push({ ...foto, path })
+        }
+
+        if (fotoPath.some((foto, i) => foto.path !== fotoAwal[i]?.path)) {
+          jawabanState.set(item.fieldId, fotoPath)
+        }
+        jawabanSimpan.push({
+          fieldId: item.fieldId,
+          value: fotoPath.map(({ name, path }) => ({ name, path })),
+        })
+      }
+
       // POST: payload wajib dibungkus `data`, sama seperti `cariSasaranWarga` dan
       // `saveKunjunganRumah` — server fn tanpa `.input()`/GET menolak argumen datar.
       const hasil = await simpanFormulir({
@@ -463,7 +504,7 @@ export function useFormRuntime({
           petugasId,
           wargaNik: subjekWargaWajib ? wargaNik : null,
           tanggal,
-          jawaban,
+          jawaban: jawabanSimpan,
         },
       })
       setSaved(hasil)
@@ -473,6 +514,11 @@ export function useFormRuntime({
       setError(pesanError(err, 'Gagal menyimpan isian form. Coba lagi.'))
       return null
     } finally {
+      // Tetap jalan walau upload/simpan gagal di tengah: foto yang sudah punya
+      // path tidak akan diunggah ulang pada percobaan berikutnya.
+      if (jawabanState.size > 0) {
+        setAnswers((prev) => ({ ...prev, ...Object.fromEntries(jawabanState) }))
+      }
       setSaving(false)
     }
   }, [
@@ -482,6 +528,7 @@ export function useFormRuntime({
     wargaNik,
     tanggal,
     jawaban,
+    allFields,
     onSaved,
   ])
 

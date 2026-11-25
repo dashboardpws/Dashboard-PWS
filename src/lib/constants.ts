@@ -63,3 +63,16 @@ export const PAGE_SIZE = 10
 export const MAX_FOTO = 6
 export const MAX_FILE_BYTES = 2 * 1024 * 1024
 export const BLOCKED_MIME = new Set(['image/svg+xml', 'image/svg'])
+
+/**
+ * Prefix object foto untuk jawaban field `image` di form generik.
+ *
+ * Path disimpan di `survey_entries.value`, bukan URL: signed URL kedaluwarsa.
+ * Prefix ini ikut jalur upload dan signed URL yang sudah dipakai kunjungan rumah.
+ */
+export const PREFIX_FOTO_FORM = 'form'
+/** Path sah di bucket privat `foto`, untuk semua prefix yang diizinkan server. */
+export const PATH_FOTO =
+  /^(?:kunjungan-rumah|form)\/[A-Za-z0-9_-]+\.(jpg|png|webp)$/
+/** Path yang boleh ditulis field `image`; mencegah path form disalahpakai ke prefix lain. */
+export const PATH_FOTO_FORM = /^form\/[A-Za-z0-9_-]+\.(jpg|png|webp)$/

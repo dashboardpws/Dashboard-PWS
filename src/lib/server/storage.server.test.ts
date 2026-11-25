@@ -56,9 +56,10 @@ describe('deteksiMime', () => {
 })
 
 describe('pathFotoValid', () => {
-  it('menerima path di prefix kunjungan-rumah', () => {
+  it('menerima path di prefix kunjungan-rumah dan form', () => {
     expect(pathFotoValid('kunjungan-rumah/abc-123.jpg')).toBe(true)
     expect(pathFotoValid('kunjungan-rumah/AbC_9.png')).toBe(true)
+    expect(pathFotoValid('form/abc-123.webp')).toBe(true)
   })
 
   it('menolak traversal, prefix lain, dan ekstensi aneh', () => {
@@ -112,6 +113,15 @@ describe('unggahFoto (mocked fetch)', () => {
     expect(headers.Authorization).toBe('Bearer service-role-test')
     expect(headers['Content-Type']).toBe('image/jpeg')
     expect(headers['x-upsert']).toBe('false')
+  })
+
+  it('upload field image memakai prefix form', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({}))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const hasil = await unggahFoto(dataUrl('image/jpeg', JPEG), 'form')
+
+    expect(hasil.path).toMatch(/^form\/[\w-]+\.jpg$/)
   })
 
   it('menolak prefix di luar daftar izin', async () => {

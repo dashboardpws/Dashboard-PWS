@@ -8,12 +8,15 @@
  *   - `select`/`radio` → `string` yang dipetakan ke label opsi
  *   - `checkbox` → `string[]`, masing-masing dipetakan ke label opsi
  *   - `group` → array object datar `{ kolom1, kolom2, ... }`
- *   - `image`/`file` → tidak pernah punya nilai (belum ada upload), jadi "—"
+ *   - `image` → array `{ name, path, url? }`, ditampilkan sebagai jumlah foto
+ *   - `file` → belum didukung, jadi "—"
  *
  * Nilai yang tidak sesuai bentuk yang diharapkan TIDAK dilempar error: record
  * yang tidak bisa dibaca tetap lebih baik ditampilkan apa adanya daripada
  * membuat satu submit gagal dibuka.
  */
+
+import { daftarFotoJawaban } from './foto-jawaban'
 
 export interface OpsiJawaban {
   value: string
@@ -125,9 +128,14 @@ export function formatNilaiJawaban(params: {
       }
     }
 
-    case 'image':
+    case 'image': {
+      const fotos = daftarFotoJawaban(value)
+      if (fotos.length === 0) return { teks: TANPA_NILAI, kosong: true }
+      return { teks: `${fotos.length} foto terlampir`, kosong: false }
+    }
+
     case 'file':
-      // Belum ada upload; field ini memang tidak pernah menyimpan nilai.
+      // Belum ada jalur unggah untuk berkas selain gambar.
       return { teks: TANPA_NILAI, kosong: true }
 
     default: {

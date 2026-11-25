@@ -15,12 +15,10 @@
  * salah tanpa ada yang menyadari. Ini bedrock dari arsitektur define/publish
  * di proyek ini, makanya penjaganya di dalam resolver, bukan di pemanggil.
  *
- * CATATAN SOAL FIELD `image` dan `file`: keduanya BELUM didukung fase ini.
- * Tidak ada kolom lampiran di database, jadi di sini keduanya tetap
- * dikembalikan sebagai field biasa (klien menampilkannya sebagai "belum
- * didukung") dan jawaban untuk field itu ditolak dengan pesan yang terbaca.
- * Tidak ada penanganan file yang dikarang di sini supaya tidak ada jalur
- * penyimpanan yang setengah jadi.
+ * CATATAN SOAL FIELD `image`: jawabannya berupa `{ name, path }[]` yang sudah
+ * diunggah ke bucket privat lewat server fn `uploadFoto`. Hanya object path yang
+ * disimpan di jsonb; signed URL dibuat saat detail dibaca. Field `file` masih
+ * belum didukung dan tetap ditolak di sini.
  */
 import { and, asc, eq } from 'drizzle-orm'
 import { db } from '@/lib/server/db.server'
@@ -50,6 +48,7 @@ import type { KolomWarga } from '@/lib/service/form-builder/sumber-opsi'
 import { catatAudit } from '@/lib/server/form-builder/audit.server'
 import { pastikanPetugasValid } from '@/lib/server/petugas/user-registry.server'
 import { parseFormDefinition } from '@/lib/form-builder/form-schema'
+import { nilaiFotoUntukDb } from '@/lib/survey/foto-jawaban'
 import { muatAturanForm } from '@/lib/server/form-builder/runtime-extend.server'
 import type {
   RuleAutofill,
@@ -65,9 +64,6 @@ type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0]
  * dan penyimpanan) memakai satu jalur kode yang sama.
  */
 type Executor = Db | DbTx
-
-/** Field yang jawabannya berupa daftar, jadi keanggotaannya diperiksa terpisah. */
-const TIPE_LAMPIRAN: readonly TipeField[] = ['image', 'file']
 
 function pastikan(hasil: HasilValidasi): void {
   if (!hasil.ok) throw new KesalahanValidasi(hasil)
@@ -732,10 +728,10 @@ export async function simpanFormulir(
     const field = petaField.get(item.fieldId)
     if (!field) continue
 
-    if (TIPE_LAMPIRAN.includes(field.tipe) && !nilaiKosong(item.value)) {
+    if (field.tipe === 'file' && !nilaiKosong(item.value)) {
       tolak(
         'NILAI_TIDAK_COCOK',
-        `Field "${field.label}" (${field.tipe}) belum didukung. Isian form ini belum bisa menyertakan foto atau berkas.`,
+        `Field "${field.label}" (file) belum didukung. Isian form ini belum bisa menyertakan berkas.`,
       )
     }
 
@@ -779,7 +775,12 @@ export async function simpanFormulir(
         jawabanTersimpan.map((item) => ({
           surveyId,
           fieldId: item.fieldId,
-          value: item.value,
+          // Klien boleh mengirim `dataUrl`/`url` bersama path saat retry; jangan
+          // sampai tersimpan di jsonb. Validasi bentuk sudah berjalan di atas.
+          value:
+            petaField.get(item.fieldId)?.tipe === 'image'
+              ? nilaiFotoUntukDb(item.value)
+              : item.value,
           createdAt: now,
           updatedAt: now,
         })),

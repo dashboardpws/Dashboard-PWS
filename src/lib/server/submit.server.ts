@@ -7,6 +7,8 @@ import { db } from './db.server'
 import { eq, sql } from 'drizzle-orm'
 import { formVersions, surveyEntries, surveys } from '@/lib/schema/schema'
 import { parseFormDefinition } from '@/lib/form-builder/form-schema'
+import { daftarFotoJawaban } from '@/lib/survey/foto-jawaban'
+import { signedUrls } from '@/lib/server/storage.server'
 import { ringkasAnggota } from '@/lib/laporan/anggota-submit'
 import type { AnggotaRingkas } from '@/lib/laporan/anggota-submit'
 
@@ -262,7 +264,8 @@ export async function queryJawabanSubmit(
     .where(eq(surveyEntries.surveyId, surveyId))
 
   if (jawaban.length === 0) return []
-  return jawaban.flatMap((j) => {
+
+  const hasil: BarisJawabanSubmit[] = jawaban.flatMap((j) => {
     const field = metadata.get(j.fieldId)
     if (!field) return []
     return [
@@ -276,6 +279,29 @@ export async function queryJawabanSubmit(
         opsi: field.options.map(({ value, label }) => ({ value, label })),
       },
     ]
+  })
+
+  // Foto disimpan sebagai object path. Signed URL dibuat di sini, bukan saat
+  // submit, supaya jawaban lama tetap bisa dibuka tanpa URL yang kedaluwarsa.
+  const paths = hasil.flatMap((a) =>
+    a.tipe === 'image'
+      ? daftarFotoJawaban(a.value).flatMap((f) => (f.path ? [f.path] : []))
+      : [],
+  )
+  if (paths.length === 0) return hasil
+  const urls = await signedUrls(paths)
+
+  return hasil.map((a) => {
+    if (a.tipe !== 'image') return a
+    return {
+      ...a,
+      value: daftarFotoJawaban(a.value).map((f): JsonNilai => {
+        const baris: Record<string, JsonNilai> = { name: f.name }
+        if (f.path) baris.path = f.path
+        if (f.path && urls[f.path]) baris.url = urls[f.path]!
+        return baris
+      }),
+    }
   })
 }
 

@@ -119,8 +119,20 @@ describe('formatNilaiJawaban: group dan lampiran', () => {
     )
   })
 
-  it('image dan file tidak pernah punya nilai', () => {
+  it('image kosong berarti belum diisi', () => {
     expect(format('image', null)).toEqual({ teks: TANPA_NILAI, kosong: true })
+    expect(format('image', [])).toEqual({ teks: TANPA_NILAI, kosong: true })
+  })
+
+  it('image menampilkan jumlah foto', () => {
+    const hasil = format('image', [
+      { name: 'a.jpg', path: 'form/a.jpg' },
+      { name: 'b.jpg', path: 'form/b.jpg' },
+    ])
+    expect(hasil).toEqual({ teks: '2 foto terlampir', kosong: false })
+  })
+
+  it('file belum didukung', () => {
     expect(format('file', null)).toEqual({ teks: TANPA_NILAI, kosong: true })
   })
 })

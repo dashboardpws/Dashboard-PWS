@@ -21,8 +21,8 @@
  *     satu pun yang dicentang (itu sah, bukan error).
  *   - `group` mengirim array of object datar `{ kolom1, kolom2, ... }` — bentuk
  *     yang diterima `validasiNilaiGroup`. Selnya teks, angka, atau boolean.
- *   - `image`/`file` TIDAK mengirim apa pun. Belum ada upload di fase ini dan
- *     `simpanFormulir` menolak jawaban tidak kosong untuk kedua tipe itu.
+ *   - `image` mengirim `{ name, dataUrl }[]` ke hook; hook mengunggahnya dan
+ *     mengirim `{ name, path }[]` ke server. `file` masih belum didukung.
  *
  * Opsi dibaca dari `opsiDinamis` kalau tidak null, kalau tidak dari `opsi` yang
  * `aktif !== false`. Urutan dan sumbernya sama persis dengan `opsiSah()` di
@@ -32,10 +32,11 @@
  * Penandaan wajib di sini murni UX. Server yang jadi otoritas; komponen ini
  * tidak pernah menahan submit.
  */
-import { memo, useCallback } from 'react'
+import { memo, useCallback, useState } from 'react'
 import {
   Button,
   Checkbox,
+  DropZone,
   Input,
   RadioCard,
   Select,
@@ -44,6 +45,7 @@ import {
   FieldHint,
 } from '@/components/ui'
 import { MAX_BARIS_GROUP } from '@/lib/service/form-builder/validasi'
+import { daftarFotoJawaban, tambahFotoJawaban } from '@/lib/survey/foto-jawaban'
 import { FieldCariWarga } from './FieldCariWarga'
 import type { FieldRuntime } from '@/lib/server/survey/form-runtime.server'
 import type { SasaranSuggestion } from '@/lib/kunjungan-rumah/sasaran/warga-row'
@@ -219,13 +221,115 @@ function CatatanOpsiKosong() {
   )
 }
 
-/** Catatan untuk `image`/`file`: tampil, tapi tidak bisa diisi. */
+/** Catatan untuk `file`, yang memang belum punya jalur unggah. */
 function CatatanLampiran() {
   return (
     <p className="rounded-lg border border-dashed border-line bg-surface-2 px-3 py-2.5 text-[11px] text-muted">
-      Lampiran belum didukung. Isian form ini belum bisa menyertakan foto atau
+      Lampiran berkas belum didukung. Isian form ini belum bisa menyertakan
       berkas, jadi field ini dilewati dan tidak ikut tersimpan.
     </p>
+  )
+}
+
+/**
+ * Input foto untuk field `image`.
+ *
+ * State sengaja dipegang di sini, bukan di `DynamicField`: komponen induknya
+ * `memo` dan dipakai ratusan kali, jadi ketikan/unggahan pada satu field tidak
+ * boleh memaksa seluruh form render ulang.
+ */
+function FieldGambar({
+  value,
+  onChange,
+  readOnly,
+}: {
+  value: unknown
+  onChange: (value: unknown) => void
+  readOnly: boolean
+}) {
+  const fotos = daftarFotoJawaban(value)
+  const [memproses, setMemproses] = useState(false)
+  const [pesan, setPesan] = useState('')
+
+  const onFiles = useCallback(
+    async (files: File[]) => {
+      if (files.length === 0 || memproses) return
+      setMemproses(true)
+      setPesan('')
+      try {
+        const hasil = await tambahFotoJawaban(fotos, files)
+        onChange(hasil.fotos)
+        if (hasil.skipped > 0) {
+          setPesan(
+            `${hasil.skipped} berkas dilewati (bukan foto / >2 MB / maks. 6 foto).`,
+          )
+        }
+      } catch {
+        setPesan('Foto gagal disiapkan. Coba pilih lagi.')
+      } finally {
+        setMemproses(false)
+      }
+    },
+    [fotos, onChange, memproses],
+  )
+
+  return (
+    <div className="grid gap-2">
+      {fotos.length > 0 ? (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {fotos.map((foto, index) => {
+            const src = foto.dataUrl ?? foto.url
+            return (
+              <div
+                key={foto.path ?? foto.dataUrl ?? index}
+                className="overflow-hidden rounded-[10px] border border-line bg-surface"
+              >
+                {src ? (
+                  <img
+                    src={src}
+                    alt={foto.name || `Foto ${index + 1}`}
+                    className="block h-24 w-full bg-line-2 object-cover"
+                  />
+                ) : null}
+                <div className="flex items-center justify-between gap-2 px-2 py-1.5">
+                  <span className="truncate text-[11px] text-muted">
+                    {foto.name || `Foto ${index + 1}`}
+                  </span>
+                  {!readOnly ? (
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      onClick={() =>
+                        onChange(fotos.filter((_, i) => i !== index))
+                      }
+                    >
+                      Hapus
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      ) : null}
+
+      {!readOnly ? (
+        <>
+          <DropZone
+            onFiles={(files) => void onFiles(files)}
+            title={memproses ? 'Menyiapkan foto…' : 'Tambah foto'}
+            hint="JPG / PNG / WebP dari galeri atau kamera · maks. 6 foto, 2 MB per foto"
+          />
+          {pesan ? (
+            <p className="text-[11px] font-semibold text-danger">{pesan}</p>
+          ) : null}
+        </>
+      ) : (
+        <p className="text-[11px] text-muted">
+          Pratinjau: foto tidak bisa diunggah di sini.
+        </p>
+      )}
+    </div>
   )
 }
 
@@ -616,9 +720,23 @@ function DynamicFieldImpl({
       )
 
     case 'image':
+      return (
+        <FormField
+          label={field.label}
+          required={field.wajib}
+          hint={`${hint ? `${hint} · ` : ''}Foto diunggah saat isian disimpan.`}
+          error={error}
+          invalid={invalid}
+        >
+          <FieldGambar
+            value={value}
+            onChange={onChange}
+            readOnly={readOnly === true}
+          />
+        </FormField>
+      )
+
     case 'file':
-      // Tidak ada `onChange` di sini: field ini tidak pernah mengubah state,
-      // jadi tidak akan pernah punya nilai yang dikirim ke server.
       return (
         <FormField
           label={field.label}

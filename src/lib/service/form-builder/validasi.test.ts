@@ -185,10 +185,41 @@ describe('validasiNilaiField', () => {
     expect(kode(hasil)).toBe('NILAI_TIDAK_COCOK')
   })
 
-  it('image dan file tidak divalidasi di sini', () => {
-    expect(validasiNilaiField({ tipe: 'image', value: 123 })).toEqual({
-      ok: true,
-    })
+  it('image menerima path hasil upload', () => {
+    expect(
+      validasiNilaiField({
+        tipe: 'image',
+        value: [
+          { name: 'a.jpg', path: 'form/abc.jpg' },
+          { name: 'b.png', path: 'form/def.png' },
+        ],
+      }),
+    ).toEqual({ ok: true })
+  })
+
+  it('image menolak bentuk dan path yang tidak sah', () => {
+    expect(validasiNilaiField({ tipe: 'image', value: 123 }).ok).toBe(false)
+    expect(
+      validasiNilaiField({
+        tipe: 'image',
+        value: [{ name: 'a.jpg', path: 'kunjungan-rumah/abc.jpg' }],
+      }).ok,
+    ).toBe(false)
+    expect(
+      validasiNilaiField({
+        tipe: 'image',
+        value: [{ name: 'a.jpg', dataUrl: 'data:image/jpeg;base64,AAA' }],
+      }).ok,
+    ).toBe(false)
+    expect(
+      validasiNilaiField({
+        tipe: 'image',
+        value: [{ name: 'a'.repeat(201), path: 'form/a.jpg' }],
+      }).ok,
+    ).toBe(false)
+  })
+
+  it('file masih tidak divalidasi di sini', () => {
     expect(validasiNilaiField({ tipe: 'file', value: 123 })).toEqual({
       ok: true,
     })

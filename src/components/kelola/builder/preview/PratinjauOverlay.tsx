@@ -11,8 +11,8 @@
  * tidak ikut ditampilkan: blok meta pencatatan (petugas, tanggal, warga),
  * Stepper, dan FillBar — ketiganya milik alur pengisian, bukan tampilan form.
  *
- * Field bertipe `image`/`file` tetap tampil dengan catatannya: belum ada upload,
- * dan pratinjau tidak boleh menyembunyikan fakta itu.
+ * Field bertipe `image` tampil sebagai area foto yang tidak bisa diisi di sini;
+ * `file` tetap menampilkan catatan belum didukung.
  */
 import { useMemo } from 'react'
 import { Eye, X } from 'lucide-react'
