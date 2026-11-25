@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { RoutePending } from '@/components/ui/RoutePending'
+import { Skeleton } from '@mantine/core'
 import { getSasaranDetail } from '@/lib/api/server-fns'
 import { requireAuth } from '@/lib/auth/auth'
 import { fmtDate } from '@/lib/utils'
@@ -10,9 +10,67 @@ export const Route = createFileRoute('/sasaran/$ref')({
   beforeLoad: requireAuth,
   loader: async ({ params }) =>
     await getSasaranDetail({ data: { ref: params.ref } }),
-  pendingComponent: () => <RoutePending>Memuat detail sasaran…</RoutePending>,
+  pendingComponent: SasaranDetailPending,
   component: SasaranDetail,
 })
+
+function SasaranDetailPending() {
+  return (
+    <>
+      <PageHeader title="Detail Sasaran" />
+      <div className="mt-3.5 rounded-[10px] border border-line bg-surface p-4">
+        <Skeleton height={12} width={220} radius="sm" />
+        <Skeleton height={24} width="40%" mt={12} radius="sm" />
+      </div>
+
+      <div className="mt-3.5 grid grid-cols-2 gap-3.5 max-md:grid-cols-1">
+        <SectionCard title="Identitas Sasaran" sub="Data pokok dari database.">
+          <div className="grid gap-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="grid gap-1.5">
+                <Skeleton height={10} width={90} radius="sm" />
+                <Skeleton height={14} width="75%" radius="sm" />
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+
+        <SectionCard
+          title="Ringkasan Pemeriksaan"
+          sub="Status isian form dari database."
+        >
+          <div className="grid gap-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="grid gap-1.5">
+                <Skeleton height={10} width={110} radius="sm" />
+                <Skeleton height={14} width="55%" radius="sm" />
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+      </div>
+
+      <SectionCard
+        title="Catatan Kader"
+        sub="Riwayat isian form dari database."
+        className="mt-3.5"
+      >
+        <div className="grid gap-3 py-2">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="flex gap-3">
+              <Skeleton circle height={14} mt={2} />
+              <div className="flex-1 grid gap-1.5">
+                <Skeleton height={12} width={120} radius="sm" />
+                <Skeleton height={14} width="60%" radius="sm" />
+                <Skeleton height={12} width="45%" radius="sm" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </SectionCard>
+    </>
+  )
+}
 
 function SasaranDetail() {
   const navigate = useNavigate()

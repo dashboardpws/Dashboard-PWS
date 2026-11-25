@@ -1,7 +1,7 @@
 import { Fragment, useMemo, useState, useEffect, useRef } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { createFileRoute } from '@tanstack/react-router'
-import { RoutePending } from '@/components/ui/RoutePending'
+import { Skeleton } from '@mantine/core'
 import {
   getAnggotaSubmit,
   getFormAdaSubmit,
@@ -71,9 +71,40 @@ export const Route = createFileRoute('/laporan')({
       ])
     return { kunjunganRumah, kegiatan, riwayatSubmit, formAdaSubmit }
   },
-  pendingComponent: () => <RoutePending>Memuat laporan…</RoutePending>,
+  pendingComponent: LaporanPending,
   component: Laporan,
 })
+
+function LaporanPending() {
+  return (
+    <AppShell>
+      <PageHeader
+        title="Laporan & Export"
+        description="Rekap kunjungan rumah, kegiatan pemberdayaan, rekap bulanan, dan riwayat submit form. Semua dalam satu halaman."
+      />
+
+      <div className="no-print mt-4 rounded-[10px] border border-line bg-surface p-4">
+        <Skeleton height={18} width={140} radius="sm" />
+        <Skeleton height={12} width="55%" mt={8} radius="sm" />
+        <div className="mt-4 flex flex-wrap gap-3">
+          <Skeleton height={38} width={180} radius="md" />
+          <Skeleton height={38} width={180} radius="md" />
+          <Skeleton height={38} width={220} radius="md" />
+        </div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-3 gap-3 max-md:grid-cols-2">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} height={96} radius="md" />
+        ))}
+      </div>
+
+      <Skeleton height={260} mt={16} radius="md" />
+      <Skeleton height={260} mt={16} radius="md" />
+      <Skeleton height={320} mt={16} radius="md" />
+    </AppShell>
+  )
+}
 
 function Laporan() {
   const {

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { RoutePending } from '@/components/ui/RoutePending'
+import { Skeleton } from '@mantine/core'
 import { getDashboardData } from '@/lib/api/server-fns'
 import { fmtDate } from '@/lib/utils'
 import { PAGE_SIZE } from '@/lib/constants'
@@ -30,9 +30,34 @@ import { buildWarnings, computePeriod } from '@/lib/dashboard/warning'
 export const Route = createFileRoute('/')({
   beforeLoad: requireAuth,
   loader: async () => await getDashboardData(),
-  pendingComponent: () => <RoutePending>Memuat dashboard…</RoutePending>,
+  pendingComponent: DashboardPending,
   component: Dashboard,
 })
+
+function DashboardPending() {
+  return (
+    <AppShell>
+      <PageHeader title="Dashboard PWS" />
+      <Skeleton height={14} width="45%" mt={6} radius="sm" />
+
+      <div className="mt-4 grid grid-cols-3 gap-3 max-md:grid-cols-2">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} height={96} radius="md" />
+        ))}
+      </div>
+
+      <div className="mt-4 grid grid-cols-3 gap-3 max-md:grid-cols-2">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} height={120} radius="md" />
+        ))}
+      </div>
+
+      <Skeleton height={140} mt={16} radius="md" />
+      <Skeleton height={280} mt={16} radius="md" />
+      <Skeleton height={360} mt={16} radius="md" />
+    </AppShell>
+  )
+}
 
 function Dashboard() {
   const data = Route.useLoaderData()
