@@ -698,9 +698,17 @@ export function kunjunganRumahReducer(
           },
         ]
       })
+      const nikTerpetakan = new Set(
+        mappedRows.map((row) => row.nik.trim()).filter(Boolean),
+      )
+      const anggotaTambahan = state.anggota.filter((anggota) => {
+        const nik = anggota.nik.trim()
+        return !nik || !nikTerpetakan.has(nik)
+      })
+
       return {
         ...state,
-        anggota: mappedRows,
+        anggota: [...mappedRows, ...anggotaTambahan],
         penilaian: [],
         penilaianTersimpan: [],
         masalah: [],

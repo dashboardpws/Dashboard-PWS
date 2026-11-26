@@ -264,9 +264,20 @@ export function terapkanAutofillKeStateKR(params: {
 }): { state: LegacyKRState; changed: boolean; appliedTargets: string[] } {
   const { state, bindings, rules, konteks, triggerFieldId } = params
   const targetIds = new Set(bindings.map((binding) => binding.fieldId))
+  const pathPerField = new Map(
+    bindings.map((binding) => [binding.fieldId, binding.path]),
+  )
   const hasil = terapkanAutofill({
     answers: krStateToAnswers(state, bindings),
-    rules: rules.filter((rule) => targetIds.has(rule.targetFieldId)),
+    rules: rules
+      .filter((rule) => targetIds.has(rule.targetFieldId))
+      // Nama KK juga dipakai untuk mencari saran. Jangan sampai pilihan warga
+      // mengganti teks yang sedang diketik kader melalui rule mode `timpa`.
+      .map((rule) =>
+        pathPerField.get(rule.targetFieldId) === 'info.namaKK'
+          ? { ...rule, mode: 'isi_kosong' }
+          : rule,
+      ),
     konteks,
     triggerFieldId,
   })

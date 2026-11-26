@@ -213,24 +213,10 @@ export async function querySasaranWarga(
 /**
  * Semua warga dalam satu keluarga, untuk mengisi tabel anggota otomatis.
  *
- * `nama_kk` sendirinya bukan kunci: satu nama dipakai banyak keluarga, sehingga
- * pencarian_longgar sekali bisa menarik puluhan baris. Dua lapis penyempit, dari
- * yang paling membedakan:
- *
- * 1. **Alamat.** `nama_kk` + `kelurahan` + `kecamatan` + `rt` + `rw`. Alamat
- *    adalah satu-satunya pembeda yang tersedia di tabel; tidak ada `nomor_kk`.
- *    `rt`/`rw` dibandingkan sebagai teks setelah `NULLIF` supaya baris dengan
- *    satu-duanya `NULL` (yang akan jadi sama dengan baris lain yang juga NULL)
- *    tidak otomatis dianggap satu keluarga. Kalau alamat tidak bisa dipakai —
- *    semua NULL — pencarian turun ke `nama_kk` saja, dan hasilnya tetap
- *    berlebihan.
- * 2. **`jumlah_art`.** Jumlah anggota yang tercatat per kepala keluarga pada
- *    baris warga yang dipilih. Ini pembatas alami: ambil hanya N baris teratas
- *    sesuai urutan. Tidak ada di tabel `data_warga`, jadi batas itu hanya
- *    berlaku kalau `data_warga_import` menyumbang baris ke keluarga itu.
- *
- * Urutan baris penting karena pemotongan `jumlah_art` mengambil N teratas:
- * kepala keluarga dulu (nama warga sama dengan nama KK), lalu nama warga.
+ * `nama_kk` adalah satu-satunya pengenal keluarga yang tersedia. Alamat dan
+ * jumlah art per baris tidak dipakai untuk memecah atau memotong hasil karena
+ * keduanya bisa berbeda antaranggota atau tidak mencakup seluruh household.
+ * Baris diurutkan dengan kepala keluarga dulu, lalu nama warga.
  * Baris import dengan NIK yang sudah tersimpan di `data_warga` dibuang supaya
  * tidak dobel, sama seperti di {@link querySasaranWarga}.
  *
@@ -241,57 +227,34 @@ export async function querySasaranWarga(
 export async function queryAnggotaKeluarga(kunci: {
   namaKk: string
   nik: string
-  /** Alamat baris yang dipilih; menyempitkan pencarian agar satu KK saja. */
+  /** Dipertahankan untuk pemanggil lama; alamat bukan identitas keluarga. */
   kelurahan?: string | null
   kecamatan?: string | null
   rt?: string | null
   rw?: string | null
-  /** `jumlah_art` baris yang dipilih; batas anggota yang boleh masuk. */
+  /** Dipertahankan untuk pemanggil lama; bukan batas anggota keluarga. */
   jumlahArt?: number | null
 }): Promise<SasaranSuggestion[]> {
   const namaKk = kunci.namaKk.trim()
   const nik = kunci.nik.trim()
   if (!namaKk && !nik) return []
 
-  // Alamat hanya menyempitkan kalau ada isinya. Tanpa alamat, memakai
-  // `NULLIF`-nya justru membuat semua baris tanpa rt/rw tampak satu keluarga.
-  const alamatPakai =
-    !!(kunci.kelurahan?.trim() || kunci.kecamatan?.trim()) ||
-    !!kunci.rt?.trim() ||
-    !!kunci.rw?.trim()
-
   const syaratNama = sql`btrim(nama_kk) ILIKE ${namaKk}`
-  // `IS NOT DISTINCT FROM` dipakai supaya NULL di sisi database dianggap sama
-  // dengan NULL di sisi parameter: baris yang rt/rw-nya kosong tidak boleh
-  // tercampur dengan baris yang rt/rw-nya terisi. `NULLIF` di sisi kolom
-  // menormalkan string kosong jadi NULL supaya keduanya tidak berbeda.
-  const syaratAlamat = sql`
-    NULLIF(btrim(kelurahan::text), '') IS NOT DISTINCT FROM NULLIF(${kunci.kelurahan ?? null}, '')
-    AND NULLIF(btrim(kecamatan::text), '') IS NOT DISTINCT FROM NULLIF(${kunci.kecamatan ?? null}, '')
-    AND NULLIF(btrim(rt::text), '') IS NOT DISTINCT FROM NULLIF(${kunci.rt ?? null}, '')
-    AND NULLIF(btrim(rw::text), '') IS NOT DISTINCT FROM NULLIF(${kunci.rw ?? null}, '')
-  `
   const syaratKeluarga = namaKk
-    ? alamatPakai
-      ? sql`(${syaratNama} AND ${syaratAlamat})`
-      : syaratNama
+    ? syaratNama
     : nik
       ? sql`btrim(nik) = ${nik}`
       : sql`false`
-  const syaratFinal = nik
-    ? sql`(${syaratKeluarga} OR btrim(nik) = ${nik})`
-    : syaratKeluarga
+  const syaratFinal = syaratKeluarga
 
-  // `data_warga` tidak punya `jumlah_art`, dan rt/rw-nya NOT NULL varchar —
-  // bukan smallint nullable seperti di import. Kedua perbedaan itu ditangani
-  // lewat `::text` di `syaratAlamat` dan batas jumlah yang hanya berlaku kalau
-  // ada baris import.
+  // Nama KK menjadi satu-satunya kunci keluarga; variasi alamat antarbaris
+  // tidak boleh memecah anggota dari household yang sama.
   const [barisWarga, barisImport] = await Promise.all([
     db.execute(
-      sql`SELECT ${SELECT_SASARAN_WARGA} FROM data_warga WHERE ${syaratFinal} LIMIT 60`,
+      sql`SELECT ${SELECT_SASARAN_WARGA} FROM data_warga WHERE ${syaratFinal}`,
     ),
     db.execute(
-      sql`SELECT ${SELECT_SASARAN} FROM data_warga_import WHERE ${syaratFinal} LIMIT 60`,
+      sql`SELECT ${SELECT_SASARAN} FROM data_warga_import WHERE ${syaratFinal}`,
     ),
   ])
   const warga = (barisWarga as unknown as BarisImportSasaran[]).map(
@@ -321,28 +284,12 @@ export async function queryAnggotaKeluarga(kunci: {
     return aKepala - bKepala || a.namaArt.localeCompare(b.namaArt)
   })
 
-  // `jumlah_art` hanya dipakai kalau minimal ada baris import di keluarga ini;
-  // kalau seluruh anggota berasal dari `data_warga`, tidak ada angka yang bisa
-  // dipercaya sebagai batas dan memotong anggota akan lebih harmful daripada
-  // kelebihan.
-  const jumlah = kunci.jumlahArt
-  const adaBarisImport = importSisa.length > 0
-  const terlihatAkhir =
-    typeof jumlah === 'number' &&
-    Number.isFinite(jumlah) &&
-    jumlah > 0 &&
-    adaBarisImport &&
-    terurut.length > jumlah
-      ? terurut.slice(0, jumlah)
-      : terurut
   const terbaru = await anggotaSubmissionTerbaru(kunci)
-  return gabungkanDenganSubmissionTerbaru(terlihatAkhir, terbaru).sort(
-    (a, b) => {
-      const aKepala = a.namaKk && a.namaArt === a.namaKk ? 0 : 1
-      const bKepala = b.namaKk && b.namaArt === b.namaKk ? 0 : 1
-      return aKepala - bKepala || a.namaArt.localeCompare(b.namaArt)
-    },
-  )
+  return gabungkanDenganSubmissionTerbaru(terurut, terbaru).sort((a, b) => {
+    const aKepala = a.namaKk && a.namaArt === a.namaKk ? 0 : 1
+    const bKepala = b.namaKk && b.namaArt === b.namaKk ? 0 : 1
+    return aKepala - bKepala || a.namaArt.localeCompare(b.namaArt)
+  })
 }
 
 /** Baris import untuk satu NIK; dipakai server saat menyimpan agar kolom yang

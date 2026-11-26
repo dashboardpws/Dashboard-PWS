@@ -757,7 +757,7 @@ describe('APPLY_SASARAN', () => {
     expect(sesudah.invalid).toEqual({})
   })
 
-  it('ISI_ANGGOTA_KELUARGA mengganti anggota lama dengan seluruh household', () => {
+  it('ISI_ANGGOTA_KELUARGA menggabungkan household dan mempertahankan anggota manual', () => {
     const semua: SasaranSuggestion[] = [
       suggestion({
         nik: '3579011111111111',
@@ -771,11 +771,12 @@ describe('APPLY_SASARAN', () => {
       type: 'ISI_ANGGOTA_KELUARGA',
       rows: semua,
     })
-    // Ganti, bukan tambah: sisa anggota dari KK sebelumnya harus hilang.
+    // Anggota manual yang tidak muncul di hasil query tetap dipertahankan.
     expect(sesudah.anggota.map((a) => a.nama)).toEqual([
       'Siti Aminah',
       'Andi',
       'Budi',
+      ...stateDenganIsi().anggota.map((a) => a.nama),
     ])
   })
 
@@ -787,7 +788,9 @@ describe('APPLY_SASARAN', () => {
       suggestion({ nik: '', namaArt: 'Sari', rawId: 'a2' }),
       suggestion({ nik: '', namaArt: 'Rina', rawId: 'b' }),
     ]
-    const sesudah = dispatch(stateDenganIsi(), {
+    const state = stateDenganIsi()
+    state.anggota = []
+    const sesudah = dispatch(state, {
       type: 'ISI_ANGGOTA_KELUARGA',
       rows: semua,
     })
@@ -795,7 +798,9 @@ describe('APPLY_SASARAN', () => {
   })
 
   it('tidak menggabungkan anggota tanpa NIK yang tanggal lahirnya berbeda', () => {
-    const sesudah = dispatch(stateDenganIsi(), {
+    const state = stateDenganIsi()
+    state.anggota = []
+    const sesudah = dispatch(state, {
       type: 'ISI_ANGGOTA_KELUARGA',
       rows: [
         suggestion({ nik: '', namaArt: 'Sari', tglLahir: '1980-02-15' }),
