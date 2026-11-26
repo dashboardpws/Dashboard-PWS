@@ -34,6 +34,7 @@ export function normalisasiPayloadBuild(
     placeholder: f.placeholder?.trim() ?? null,
     deskripsi: f.deskripsi?.trim() ?? null,
     jumlahKolom: f.jumlahKolom,
+    groupColumns: f.groupColumns,
     optionSourceType: f.optionSourceType,
     optionSourceKey:
       f.optionSourceType === SUMBER_SUGGEST ? null : f.optionSourceKey,

@@ -38,6 +38,8 @@ import type {
   HasilValidasi,
   TipeField,
 } from '@/lib/service/form-builder/validasi'
+import { kolomGroupDefault } from '@/lib/form-builder/group-columns'
+import type { GroupColumnDefinition } from '@/lib/form-builder/group-columns'
 import { KesalahanValidasi } from '@/lib/server/form-builder/form-version.server'
 import { resolveOpsiDinamis } from '@/lib/server/form-builder/option-source.server'
 import {
@@ -173,6 +175,7 @@ export interface FieldRuntime {
   urutan: number
   /** Hanya untuk tipe `group`; null untuk tipe lain. */
   jumlahKolom: number | null
+  groupColumns: GroupColumnDefinition[]
   aktif: boolean
   opsi: OpsiRuntime[]
   /**
@@ -344,6 +347,10 @@ async function muatDefinisiRuntime(
         wajib: field.required,
         urutan: field.order,
         jumlahKolom: field.columns,
+        groupColumns:
+          field.type === 'group'
+            ? (field.groupColumns ?? kolomGroupDefault(field.columns ?? 1))
+            : [],
         aktif: field.active,
         opsi: field.options.map((option) => ({
           value: option.value,
@@ -471,6 +478,7 @@ async function muatDefinisiRuntime(
           wajib: field.wajib,
           urutan: field.urutan,
           jumlahKolom: field.jumlahKolom,
+          groupColumns: field.groupColumns,
           aktif: field.aktif,
           cariWarga: kolomCariWarga(
             field.optionSourceType,
@@ -740,6 +748,7 @@ export async function simpanFormulir(
       tipe: field.tipe,
       value: item.value,
       opsi,
+      groupColumns: field.groupColumns,
     })
     if (!bentuk.ok) {
       tolak(bentuk.kode, `Field "${field.label}": ${bentuk.pesan}`)

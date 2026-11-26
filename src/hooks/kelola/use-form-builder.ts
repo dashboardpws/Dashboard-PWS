@@ -266,19 +266,32 @@ export function useFormBuilder() {
    */
   const buatDraft = useCallback(async () => {
     if (!formId) return
-    await jalankan(async () => {
-      const baru = await buatDraftBuilder({ data: { formId } })
-      setFormVersionId(baru)
-    })
-    if (formId) {
-      const daftar = await daftarVersiBuilder({ data: { formId } })
+    setSaving(true)
+    setError(null)
+    setDefinisiError(null)
+    setLoadingDefinisi(true)
+    try {
+      const baru = await buatDraftBuilder({
+        data: { formId, dariVersiId: formVersionId ?? undefined },
+      })
+      const [daftar, definisiBaru] = await Promise.all([
+        daftarVersiBuilder({ data: { formId } }),
+        ambilEditorForm({ data: { formVersionId: baru } }),
+      ])
       setVersi(daftar)
+      setFormVersionId(baru)
+      setDefinisi(definisiBaru)
+    } catch (err) {
+      setError(pesanError(err, 'Draft baru tidak bisa dibuat.'))
+    } finally {
+      setSaving(false)
+      setLoadingDefinisi(false)
     }
-  }, [jalankan, formId])
+  }, [formId, formVersionId])
 
   /**
-   * Buka dialog hapus draft: ambil isi draft dari server lebih dulu, supaya
-   * admin melihat jumlah section dan field yang akan hilang.
+   * Buka dialog hapus versi: ambil isi draft atau arsip dari server lebih dulu,
+   * supaya admin melihat jumlah section dan field yang akan hilang.
    *
    * Dialog tetap dibuka walau server menolak (mis. draft sudah berisian), karena
    * pesannya justru yang perlu dibaca admin. Menutup dialog otomatis di sini
@@ -294,7 +307,7 @@ export function useFormBuilder() {
         }),
       )
     } catch (err) {
-      setError(pesanError(err, 'Isi draft tidak bisa dimuat. Coba lagi.'))
+      setError(pesanError(err, 'Isi versi tidak bisa dimuat. Coba lagi.'))
       setRingkasanHapusDraft(null)
     } finally {
       setSaving(false)
@@ -307,16 +320,15 @@ export function useFormBuilder() {
   )
 
   /**
-   * Hapus versi draft yang sedang dibuka.
+   * Hapus versi draft atau arsip yang sedang dibuka.
    *
    * Setelah draft hilang, editor harus tetap punya sesuatu untuk ditampilkan:
    * pindah ke draft lain kalau masih ada, kalau tidak ke versi terbaru. Kalau
    * form kehilangan seluruh versinya, kembalikan ke layar daftar form — tidak
    * ada editor untuk form tanpa versi.
    *
-   * Server yang menolak penghapusan yang tidak sah (versi bukan draft, draft
-   * bawaan, draft berisian, versi terakhir); di sini hasilnya hanya `null` dan
-   * pesan errornya sudah tersimpan di `error`.
+   * Server menolak published, versi berisian, atau versi terakhir; pesan
+   * penolakannya disimpan di `error`.
    */
   const hapusDraft = useCallback(async (): Promise<boolean> => {
     if (!formVersionId || !formId) return false
@@ -344,7 +356,7 @@ export function useFormBuilder() {
       }
       return true
     } catch (err) {
-      setError(pesanError(err, 'Draft tidak bisa dihapus. Coba lagi.'))
+      setError(pesanError(err, 'Versi tidak bisa dihapus. Coba lagi.'))
       setRingkasanHapusDraft(null)
       return false
     } finally {

@@ -45,6 +45,7 @@ import {
   FieldHint,
 } from '@/components/ui'
 import { MAX_BARIS_GROUP } from '@/lib/service/form-builder/validasi'
+import { kolomGroupDefault } from '@/lib/form-builder/group-columns'
 import { daftarFotoJawaban, tambahFotoJawaban } from '@/lib/survey/foto-jawaban'
 import { FieldCariWarga } from './FieldCariWarga'
 import type { FieldRuntime } from '@/lib/server/survey/form-runtime.server'
@@ -117,13 +118,9 @@ function jumlahKolom(field: FieldRuntime): number {
   return n
 }
 
-/** Nama sel group. Kunci datar supaya bentuknya persis yang diterima server. */
-function kunciKolom(urut: number): string {
-  return `kolom${urut}`
-}
-
 /** Satu baris group: object datar dengan kunci `kolom1..kolomN`. */
-type BarisGroup = Record<string, string>
+type NilaiCellGroup = string | number | boolean | null
+type BarisGroup = Record<string, NilaiCellGroup>
 
 function barisGroup(value: unknown): BarisGroup[] {
   if (!Array.isArray(value)) return []
@@ -135,7 +132,13 @@ function barisGroup(value: unknown): BarisGroup[] {
     for (const [kunci, isi] of Object.entries(
       item as Record<string, unknown>,
     )) {
-      if (typeof isi === 'string') baris[kunci] = isi
+      if (
+        typeof isi === 'string' ||
+        typeof isi === 'number' ||
+        typeof isi === 'boolean' ||
+        isi === null
+      )
+        baris[kunci] = isi
     }
     keluar.push(baris)
   }
@@ -388,9 +391,13 @@ function DynamicFieldImpl({
 
   // --- group ----------------------------------------------------------------
   const kolom = jumlahKolom(field)
+  const kolomGroup =
+    field.groupColumns.length === kolom
+      ? field.groupColumns
+      : kolomGroupDefault(kolom)
   const baris = barisGroup(value)
   const ubahBaris = useCallback(
-    (barisKe: number, kunci: string, isi: string) => {
+    (barisKe: number, kunci: string, isi: NilaiCellGroup) => {
       const berikut = baris.map((b, i) =>
         i === barisKe ? { ...b, [kunci]: isi } : b,
       )
@@ -400,9 +407,11 @@ function DynamicFieldImpl({
   )
   const tambahBaris = useCallback(() => {
     const kosong: BarisGroup = {}
-    for (let i = 1; i <= kolom; i += 1) kosong[kunciKolom(i)] = ''
+    for (const column of kolomGroup) {
+      kosong[column.key] = column.type === 'checkbox' ? false : ''
+    }
     onChange([...baris, kosong])
-  }, [baris, kolom, onChange])
+  }, [baris, kolomGroup, onChange])
   const hapusBaris = useCallback(
     (barisKe: number) => onChange(baris.filter((_, i) => i !== barisKe)),
     [baris, onChange],
@@ -435,22 +444,118 @@ function DynamicFieldImpl({
               )}
             </div>
             <div className="grid gap-2.5 max-sm:grid-cols-1 sm:grid-cols-2">
-              {Array.from({ length: kolom }, (_, i) => {
-                const kunci = kunciKolom(i + 1)
+              {kolomGroup.map((column) => {
+                const kunci = column.key
+                const isi = satu[kunci]
+                const stringValue = typeof isi === 'string' ? isi : ''
+                const input = (() => {
+                  switch (column.type) {
+                    case 'textarea':
+                      return (
+                        <Textarea
+                          value={stringValue}
+                          onChange={(e) =>
+                            ubahBaris(barisKe, kunci, e.target.value)
+                          }
+                          disabled={readOnly}
+                        />
+                      )
+                    case 'number':
+                      return (
+                        <Input
+                          type="number"
+                          value={angkaNilai(isi)}
+                          onChange={(e) =>
+                            ubahBaris(
+                              barisKe,
+                              kunci,
+                              e.target.value === ''
+                                ? null
+                                : Number(e.target.value),
+                            )
+                          }
+                          disabled={readOnly}
+                        />
+                      )
+                    case 'date':
+                    case 'time':
+                      return (
+                        <Input
+                          type={column.type}
+                          value={stringValue}
+                          onChange={(e) =>
+                            ubahBaris(barisKe, kunci, e.target.value)
+                          }
+                          disabled={readOnly}
+                        />
+                      )
+                    case 'select':
+                      return (
+                        <Select
+                          value={stringValue}
+                          onChange={(e) =>
+                            ubahBaris(barisKe, kunci, e.target.value)
+                          }
+                          disabled={readOnly}
+                        >
+                          <option value="">Pilih...</option>
+                          {column.options.map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </Select>
+                      )
+                    case 'radio':
+                      return (
+                        <div className="grid gap-1">
+                          {column.options.map((option) => (
+                            <RadioCard
+                              key={option}
+                              title={option}
+                              inputProps={{
+                                name: `${field.id}-${barisKe}-${kunci}`,
+                                value: option,
+                                checked: isi === option,
+                                disabled: readOnly,
+                                onChange: () =>
+                                  ubahBaris(barisKe, kunci, option),
+                              }}
+                            />
+                          ))}
+                        </div>
+                      )
+                    case 'checkbox':
+                      return (
+                        <Checkbox
+                          checked={isi === true}
+                          onChange={(e) =>
+                            ubahBaris(barisKe, kunci, e.target.checked)
+                          }
+                          disabled={readOnly}
+                          aria-label={column.label}
+                        />
+                      )
+                    default:
+                      return (
+                        <Input
+                          value={stringValue}
+                          onChange={(e) =>
+                            ubahBaris(barisKe, kunci, e.target.value)
+                          }
+                          disabled={readOnly}
+                        />
+                      )
+                  }
+                })()
                 return (
-                  <label
+                  <div
                     key={kunci}
                     className="grid gap-1 text-[11px] font-semibold text-ink-2"
                   >
-                    <span>Kolom {i + 1}</span>
-                    <Input
-                      value={satu[kunci] ?? ''}
-                      onChange={(e) =>
-                        ubahBaris(barisKe, kunci, e.target.value)
-                      }
-                      disabled={readOnly}
-                    />
-                  </label>
+                    <span>{column.label}</span>
+                    {input}
+                  </div>
                 )
               })}
             </div>

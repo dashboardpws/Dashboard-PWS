@@ -1,10 +1,9 @@
 /**
- * Dialog hapus satu versi draft dari Form Builder.
+ * Dialog hapus satu versi draft atau arsip dari Form Builder.
  *
- * Lebih ringan dari `HapusFormDialog`, dan itu disengaja. Draft belum pernah
- * dipakai petugas — isian hanya bisa masuk ke versi yang sudah tayang (lihat
- * `form-runtime.server.ts`), jadi tidak ada data lapangan yang hilang di sini.
- * Yang hilang cuma pekerjaan admin: pertanyaan yang belum diterbitkan.
+ * Versi yang memiliki isian tidak boleh dihapus agar histori data lapangan
+ * tetap terikat ke struktur form asalnya. Yang boleh dihapus hanya struktur
+ * versi tanpa isian.
  *
  * Karena itu dialog ini tidak mewajibkan mengetik nama. Yang ditampilkan tetap
  * jumlah section dan field supaya admin tahu sedang membuang berapa banyak
@@ -23,6 +22,7 @@ import type { RingkasanHapusDraft } from '@/lib/service/form-builder/validasi'
 interface Props {
   /** Nomor versi yang akan dihapus, untuk menyebut di teks dialog. */
   version: number
+  status: 'draft' | 'archived'
   ringkasan: RingkasanHapusDraft | null
   busy?: boolean
   onClose: () => void
@@ -31,17 +31,19 @@ interface Props {
 
 export function HapusDraftDialog({
   version,
+  status,
   ringkasan,
   busy = false,
   onClose,
   onConfirm,
 }: Props) {
   if (!ringkasan) return null
+  const namaVersi = status === 'draft' ? 'draft' : 'arsip'
 
   return (
     <ModalOverlay
-      title={`Hapus draft v${version}`}
-      ariaLabel="Hapus draft form"
+      title={`Hapus ${namaVersi} v${version}`}
+      ariaLabel="Hapus versi form"
       onClose={onClose}
       width="max-w-[480px]"
       footer={
@@ -54,7 +56,8 @@ export function HapusDraftDialog({
             onClick={onConfirm}
             disabled={busy || ringkasan.jumlahSubmit > 0}
           >
-            <Trash2 className="w-4 h-4" /> Hapus Draft
+            <Trash2 className="w-4 h-4" /> Hapus{' '}
+            {status === 'draft' ? 'Draft' : 'Arsip'}
           </Button>
         </>
       }
@@ -66,14 +69,13 @@ export function HapusDraftDialog({
 
       {ringkasan.jumlahSubmit > 0 ? (
         <PeringatanBox className="mt-3">
-          Draft ini sudah punya {ringkasan.jumlahSubmit} isian, jadi tidak bisa
-          dihapus. Isian form tidak bisa ikut hilang bersama drafnya.
+          Versi ini memiliki {ringkasan.jumlahSubmit} isian, jadi tidak bisa
+          dihapus. Isian form harus tetap tersimpan bersama versi asalnya.
         </PeringatanBox>
       ) : (
         <p className="mt-3 text-[12.5px] text-muted">
-          Draft ini belum pernah dipakai petugas, jadi isian yang sudah ada
-          tidak tersentuh. Yang hilang cuma section, pertanyaan, dan opsinya —
-          pekerjaan yang belum pernah terbit tidak bisa dipulihkan.
+          Versi ini tidak memiliki isian. Yang dihapus adalah section,
+          pertanyaan, dan opsinya; struktur yang dihapus tidak bisa dipulihkan.
         </p>
       )}
     </ModalOverlay>

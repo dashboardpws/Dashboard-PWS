@@ -29,6 +29,7 @@ import {
 } from '@/lib/service/form-builder/template-field'
 import type { PresetField } from '@/lib/service/form-builder/template-field'
 import { useToast } from '@/providers/toast'
+import { kolomGroupDefault } from '@/lib/form-builder/group-columns'
 import { normalisasiPayloadBuild } from '@/components/kelola/builder/payload-build'
 import { cariSectionTargetUntukPalette } from '@/components/kelola/builder/drag-target'
 import {
@@ -114,6 +115,11 @@ function definisiToDraft(definisi: DefinisiVersi): DraftFormDocument {
       placeholder: f.placeholder,
       deskripsi: f.deskripsi,
       jumlahKolom: f.jumlahKolom,
+      groupColumns:
+        f.groupColumns ??
+        (f.tipe === 'group'
+          ? kolomGroupDefault(f.jumlahKolom ?? 1)
+          : undefined),
       optionSourceType: f.optionSourceType ?? null,
       optionSourceKey: f.optionSourceKey ?? null,
       opsi: f.opsi.map((o, i) => ({

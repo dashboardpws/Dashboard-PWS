@@ -316,7 +316,7 @@ export interface HasilHapusDraftVersi {
 }
 
 /**
- * Isi satu versi draft, dipakai dialog konfirmasi sebelum dihapus.
+ * Isi satu versi draft atau arsip, dipakai dialog konfirmasi sebelum dihapus.
  *
  * Dipisah dari `hapusDraftVersiForm` supaya admin bisa melihat angka yang akan
  * hilang tanpa harus menekan tombol dulu. Server tetap yang menghitungnya —
@@ -350,27 +350,18 @@ export async function ringkasanHapusDraftVersiForm(
 }
 
 /**
- * Hapus satu versi draft beserta seluruh isinya di database.
+ * Hapus satu versi draft atau arsip beserta strukturnya di database.
  *
  * Yang ikut terhapus: section, field, dan pilihan jawaban. Ketiganya cascade
  * dari `form_versions`, jadi tidak perlu dihapus manual — cascade inilah yang
  * membuat `form_field_options` ikut hilang lewat `form_fields`, bukan langsung
  * dari versi.
  *
- * Dua lapis penjaga, keduanya ditegakkan ulang di sini walau `validasiHapusDraftVersi`
- * sudah dipanggil sebelumnya. Pemeriksaan ganda itu murah dibanding satu draft
- * bawaan yang terhapus: `buildFormVersion` hanya bisa memulihkan struktur dari
- * template lokal, bukan dari draft yang sudah hilang, dan form bawaan yang
- * gagal render membuat seluruh form kader tidak bisa dipakai.
- *
- * `surveys` dihapus eksplisit lebih dulu meski validasi sudah menolak draft
- * berisian. FK `surveys.formVersionId` tidak meng-cascade, jadi kalau suatu saat
- * ada jalur yang somehow menulis isian ke versi draft, penghapusan akan gagal
- * dengan pelanggaran FK — dan itu memang hasil yang benar: isian tidak boleh
- * hilang diam-diam bersama draft.
+ * Kelayakan hapus ditegakkan ulang di dalam transaksi. Isian yang sudah ada
+ * menghalangi penghapusan supaya histori submission tidak ikut hilang.
  *
  * Audit ditulis setelah transaksi selesai, mengikuti `terbitanVersiForm`: kalau
- * insert audit gagal, draftnya sudah benar-benar terhapus, dan menolak penghapusan
+ * insert audit gagal, versinya sudah benar-benar terhapus, dan menolak penghapusan
  * demi audit hanya akan membuat admin bingung.
  */
 export async function hapusDraftVersiForm(
@@ -389,7 +380,6 @@ export async function hapusDraftVersiForm(
         formId: formVersions.formId,
         version: formVersions.version,
         status: formVersions.status,
-        kodeForm: forms.kode,
       })
       .from(formVersions)
       .innerJoin(forms, eq(forms.id, formVersions.formId))
@@ -444,13 +434,11 @@ export async function hapusDraftVersiForm(
     pastikan(
       validasiHapusDraftVersi({
         status: versi.status,
-        kodeForm: versi.kodeForm,
         jumlahVersi,
         ringkasan: angka,
       }),
     )
 
-    await tx.delete(surveys).where(eq(surveys.formVersionId, formVersionId))
     await tx.delete(formVersions).where(eq(formVersions.id, formVersionId))
 
     return {

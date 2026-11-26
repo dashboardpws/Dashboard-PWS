@@ -25,6 +25,7 @@ import {
   keStatusKawin,
 } from '@/lib/kunjungan-rumah/sasaran/warga-row'
 import { dataWargaTable } from '@/lib/schema/schema'
+import { dataWargaImport } from '@/lib/schema/data-import'
 import { refSasaranValid } from '@/lib/sasaran/ref'
 import { db } from './db.server'
 import { count, sql } from 'drizzle-orm'
@@ -610,6 +611,16 @@ export async function queryWargaList() {
     },
     orderBy: (t, { asc }) => [asc(t.nama_art)],
   })
+}
+
+/** Daftar NIK dan kelurahan dari sumber sasaran awal untuk menghitung cakupan. */
+export async function queryWargaImportUntukCakupan() {
+  return await db
+    .select({
+      nik: dataWargaImport.nik,
+      kelurahan: dataWargaImport.kelurahan,
+    })
+    .from(dataWargaImport)
 }
 
 /** Jumlah warga yang benar-benar sudah tersimpan dari submit KR. */

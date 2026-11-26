@@ -46,7 +46,6 @@ export function FormBuilderSection({
     saving,
     error,
     bisaUbah,
-    bawaan,
     pilihForm,
     pilihVersi,
     buatForm,
@@ -125,20 +124,30 @@ export function FormBuilderSection({
     }
   }, [definisi, loadDocument, clearDocument])
 
-  /**
-   * Hapus draft, lalu sebut angka yang hilang supaya admin tahu berapa banyak
-   * pertanyaan yang dibuang — "berhasil" tanpa angka tidak dipercaya untuk
-   * pekerjaan yang tidak bisa dipulihkan.
-   */
+  /** Hapus versi lalu sebut jumlah struktur yang ikut terhapus. */
   const konfirmasiHapusDraft = async () => {
     const berhasil = await hapusDraft()
     if (!berhasil) return
     const r = ringkasanHapusDraft
     toast(
       r
-        ? `Draft dihapus: ${r.jumlahSection} section, ${r.jumlahField} pertanyaan.`
-        : 'Draft dihapus.',
+        ? `Versi dihapus: ${r.jumlahSection} section, ${r.jumlahField} pertanyaan.`
+        : 'Versi dihapus.',
     )
+  }
+
+  const terbitkanDraft = async () => {
+    if (!bisaUbah || saving || draftRest.saving) return
+    const hasilBuild = await draftRest.buildForm()
+    if (hasilBuild) await terbitkan()
+  }
+
+  const buatDraftBerikutnya = async () => {
+    if (saving || draftRest.saving) return
+    // Draft yang sedang diedit harus disimpan dulu supaya draft berikutnya
+    // menyalin perubahan terakhir, bukan struktur lama dari database.
+    if (bisaUbah && !(await draftRest.buildForm())) return
+    await buatDraft()
   }
 
   const handleBack = () => navigate({ to: '/kelola' })
@@ -251,37 +260,39 @@ export function FormBuilderSection({
                 <>
                   <Button
                     size="sm"
-                    disabled={!bisaUbah || saving}
+                    disabled={!bisaUbah || saving || draftRest.saving}
                     variant="export"
-                    onClick={() => void terbitkan()}
+                    onClick={() => void terbitkanDraft()}
                   >
                     Terbitkan
                   </Button>
                   <Button
                     size="sm"
-                    disabled={saving}
-                    onClick={() => void buatDraft()}
+                    disabled={saving || draftRest.saving}
+                    onClick={() => void buatDraftBerikutnya()}
                   >
                     Draft Berikutnya
                   </Button>
-                  {/* Tombol hapus draft hanya ditawarkan kalau versinya
-                      boleh dihapus: harus draft, form bukan bawaan, dan bukan
-                      satu-satunya versi. Tiga syarat yang sama dicek
-                      ulang oleh `validasiHapusDraftVersi` di server. */}
-                  {bisaUbah && !bawaan && versi.length > 1 ? (
+                  {/* Published tetap dilindungi; draft dan arsip dapat dihapus
+                      selama bukan versi terakhir. Server memeriksa isian ulang. */}
+                  {versiTerpilih &&
+                  (versiTerpilih.status === 'draft' ||
+                    versiTerpilih.status === 'archived') &&
+                  versi.length > 1 ? (
                     <Button
                       size="sm"
                       variant="ghost"
                       className="text-destructive hover:bg-destructive/10"
-                      disabled={saving}
+                      disabled={saving || draftRest.saving}
                       onClick={() =>
                         formVersionId
                           ? void bukaDialogHapusDraft(formVersionId)
                           : null
                       }
-                      title="Buang draft ini beserta section dan pertanyaannya"
+                      title="Hapus versi ini beserta section dan pertanyaannya"
                     >
-                      Hapus Draft
+                      Hapus{' '}
+                      {versiTerpilih.status === 'draft' ? 'Draft' : 'Arsip'}
                     </Button>
                   ) : null}
                 </>
@@ -376,6 +387,7 @@ export function FormBuilderSection({
       {ringkasanHapusDraft ? (
         <HapusDraftDialog
           version={versiTerpilih?.version ?? 0}
+          status={versiTerpilih?.status === 'archived' ? 'archived' : 'draft'}
           ringkasan={ringkasanHapusDraft}
           busy={saving}
           onClose={tutupDialogHapusDraft}

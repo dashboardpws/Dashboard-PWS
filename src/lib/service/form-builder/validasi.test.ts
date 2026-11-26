@@ -985,7 +985,6 @@ describe('validasiHapusDraftVersi', () => {
   ) {
     return validasiHapusDraftVersi({
       status: 'draft',
-      kodeForm: null,
       jumlahVersi: 2,
       ringkasan: { jumlahSubmit: 0, jumlahField: 5, jumlahSection: 2 },
       ...ubah,
@@ -1000,23 +999,16 @@ describe('validasiHapusDraftVersi', () => {
     expect(kode(dasar({ status: 'published' }))).toBe('VERSI_BUKAN_DRAFT')
   })
 
-  it('versi archived juga ditolak, bukan dianggap draft', () => {
-    expect(kode(dasar({ status: 'archived' }))).toBe('VERSI_BUKAN_DRAFT')
+  it('versi archived boleh dihapus jika tidak punya isian', () => {
+    expect(dasar({ status: 'archived' })).toEqual({ ok: true })
   })
 
   it('versi yang tidak ada ditolak lebih dulu sebelum cek lain', () => {
-    // Draft bawaan dan versi tunggalnya sama-sama tidak sah, tapi versi yang
-    // hilang harus disebut lebih dulu supaya pesan tidak menyesatkan.
-    expect(kode(dasar({ status: null, kodeForm: 'kunjungan_rumah' }))).toBe(
-      'VERSI_TIDAK_ADA',
-    )
+    expect(kode(dasar({ status: null }))).toBe('VERSI_TIDAK_ADA')
   })
 
-  it('draft form bawaan sistem tidak boleh dihapus', () => {
-    const hasil = dasar({ kodeForm: 'kunjungan_rumah' })
-    expect(kode(hasil)).toBe('DRAFT_BAWAAN_TERKUNCI')
-    expect(hasil.ok).toBe(false)
-    if (!hasil.ok) expect(hasil.pesan).toMatch(/bawaan/i)
+  it('draft form bawaan bisa dihapus jika syarat penghapusan terpenuhi', () => {
+    expect(dasar()).toEqual({ ok: true })
   })
 
   it('draft yang sudah punya isian tidak boleh dihapus', () => {
@@ -1033,12 +1025,8 @@ describe('validasiHapusDraftVersi', () => {
     if (!hasil.ok) expect(hasil.pesan).toMatch(/satu-satunya/i)
   })
 
-  it('cek status berjalan sebelum cek bawaan', () => {
-    // published pada form bawaan harus ditolak sebagai versi yang salah status,
-    // bukan sebagai draft bawaan yang terkunci.
-    expect(
-      kode(dasar({ status: 'published', kodeForm: 'kunjungan_rumah' })),
-    ).toBe('VERSI_BUKAN_DRAFT')
+  it('published tetap ditolak pada form bawaan', () => {
+    expect(kode(dasar({ status: 'published' }))).toBe('VERSI_BUKAN_DRAFT')
   })
 
   it('draft kosong pada form dengan banyak versi tetap boleh dihapus', () => {

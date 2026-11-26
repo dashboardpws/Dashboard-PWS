@@ -7,6 +7,7 @@ import type {
   RuleAutofill,
   RuleVisibilitas,
 } from '@/lib/form-builder/engine/types'
+import type { GroupColumnDefinition } from '@/lib/form-builder/group-columns'
 
 export type TipeFieldEditor = TipeField
 
@@ -53,6 +54,7 @@ export interface DraftField {
   placeholder: string | null
   deskripsi: string | null
   jumlahKolom: number | null
+  groupColumns?: GroupColumnDefinition[]
   /**
    * Sumber pilihan jawaban dari data yang sudah ada (agama, petugas, data warga,
    * dst). null = admin mengetik sendiri pilihannya di `opsi`. Nilai yang sah
@@ -100,6 +102,7 @@ export interface BuildFormVersionInput {
     placeholder: string | null
     deskripsi: string | null
     jumlahKolom: number | null
+    groupColumns?: GroupColumnDefinition[]
     optionSourceType: string | null
     optionSourceKey: string | null
     opsi: { value: string; label: string; urutan: number; aktif: boolean }[]

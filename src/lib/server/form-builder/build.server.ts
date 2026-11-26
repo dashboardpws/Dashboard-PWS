@@ -6,6 +6,7 @@ import {
   parseFormDefinition,
 } from '@/lib/form-builder/form-schema'
 import type { FormDefinition } from '@/lib/form-builder/form-schema'
+import { kolomGroupDefault } from '@/lib/form-builder/group-columns'
 import { validasiFieldPenuh } from '@/lib/service/form-builder/validasi'
 import type {
   HasilValidasi,
@@ -104,6 +105,7 @@ function validasiFields(
         optionSourceType: field.optionSourceType,
         optionSourceKey: field.optionSourceKey,
         jumlahKolom: field.jumlahKolom,
+        groupColumns: field.groupColumns,
         opsi: field.opsi.map((option) => ({
           value: option.value,
           aktif: option.aktif,
@@ -224,8 +226,14 @@ function bentukSchema(
           description: field.deskripsi?.trim() ?? null,
           placeholder: field.placeholder?.trim() ?? null,
           columns:
-            fieldLamaById.get(fieldId)?.columns ??
-            (field.tipe === 'group' ? field.jumlahKolom : null),
+            field.tipe === 'group'
+              ? field.jumlahKolom
+              : (fieldLamaById.get(fieldId)?.columns ?? null),
+          groupColumns:
+            field.tipe === 'group'
+              ? (field.groupColumns ??
+                kolomGroupDefault(field.jumlahKolom ?? 1))
+              : undefined,
           layoutGroup: fieldLamaById.get(fieldId)?.layoutGroup ?? null,
           optionSourceType: field.optionSourceType,
           optionSourceKey: field.optionSourceKey,

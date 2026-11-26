@@ -36,6 +36,7 @@ import {
   querySurveyStatsByNik,
   queryRiwayatKRTerbaru,
   queryWargaList,
+  queryWargaImportUntukCakupan,
   queryJumlahWargaTerdata,
   queryRiwayatKsUntukNik,
 } from '@/lib/server/sasaran.server'
@@ -298,16 +299,23 @@ export const getDashboardData = createServerFn({ method: 'GET' })
     // Prioritas berasal dari payload kunjungan rumah. Kalau query itu gagal
     // (mis. form kunjungan belum di-seed), dashboard tetap tampil tanpa data
     // prioritas — jangan sampai satu widget menjatuhkan seluruh halaman.
-    const [warga, stats, recent, prioritasKunjungan, daftarPrioritas] =
-      await Promise.all([
-        queryWargaList(),
-        querySurveyStatsByNik(),
-        querySurveysWithWarga(50),
-        queryKunjunganPrioritas().catch(() => []),
-        queryPrioritas().catch(() => []),
-      ])
+    const [
+      warga,
+      wargaImport,
+      stats,
+      recent,
+      prioritasKunjungan,
+      daftarPrioritas,
+    ] = await Promise.all([
+      queryWargaList(),
+      queryWargaImportUntukCakupan(),
+      querySurveyStatsByNik(),
+      querySurveysWithWarga(50),
+      queryKunjunganPrioritas().catch(() => []),
+      queryPrioritas().catch(() => []),
+    ])
     const visited = new Set(stats.map((s) => s.nik))
-    const kelurahan = kelurahanStatDari(warga, stats)
+    const kelurahan = kelurahanStatDari(wargaImport, stats)
     const prioritasKelurahan = hitungPrioritasKelurahan({
       warga: warga.map((w) => ({
         nik: w.nik,
@@ -749,12 +757,11 @@ export const ringkasanHapusDraftBuilder = createServerFn({ method: 'GET' })
   )
 
 /**
- * Hapus versi draft beserta struktur di dalamnya.
+ * Hapus versi draft atau arsip beserta strukturnya.
  *
- * Aturan main ada di `validasiHapusDraftVersi`: hanya versi `draft`, bukan draft
- * form bawaan, bukan draft yang sudah berisian, dan bukan versi satu-satunya.
- * Serverfn ini tidak menambahkan aturan sendiri — cukup meneruskan, supaya
- * satu tempat yang menegakkan aturan.
+ * Aturan main ada di `validasiHapusDraftVersi`: published, versi yang berisian,
+ * dan versi satu-satunya tetap dilindungi. Server fn meneruskan ke satu
+ * validator supaya aturan itu tidak bercabang.
  */
 export const hapusDraftBuilder = createServerFn({ method: 'POST' })
   .middleware([authSessionToken])

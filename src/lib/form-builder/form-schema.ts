@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { SEMUA_TIPE_FIELD } from '@/lib/service/form-builder/validasi'
+import { TIPE_KOLOM_GROUP } from './group-columns'
 
 const idSchema = z.string().uuid()
 
@@ -50,6 +51,13 @@ const opsiSchema = z.object({
   active: z.boolean(),
 })
 
+const groupColumnSchema = z.object({
+  key: z.string().min(1),
+  label: z.string(),
+  type: z.enum(TIPE_KOLOM_GROUP),
+  options: z.array(z.string()),
+})
+
 const fieldSchema = z.object({
   id: idSchema,
   name: z.string().min(1),
@@ -61,6 +69,8 @@ const fieldSchema = z.object({
   description: z.string().nullable(),
   placeholder: z.string().nullable(),
   columns: z.number().int().positive().nullable(),
+  /** Konfigurasi per sel untuk group; opsional agar schema versi lama tetap terbaca. */
+  groupColumns: z.array(groupColumnSchema).optional(),
   /**
    * Kunci kelompok layout di dalam section. Null/absen = tidak berkelompok.
    * Hanya dipakai renderer generik; section bawaan tetap memakai widget sendiri.

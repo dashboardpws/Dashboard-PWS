@@ -27,6 +27,10 @@ import {
   SUMBER_CARI_WARGA,
 } from '@/lib/service/form-builder/sumber-opsi'
 import type { KunciEditor } from '@/lib/form-builder/kode-bawaan'
+import {
+  TIPE_KOLOM_GROUP,
+  kolomGroupDefault,
+} from '@/lib/form-builder/group-columns'
 import type {
   RuleAutofill,
   RuleVisibilitas,
@@ -351,6 +355,36 @@ function FieldSettings({
   const isSuggest = field.optionSourceType === SUMBER_SUGGEST
   const source = cariSumber(field.optionSourceType, field.optionSourceKey)
   const sumberAktif = isSuggest || source !== null
+  const groupColumns =
+    field.groupColumns ?? kolomGroupDefault(field.jumlahKolom ?? 2)
+
+  const ubahJumlahKolom = (jumlahDiminta: number) => {
+    const jumlah = Math.max(1, jumlahDiminta || 1)
+    const sebelum =
+      field.groupColumns ?? kolomGroupDefault(field.jumlahKolom ?? 2)
+    const berikut = Array.from(
+      { length: jumlah },
+      (_, index) =>
+        sebelum[index] ?? {
+          key: `kolom${index + 1}`,
+          label: `Kolom ${index + 1}`,
+          type: 'text' as const,
+          options: [],
+        },
+    )
+    updateField(fieldClientId, { jumlahKolom: jumlah, groupColumns: berikut })
+  }
+
+  const ubahKolomGroup = (
+    index: number,
+    patch: Partial<(typeof groupColumns)[number]>,
+  ) => {
+    updateField(fieldClientId, {
+      groupColumns: groupColumns.map((column, i) =>
+        i === index ? { ...column, ...patch } : column,
+      ),
+    })
+  }
   /**
    * Tipe yang boleh dipilih form ini. `null` = semua bebas.
    *
@@ -440,6 +474,8 @@ function FieldSettings({
               const patch: Partial<DraftField> = {
                 tipe,
                 jumlahKolom: tipe === 'group' ? 2 : null,
+                groupColumns:
+                  tipe === 'group' ? kolomGroupDefault(2) : undefined,
               }
               if (!TIPE_BUTUH_OPSI.includes(tipe)) patch.opsi = []
               updateField(fieldClientId, patch)
@@ -476,14 +512,74 @@ function FieldSettings({
               type="number"
               min={1}
               value={field.jumlahKolom ?? 2}
-              onChange={(e) =>
-                updateField(fieldClientId, {
-                  jumlahKolom: Number(e.target.value) || 1,
-                })
-              }
+              onChange={(e) => ubahJumlahKolom(Number(e.target.value))}
             />
           </div>
         )}
+
+        {field.tipe === 'group' ? (
+          <div className="grid gap-3 rounded-lg border border-line bg-surface-2 p-3">
+            <div>
+              <p className="text-xs font-semibold text-ink">Kolom grup</p>
+              <p className="mt-0.5 text-[10px] text-muted">
+                Atur label, tipe jawaban, dan opsi untuk tiap kolom.
+              </p>
+            </div>
+            {groupColumns.map((column, index) => (
+              <div
+                key={column.key}
+                className="grid gap-2 border-t border-line pt-3"
+              >
+                <label className="grid gap-1 text-xs font-medium text-ink-2">
+                  Nama kolom {index + 1}
+                  <Input
+                    value={column.label}
+                    onChange={(e) =>
+                      ubahKolomGroup(index, { label: e.target.value })
+                    }
+                    placeholder={`Kolom ${index + 1}`}
+                  />
+                </label>
+                <label className="grid gap-1 text-xs font-medium text-ink-2">
+                  Tipe isian
+                  <Select
+                    value={column.type}
+                    onChange={(e) =>
+                      ubahKolomGroup(index, {
+                        type: e.target
+                          .value as (typeof TIPE_KOLOM_GROUP)[number],
+                        options: [],
+                      })
+                    }
+                  >
+                    {TIPE_KOLOM_GROUP.map((type) => (
+                      <option key={type} value={type}>
+                        {TIPE_FIELD_LABELS[type]}
+                      </option>
+                    ))}
+                  </Select>
+                </label>
+                {column.type === 'select' || column.type === 'radio' ? (
+                  <label className="grid gap-1 text-xs font-medium text-ink-2">
+                    Opsi jawaban (satu per baris)
+                    <Textarea
+                      value={column.options.join('\n')}
+                      onChange={(e) =>
+                        ubahKolomGroup(index, {
+                          options: e.target.value
+                            .split('\n')
+                            .map((option) => option.trim()),
+                        })
+                      }
+                      placeholder={'Ya\nTidak'}
+                      rows={3}
+                    />
+                  </label>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ) : null}
 
         <div className="flex flex-wrap gap-4">
           <label className="flex items-center gap-2 text-sm text-ink-2">

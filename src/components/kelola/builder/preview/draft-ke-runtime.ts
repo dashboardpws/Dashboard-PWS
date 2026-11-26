@@ -28,6 +28,7 @@ import type {
   DraftFormDocument,
   DraftOpsi,
 } from '@/components/kelola/builder/types'
+import { kolomGroupDefault } from '@/lib/form-builder/group-columns'
 import {
   SUMBER_CARI_WARGA,
   SUMBER_SUGGEST,
@@ -99,6 +100,10 @@ export function fieldKeRuntime(
     wajib: field.wajib,
     urutan,
     jumlahKolom: field.jumlahKolom,
+    groupColumns:
+      field.tipe === 'group'
+        ? (field.groupColumns ?? kolomGroupDefault(field.jumlahKolom ?? 1))
+        : [],
     aktif: field.aktif,
     opsi: opsiKeRuntime(field.opsi),
     opsiDinamis: opsiLokal(field),

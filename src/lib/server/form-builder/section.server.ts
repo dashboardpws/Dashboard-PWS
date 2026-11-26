@@ -4,6 +4,7 @@ import { formVersions, forms } from '@/lib/schema/schema'
 import { parseFormDefinition } from '@/lib/form-builder/form-schema'
 import { KesalahanValidasi } from './form-version.server'
 import { namaTanpaPrefix } from '@/lib/form-builder/kode-bawaan'
+import { kolomGroupDefault } from '@/lib/form-builder/group-columns'
 
 /** Satu pilihan jawaban milik satu field. */
 export interface OpsiDefinisiField {
@@ -71,6 +72,10 @@ export async function ambilDefinisiVersi(formVersionId: string) {
       wajib: field.required,
       urutan: field.order,
       jumlahKolom: field.columns,
+      groupColumns:
+        field.type === 'group'
+          ? (field.groupColumns ?? kolomGroupDefault(field.columns ?? 1))
+          : undefined,
       aktif: field.active,
       opsi: field.options.map((option) => ({
         id: option.id,

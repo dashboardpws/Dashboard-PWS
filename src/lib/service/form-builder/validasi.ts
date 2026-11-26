@@ -14,6 +14,7 @@
 import { isValidNik } from '@/lib/utils'
 import { MAX_FOTO, PATH_FOTO_FORM } from '@/lib/constants'
 import { cariSumber, SUMBER_CARI_WARGA, SUMBER_SUGGEST } from './sumber-opsi'
+import type { GroupColumnDefinition } from '@/lib/form-builder/group-columns'
 
 export type KodeValidasi =
   | 'OPSI_KOSONG'
@@ -41,7 +42,6 @@ export type KodeValidasi =
   | 'STRUKTUR_BAWAAN_DIKUNCI'
   | 'FORM_PUNYA_ISIAN'
   | 'KONFIRMASI_NAMA_SALAH'
-  | 'DRAFT_BAWAAN_TERKUNCI'
   | 'VERSI_HANYA_SATU'
 
 export type HasilValidasi =
@@ -132,8 +132,9 @@ function selGroupValid(nilai: unknown): nilai is NilaiGroup {
 export function validasiNilaiGroup(params: {
   value: unknown
   maxBaris?: number
+  columns?: readonly GroupColumnDefinition[]
 }): HasilValidasi {
-  const { value, maxBaris = MAX_BARIS_GROUP } = params
+  const { value, maxBaris = MAX_BARIS_GROUP, columns } = params
 
   if (!Array.isArray(value)) {
     return gagal('GROUP_BARIS_SISIP', 'Field group harus diisi daftar baris.')
@@ -160,6 +161,39 @@ export function validasiNilaiGroup(params: {
           'GROUP_NILAI_SISIP',
           `Nilai kolom "${kolom}" pada baris ${i + 1} harus teks, angka, atau boolean.`,
         )
+      }
+    }
+    if (columns) {
+      const record = baris as Record<string, unknown>
+      for (const column of columns) {
+        const cell = record[column.key]
+        if (cell === null || cell === undefined || cell === '') continue
+        let valid = false
+        switch (column.type) {
+          case 'text':
+          case 'textarea':
+          case 'date':
+          case 'time':
+            valid = typeof cell === 'string'
+            break
+          case 'number':
+            valid = typeof cell === 'number' && Number.isFinite(cell)
+            break
+          case 'checkbox':
+            valid = typeof cell === 'boolean'
+            break
+          case 'select':
+          case 'radio':
+            valid =
+              typeof cell === 'string' && column.options.includes(cell)
+            break
+        }
+        if (!valid) {
+          return gagal(
+            'NILAI_TIDAK_COCOK',
+            `Nilai kolom "${column.label}" pada baris ${i + 1} tidak sesuai tipenya.`,
+          )
+        }
       }
     }
   }
@@ -225,6 +259,7 @@ export interface FieldDefinisi {
   optionSourceType?: string | null
   optionSourceKey?: string | null
   jumlahKolom?: number | null
+  groupColumns?: readonly GroupColumnDefinition[]
   opsi?: readonly Pick<OpsiField, 'value' | 'aktif'>[]
   /** true = field dihapus, jadi tidak diperiksa. */
   hapus?: boolean
@@ -449,6 +484,44 @@ export function validasiFieldPenuh(params: {
           `${posisi} bertipe group wajib punya jumlah kolom minimal satu.`,
         )
       }
+      const kolom = field.groupColumns ?? []
+      if (kolom.length !== jumlah) {
+        return gagal(
+          'KOLOM_GROUP_KOSONG',
+          `${posisi} harus punya pengaturan untuk setiap kolom grup.`,
+        )
+      }
+      const kunciKolom = new Set<string>()
+      for (const [index, item] of kolom.entries()) {
+        if (!item.key.trim() || !item.label.trim()) {
+          return gagal(
+            'KOLOM_GROUP_KOSONG',
+            `${posisi}, kolom ${index + 1}: nama kolom wajib diisi.`,
+          )
+        }
+        if (kunciKolom.has(item.key)) {
+          return gagal(
+            'KOLOM_GROUP_KOSONG',
+            `${posisi} memiliki kunci kolom grup yang duplikat.`,
+          )
+        }
+        kunciKolom.add(item.key)
+        if (item.type === 'select' || item.type === 'radio') {
+          const options = item.options.map((option) => option.trim())
+          if (options.length === 0 || options.some((option) => !option)) {
+            return gagal(
+              'OPSI_KOSONG',
+              `${posisi}, kolom "${item.label}": tambahkan minimal satu opsi.`,
+            )
+          }
+          if (new Set(options).size !== options.length) {
+            return gagal(
+              'OPSI_KOSONG',
+              `${posisi}, kolom "${item.label}": opsi jawaban tidak boleh duplikat.`,
+            )
+          }
+        }
+      }
     } else if (field.jumlahKolom !== null && field.jumlahKolom !== undefined) {
       return gagal(
         'KOLOM_GROUP_KOSONG',
@@ -596,8 +669,9 @@ export function validasiNilaiField(params: {
   tipe: TipeField
   value: unknown
   opsi?: readonly Pick<OpsiField, 'value' | 'aktif'>[]
+  groupColumns?: readonly GroupColumnDefinition[]
 }): HasilValidasi {
-  const { tipe, value, opsi } = params
+  const { tipe, value, opsi, groupColumns } = params
 
   if (value === null || value === undefined || value === '') return lolos
 
@@ -716,7 +790,7 @@ export function validasiNilaiField(params: {
       return lolos
 
     case 'group':
-      return validasiNilaiGroup({ value })
+      return validasiNilaiGroup({ value, columns: groupColumns })
   }
 }
 
@@ -732,7 +806,7 @@ export function validasiNik(nik: string): HasilValidasi {
 }
 
 /**
- * Ringkasan isi satu versi draft, dihitung sebelum dihapus.
+ * Ringkasan isi satu versi draft atau arsip, dihitung sebelum dihapus.
  *
  * Dipakai dialog konfirmasi supaya admin melihat berapa banyak yang hilang,
  * bukan sekadar menekan tombol dengan angka yang tidak jelas.
@@ -747,64 +821,42 @@ export interface RingkasanHapusDraft {
 }
 
 /**
- * Aturan menghapus satu versi draft.
+ * Aturan menghapus satu versi draft atau arsip.
  *
- * Empat lapis, dari yang paling halus:
- *   1. Hanya versi `draft` yang boleh dihapus. Versi `published` adalah form
- *      yang sedang dipakai petugas; `archived` adalah bukti form apa yang pernah
- *      tayang. Keduanya tidak hilang karena satu klik di editor.
- *   2. Draft form bawaan sistem (`forms.kode` terisi) tidak bisa dihapus.
- *      Form kunjungan rumah punya struktur yang dipetakan balik ke UI kader
- *      lewat nama section dan nama field (lihat `kode-bawaan.ts`), jadi draft
- *      itu adalah satu-satunya tempat admin menulis perubahan
- *      sekaligus satu-satunya salinan struktur itu. Menghapus draft terakhir
- *      membuat form tidak bisa dibangun ulang dengan bentuk yang benar.
- *   3. Draft yang sudah punya isian tidak boleh dihapus. `surveys.formVersionId`
- *      tidak meng-cascade, jadi penghapusan akan ditolak Postgres dengan
- *      pelanggaran FK yang tidak berguna untuk petugas.
- *   4. Versi draft terakhir sebuah form tidak boleh dihapus, karena form tanpa
- *      versi tidak punya editor sama sekali. Admin membuat draft baru dari
- *      tombol "Draft Berikutnya" kalau memang ingin mulai dari nol.
+ * Aturan penghapusan:
+ * Versi `published` tidak boleh dihapus karena masih menjadi struktur aktif.
+ * Draft dan arsip boleh dihapus dari form apa pun selama belum punya isian,
+ * serta bukan versi terakhir form. Isian yang sudah tersimpan tetap terikat ke
+ * versi asal agar riwayatnya tidak hilang.
  */
 export function validasiHapusDraftVersi(params: {
   status: string | null
-  /** `forms.kode` dari form pemilik versi ini. */
-  kodeForm: string | null
   jumlahVersi: number
   ringkasan: RingkasanHapusDraft
 }): HasilValidasi {
-  const { status, kodeForm, jumlahVersi, ringkasan } = params
+  const { status, jumlahVersi, ringkasan } = params
 
   if (status === null) {
     return gagal('VERSI_TIDAK_ADA', 'Form versi tidak ditemukan.')
   }
-  if (status !== 'draft') {
+  if (status !== 'draft' && status !== 'archived') {
     return gagal(
       'VERSI_BUKAN_DRAFT',
-      status === 'published'
-        ? 'Versi ini sudah diterbitkan dan tidak bisa dihapus. Buat draft baru untuk mengubah form.'
-        : 'Versi ini sudah diarsipkan dan tidak bisa dihapus.',
-    )
-  }
-
-  if (kodeForm) {
-    return gagal(
-      'DRAFT_BAWAAN_TERKUNCI',
-      'Draft form bawaan sistem tidak bisa dihapus. Struktur form ini dipetakan ke form kader, jadi draftnya harus tetap ada untuk bisa dibangun ulang.',
+      'Hanya versi draft atau arsip yang bisa dihapus.',
     )
   }
 
   if (ringkasan.jumlahSubmit > 0) {
     return gagal(
       'FORM_PUNYA_ISIAN',
-      `Draft ini sudah punya ${ringkasan.jumlahSubmit} isian. Hapus isiannya dulu lewat menu isian form, atau jangan hapus draft ini.`,
+      `Versi ini sudah punya ${ringkasan.jumlahSubmit} isian, jadi tidak bisa dihapus.`,
     )
   }
 
   if (jumlahVersi <= 1) {
     return gagal(
       'VERSI_HANYA_SATU',
-      'Draft ini satu-satunya versi form ini. Menghapusnya membuat form tidak bisa disunting lagi — buat draft baru dari nol kalau memang ingin.',
+      'Versi ini satu-satunya versi form. Buat draft baru sebelum menghapus versi ini.',
     )
   }
 
