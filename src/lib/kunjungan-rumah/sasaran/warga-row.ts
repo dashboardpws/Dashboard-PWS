@@ -250,51 +250,79 @@ export function barisDataWargaDariForm(input: {
   info: KeluargaInfo
   anggota: AnggotaKeluarga[]
   suggestion: SasaranSuggestion | null
+  /** Nilai keluarga yang melengkapi kolom anggota baru yang belum diisi. */
+  fallback?: BarisWarga
 }): HasilBarisWarga {
-  const { info, anggota, suggestion } = input
+  const { info, anggota, suggestion, fallback } = input
   const nik = teks(info.nik)
   const kk = anggotaKepalaKeluarga(anggota, nik)
 
   const ambil = (
     dariForm: string,
     dariSuggestion: string | null | undefined,
+    dariFallback: string | undefined,
   ): string => {
     const f = dariForm.trim()
     if (f) return f
-    return (dariSuggestion ?? '').trim()
+    return (dariSuggestion ?? dariFallback ?? '').trim()
   }
 
   // `KeluargaInfo` punya index signature `string`, jadi akses `info.x` selalu
   // `string` — cukup `?? ""` untuk menyingkirkan `undefined` dari data lama.
   const kandidat = {
     nik,
-    nama_art: ambil(kk?.nama ?? '', suggestion?.namaArt),
-    nama_kk: ambil(info.namaKK, suggestion?.namaKk),
-    alamat: ambil(info.alamat, suggestion?.alamat),
-    tgl_lahir: ambil(kk?.tglLahir ?? '', suggestion?.tglLahir),
-    rt: ambil(teks(info.rt), suggestion?.rt),
-    rw: ambil(teks(info.rw), suggestion?.rw),
-    kecamatan: ambil(info.kecamatan, suggestion?.kecamatan),
-    kelurahan: ambil(info.kelurahan, suggestion?.kelurahan),
-    kota: ambil(info.kabKota, suggestion?.kabKota),
-    staff: teks(info.petugasId),
+    nama_art: ambil(kk?.nama ?? '', suggestion?.namaArt, fallback?.nama_art),
+    nama_kk: ambil(info.namaKK, suggestion?.namaKk, fallback?.nama_kk),
+    alamat: ambil(info.alamat, suggestion?.alamat, fallback?.alamat),
+    tgl_lahir: ambil(
+      kk?.tglLahir ?? '',
+      suggestion?.tglLahir,
+      fallback?.tgl_lahir,
+    ),
+    rt: ambil(teks(info.rt), suggestion?.rt, fallback?.rt),
+    rw: ambil(teks(info.rw), suggestion?.rw, fallback?.rw),
+    kecamatan: ambil(
+      info.kecamatan,
+      suggestion?.kecamatan,
+      fallback?.kecamatan,
+    ),
+    kelurahan: ambil(
+      info.kelurahan,
+      suggestion?.kelurahan,
+      fallback?.kelurahan,
+    ),
+    kota: ambil(info.kabKota, suggestion?.kabKota, fallback?.kota),
+    staff: teks(info.petugasId) || fallback?.staff || '',
   }
 
   // Kolom enum. `kk` menang atas import kalau ada: isian anggota yang dikoreksi
   // staff lebih baru daripada data import.
   const relasi = {
-    hubungan_keluarga: keHubunganKeluarga(
-      kk?.hubKK || suggestion?.hubunganKeluarga,
-    ),
-    status_kawin: keStatusKawin(kk?.statusKawin || suggestion?.statusKawin),
-    jenis_kelamin: keJenisKelamin(kk?.jk || suggestion?.jenisKelamin),
+    hubungan_keluarga:
+      keHubunganKeluarga(kk?.hubKK || suggestion?.hubunganKeluarga) ??
+      fallback?.hubungan_keluarga ??
+      null,
+    status_kawin:
+      keStatusKawin(kk?.statusKawin || suggestion?.statusKawin) ??
+      fallback?.status_kawin ??
+      null,
+    jenis_kelamin:
+      keJenisKelamin(kk?.jk || suggestion?.jenisKelamin) ??
+      fallback?.jenis_kelamin ??
+      null,
     // `agama` tidak ada di template keluarga default, jadi biasanya hanya bisa
     // datang dari import. `kk.agama` tetap dibaca lebih dulu: kalau admin
     // menambah field `agama` di section anggota lewat Form Builder, `kk.agama`
     // langsung terpakai tanpa perubahan kode ini.
-    agama: keAgama(kk?.agama || suggestion?.agama),
-    pendidikan: kePendidikan(kk?.pendidikan || suggestion?.pendidikan),
-    pekerjaan: kePekerjaan(kk?.pekerjaan || suggestion?.pekerjaan),
+    agama: keAgama(kk?.agama || suggestion?.agama) ?? fallback?.agama ?? null,
+    pendidikan:
+      kePendidikan(kk?.pendidikan || suggestion?.pendidikan) ??
+      fallback?.pendidikan ??
+      null,
+    pekerjaan:
+      kePekerjaan(kk?.pekerjaan || suggestion?.pekerjaan) ??
+      fallback?.pekerjaan ??
+      null,
   }
 
   if (!nik || !isValidNik(nik)) return { nilai: null, hilang: ['nik'] }

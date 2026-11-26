@@ -36,6 +36,7 @@ import {
   querySurveyStatsByNik,
   queryRiwayatKRTerbaru,
   queryWargaList,
+  queryJumlahWargaTerdata,
   queryRiwayatKsUntukNik,
 } from '@/lib/server/sasaran.server'
 import {
@@ -238,7 +239,10 @@ export const getSasaranList = createServerFn({ method: 'GET' })
       pageSize: 10,
       all: data.all ?? false,
     })
-    const stats = await querySurveyStatsByNik()
+    const stats = await querySurveyStatsByNik(
+      data.all ? undefined : result.rows.map((w) => w.nik),
+      false,
+    )
     const byNik = new Map(stats.map((s) => [s.nik, s]))
     const rows: SasaranListRow[] = result.rows.map((w) => {
       // NIK tampil bisa berupa NIK sementara (derive raw_id) yang bukan
@@ -254,9 +258,9 @@ export const getSasaranList = createServerFn({ method: 'GET' })
         needsUpdate: w.needsUpdate,
         nama: w.nama_art,
         kelurahan: w.kelurahan,
-        status: st ? 'Sudah' : 'Belum',
-        tgl: st?.terakhir ?? null,
-        kunjunganRumah: st?.total ?? 0,
+        status: w.sudahDiperiksa ? 'Sudah' : 'Belum',
+        tgl: st?.terakhir ?? w.terakhirDiperiksa,
+        kunjunganRumah: st?.total ?? (w.sudahDiperiksa ? 1 : 0),
       }
     })
     return { rows, total: result.total }
@@ -332,6 +336,10 @@ export const getLaporanKunjunganRumah = createServerFn({ method: 'GET' })
   .handler(async (): Promise<SurveyRow[]> => {
     return await querySurveysWithWarga(500)
   })
+
+export const getJumlahWargaTerdata = createServerFn({ method: 'GET' })
+  .middleware([authSessionToken])
+  .handler(async (): Promise<number> => await queryJumlahWargaTerdata())
 
 /**
  * Notifikasi di dalam website (pengganti pesan WhatsApp).

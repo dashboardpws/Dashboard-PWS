@@ -27,7 +27,7 @@ import {
 import { dataWargaTable } from '@/lib/schema/schema'
 import { refSasaranValid } from '@/lib/sasaran/ref'
 import { db } from './db.server'
-import { sql } from 'drizzle-orm'
+import { count, sql } from 'drizzle-orm'
 import { isValidNik } from '@/lib/utils'
 import {
   buildPenilaianMapFromSubmission,
@@ -580,6 +580,10 @@ export async function barisWargaKeluargaDariPayload(
       info: { ...info, nik } as unknown as KeluargaInfo,
       anggota: [warga],
       suggestion,
+      // ART baru sering tidak punya data import untuk wilayah atau enum. Nilai
+      // keluarga yang sama dengan kepala keluarga melengkapi kolom wajib agar
+      // anggota tetap masuk ke data_warga; isian ART sendiri tetap menang.
+      fallback: utama,
     })
     if (nilai) baris.set(nik, nilai)
   }
@@ -608,6 +612,12 @@ export async function queryWargaList() {
   })
 }
 
+/** Jumlah warga yang benar-benar sudah tersimpan dari submit KR. */
+export async function queryJumlahWargaTerdata(): Promise<number> {
+  const [hasil] = await db.select({ total: count() }).from(dataWargaTable)
+  return hasil?.total ?? 0
+}
+
 // ---- sumber data awal UI sasaran (gabungan import) ----
 /**
  * Baris sasaran gabungan (`data_warga` + `data_warga_import`) yang ditampilkan
@@ -632,6 +642,8 @@ export type BarisWargaGabungan = {
   ref: string
   rawId: string
   nik: string
+  sudahDiperiksa: boolean
+  terakhirDiperiksa: string | null
   nikValid: boolean
   needsUpdate: boolean
   nama_art: string
@@ -646,10 +658,13 @@ export type BarisWargaGabungan = {
   jenis_kelamin: string
 }
 
-/** Proyeksi `data_warga` untuk sumber gabungan. Semua kolomnya `NOT NULL` dan
- *  `rt`/`rw` sudah varchar; NIK selalu valid, `rawId` = NIK. */
+/** Proyeksi `data_warga` untuk sumber gabungan. Keberadaan baris ini menjadi
+ *  penanda pemeriksaan selesai karena submit KR menyimpan warga lengkap di sini
+ *  dalam transaksi yang sama. `updatedAt` mencatat submit KR terakhir. */
 const SELECT_GABUNGAN_WARGA = sql`
     1                                 AS "prioritas",
+    true                              AS "sudah_diperiksa",
+    to_char("updatedAt", 'YYYY-MM-DD') AS "terakhir_diperiksa",
     public_id                         AS "ref",
     nik                              AS "raw_id",
     nik                              AS "nik_tampil",
@@ -676,6 +691,8 @@ const SELECT_GABUNGAN_WARGA = sql`
  *  diperbarui. Kolom tanpa padanan dikosongkan, bukan ditebak. */
 const SELECT_GABUNGAN_IMPORT = sql`
     2                                 AS "prioritas",
+    false                             AS "sudah_diperiksa",
+    NULL::text                        AS "terakhir_diperiksa",
     public_id                         AS "ref",
     raw_id                           AS "raw_id",
     CASE WHEN length(btrim(nik)) = 16 THEN btrim(nik)
@@ -739,24 +756,7 @@ export async function querySasaranListPaged(
     )
   }
   if (p.status === 'Sudah' || p.status === 'Belum') {
-    const ada = sql`EXISTS (
-      SELECT 1 FROM surveys s WHERE s."wargaNik" = g."nik_tampil"
-      UNION ALL
-      SELECT 1
-      FROM surveys s
-      JOIN survey_entries e ON e."surveyId" = s.id
-      JOIN form_versions fv ON fv.id = s."formVersionId"
-      CROSS JOIN LATERAL jsonb_array_elements(fv."schema"->'sections') section
-      CROSS JOIN LATERAL jsonb_array_elements(section->'fields') field
-      CROSS JOIN LATERAL jsonb_array_elements(
-        CASE WHEN jsonb_typeof(e.value->'anggota') = 'array'
-          THEN e.value->'anggota' ELSE '[]'::jsonb END
-      ) anggota
-      WHERE field->>'id' = e."fieldId"::text
-        AND field->>'name' = 'penyimpanan::record_legacy'
-        AND anggota->>'nik' = g."nik_tampil"
-    )`
-    where.push(p.status === 'Sudah' ? ada : sql`NOT ${ada}`)
+    where.push(sql`g."sudah_diperiksa" = ${p.status === 'Sudah'}`)
   }
 
   const whereSql = where.length
@@ -773,6 +773,7 @@ export async function querySasaranListPaged(
         WITH gabungan AS (
             SELECT DISTINCT ON (u."nik_tampil")
                 u."ref", u."raw_id", u."nik_tampil", u."nik_valid", u."needs_update",
+                u."sudah_diperiksa", u."terakhir_diperiksa",
                 u."nama_art", u."nama_kk", u."kelurahan", u."kecamatan", u."kota",
                 u."rt", u."rw", u."alamat", u."tgl_lahir", u."jenis_kelamin"
             FROM (
@@ -795,6 +796,10 @@ export async function querySasaranListPaged(
       ref: String(r.ref ?? ''),
       rawId: String(r.raw_id ?? ''),
       nik: String(r.nik_tampil ?? ''),
+      sudahDiperiksa: Boolean(r.sudah_diperiksa),
+      terakhirDiperiksa: r.terakhir_diperiksa
+        ? String(r.terakhir_diperiksa)
+        : null,
       nikValid: Boolean(r.nik_valid),
       needsUpdate: Boolean(r.needs_update),
       nama_art: String(r.nama_art ?? ''),
@@ -842,6 +847,10 @@ export async function querySasaranByRef(
     ref: String(row.ref ?? ''),
     rawId: String(row.raw_id ?? ''),
     nik: String(row.nik_tampil ?? ''),
+    sudahDiperiksa: Boolean(row.sudah_diperiksa),
+    terakhirDiperiksa: row.terakhir_diperiksa
+      ? String(row.terakhir_diperiksa)
+      : null,
     nikValid: Boolean(row.nik_valid),
     needsUpdate: Boolean(row.needs_update),
     nama_art: String(row.nama_art ?? ''),
@@ -948,18 +957,25 @@ export async function queryRiwayatKsUntukNik(
   return row ?? {}
 }
 
-export async function querySurveyStatsByNik(): Promise<
-  Array<{ nik: string; total: number; terakhir: string | null }>
-> {
-  // Kolom NIK di `surveys` bernama `wargaNik` (dulu `nik`, sudah di-rename saat
-  // tabel dibuat ulang ke schema v2). Nama lama di sini bikin query gagal runtime
-  // dengan "column nik does not exist", bukan error TypeScript.
-  const rows = await db.execute(sql`
-        WITH kunjungan AS (
-          SELECT s."wargaNik" AS nik, s."tanggal"
-          FROM surveys s
-          WHERE s."wargaNik" IS NOT NULL
-          UNION
+export async function querySurveyStatsByNik(
+  niks?: string[],
+  termasukAnggota = true,
+): Promise<Array<{ nik: string; total: number; terakhir: string | null }>> {
+  if (niks && niks.length === 0) return []
+  const filterNik = niks
+    ? sql`AND anggota->>'nik' IN (${sql.join(
+        niks.map((nik) => sql`${nik}`),
+        sql`, `,
+      )})`
+    : sql``
+  const filterWargaNik = niks
+    ? sql`AND s."wargaNik" IN (${sql.join(
+        niks.map((nik) => sql`${nik}`),
+        sql`, `,
+      )})`
+    : sql``
+  const kunjunganAnggota = termasukAnggota
+    ? sql`UNION
           SELECT anggota->>'nik' AS nik, s."tanggal"
           FROM surveys s
           JOIN survey_entries e ON e."surveyId" = s.id
@@ -973,6 +989,17 @@ export async function querySurveyStatsByNik(): Promise<
           WHERE field->>'id' = e."fieldId"::text
             AND field->>'name' = 'penyimpanan::record_legacy'
             AND anggota->>'nik' ~ '^[0-9]{16}$'
+            ${filterNik}`
+    : sql``
+  // Kolom NIK di `surveys` bernama `wargaNik` (dulu `nik`, sudah di-rename saat
+  // tabel dibuat ulang ke schema v2). Nama lama di sini bikin query gagal runtime
+  // dengan "column nik does not exist", bukan error TypeScript.
+  const rows = await db.execute(sql`
+        WITH kunjungan AS (
+          SELECT s."wargaNik" AS nik, s."tanggal"
+          FROM surveys s
+          WHERE s."wargaNik" IS NOT NULL ${filterWargaNik}
+          ${kunjunganAnggota}
         )
         SELECT nik, COUNT(*)::int AS total, MAX("tanggal")::text AS terakhir
         FROM kunjungan

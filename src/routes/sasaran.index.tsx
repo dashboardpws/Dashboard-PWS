@@ -1,8 +1,13 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
-import { useAsyncData } from '@/hooks/use-async-data'
+import { RotateCcw } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { getSasaranList } from '@/lib/api/server-fns'
-import type { SasaranListRow } from '@/lib/api/server-fns'
+import type { SasaranListResult, SasaranListRow } from '@/lib/api/server-fns'
+import {
+  bacaCacheDaftarSasaran,
+  hapusCacheDaftarSasaran,
+  simpanCacheDaftarSasaran,
+} from '@/lib/sasaran/cache-daftar'
 import { requireAuth } from '@/lib/auth/auth'
 import { PAGE_SIZE } from '@/lib/constants'
 import { downloadCsv, fmtDate } from '@/lib/utils'
@@ -20,6 +25,7 @@ import {
 } from '@/components/ui'
 
 const DEBOUNCE_MS = 500
+const CACHE_VALID_MS = 5 * 60 * 1000
 
 /**
  * Chip "butuh update" di samping nama sasaran. Markupnya ada di dua bentuk
@@ -97,24 +103,72 @@ function Sasaran() {
     setFilter({ q: '', status: 'all', kel: 'all', page: 1 })
   }
 
-  // Fetch hanya di sini → ganti filter me-reload tabel, header + filter card
-  // tetap di tempat tanpa hilang. URL search param tetap kebenaran tunggal.
-  const { data, loading, error } = useAsyncData(
-    () => getSasaranList({ data: { q, status, kel, page: pageIn } }),
-    [q, status, kel, pageIn],
-    { rows: [] as SasaranListRow[], total: 0 },
-    {
-      mapError: () => 'Gagal memuat data. Coba lagi.',
-      onSuccess: (res) => {
-        const pageTerakhir = Math.max(1, Math.ceil(res.total / PAGE_SIZE))
+  // Cache IndexedDB menyajikan hasil yang sudah pernah dimuat seketika setelah
+  // refresh. Cache segar dipakai tanpa request; cache lama tampil dulu lalu
+  // diperbarui di belakang layar agar perubahan data tetap masuk.
+  const kunciCache = JSON.stringify([q, status, kel, pageIn])
+  const [data, setData] = useState<SasaranListResult>({
+    rows: [] as SasaranListRow[],
+    total: 0,
+  })
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [cacheReset, setCacheReset] = useState(0)
+  const cacheResetTerakhir = useRef(0)
+  const versiPermintaan = useRef(0)
+  useEffect(() => {
+    const idPermintaan = ++versiPermintaan.current
+    const masihAktif = () => versiPermintaan.current === idPermintaan
+    const paksaMuat = cacheReset > cacheResetTerakhir.current
+    if (paksaMuat) cacheResetTerakhir.current = cacheReset
+    const muat = async () => {
+      setLoading(true)
+      setError(null)
+      const cache = paksaMuat ? null : await bacaCacheDaftarSasaran(kunciCache)
+      if (!masihAktif()) return
+      if (cache) {
+        setData(cache.hasil)
+        const pageTerakhir = Math.max(
+          1,
+          Math.ceil(cache.hasil.total / PAGE_SIZE),
+        )
         if (pageIn > pageTerakhir) {
           setFilter({ page: pageTerakhir })
+          return
         }
-      },
-    },
-  )
+        if (Date.now() - cache.disimpan < CACHE_VALID_MS) {
+          setLoading(false)
+          return
+        }
+        setLoading(false)
+      }
+      try {
+        const hasil = await getSasaranList({
+          data: { q, status, kel, page: pageIn },
+        })
+        if (!masihAktif()) return
+        setData(hasil)
+        void simpanCacheDaftarSasaran(kunciCache, hasil)
+        const pageTerakhir = Math.max(1, Math.ceil(hasil.total / PAGE_SIZE))
+        if (pageIn > pageTerakhir) setFilter({ page: pageTerakhir })
+      } catch {
+        if (masihAktif()) setError('Gagal memuat data. Coba lagi.')
+      } finally {
+        if (masihAktif()) setLoading(false)
+      }
+    }
+    void muat()
+    return () => {
+      if (masihAktif()) versiPermintaan.current++
+    }
+  }, [kunciCache, q, status, kel, pageIn, cacheReset])
   const rows = data.rows
   const total = data.total
+
+  const resetCache = async () => {
+    await hapusCacheDaftarSasaran()
+    setCacheReset((versi) => versi + 1)
+  }
 
   const doneCount = rows.filter((r) => r.status === 'Sudah').length
   const maxPage = Math.max(1, Math.ceil(total / PAGE_SIZE))
@@ -197,10 +251,13 @@ function Sasaran() {
             <Button size="sm" variant="export" onClick={exportAllCsv}>
               Export Semua
             </Button>
+            <Button size="sm" variant="ghost" onClick={resetCache}>
+              <RotateCcw size={14} />
+            </Button>
           </Toolbar>
         }
       >
-        {error ? (
+        {error && rows.length === 0 ? (
           <p className="px-1 py-6 text-center text-sm text-danger">{error}</p>
         ) : loading ? (
           <p className="px-1 py-6 text-center text-sm text-muted">

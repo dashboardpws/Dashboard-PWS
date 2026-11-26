@@ -5,6 +5,7 @@ import { Skeleton } from '@mantine/core'
 import {
   getAnggotaSubmit,
   getFormAdaSubmit,
+  getJumlahWargaTerdata,
   getLaporanKunjunganRumah,
   getRiwayatSubmit,
   listKegiatan,
@@ -62,14 +63,26 @@ export const Route = createFileRoute('/laporan')({
   beforeLoad: requireAuth,
   validateSearch: (search: Record<string, unknown>) => opsiSearch(search),
   loader: async () => {
-    const [kunjunganRumah, kegiatan, riwayatSubmit, formAdaSubmit] =
-      await Promise.all([
-        getLaporanKunjunganRumah(),
-        listKegiatan(),
-        getRiwayatSubmit({ data: {} }),
-        getFormAdaSubmit(),
-      ])
-    return { kunjunganRumah, kegiatan, riwayatSubmit, formAdaSubmit }
+    const [
+      kunjunganRumah,
+      kegiatan,
+      riwayatSubmit,
+      formAdaSubmit,
+      wargaTerdata,
+    ] = await Promise.all([
+      getLaporanKunjunganRumah(),
+      listKegiatan(),
+      getRiwayatSubmit({ data: {} }),
+      getFormAdaSubmit(),
+      getJumlahWargaTerdata(),
+    ])
+    return {
+      kunjunganRumah,
+      kegiatan,
+      riwayatSubmit,
+      formAdaSubmit,
+      wargaTerdata,
+    }
   },
   pendingComponent: LaporanPending,
   component: Laporan,
@@ -112,6 +125,7 @@ function Laporan() {
     kegiatan: kegiatanRaw,
     riwayatSubmit,
     formAdaSubmit,
+    wargaTerdata,
   } = Route.useLoaderData()
   const kegiatanRows = kegiatanRaw as unknown as KegiatanRecord[]
   const { opsi: fasilitas } = useFasilitas()
@@ -218,13 +232,6 @@ function Laporan() {
     )
   }, [rows, dari, sampai, kel, formId, cari, formAdaSubmit])
 
-  const wargaUnik = new Set(
-    filtered
-      .filter((r) => r.formKode === KODE_FORM_BAWAAN.kunjunganRumah)
-      .map((r) => r.nik)
-      .filter((n): n is string => n !== null),
-  ).size
-
   const namaFormFilter =
     formId === 'all'
       ? 'semua form'
@@ -306,7 +313,7 @@ function Laporan() {
       `Laporan Kunjungan Rumah PWS — Kota Pasuruan`,
       `Periode ${fmtDate(dari)} – ${fmtDate(sampai)}`,
       `Sumber data: ${namaFormFilter}`,
-      `Total ${filtered.length} isian form · ${wargaUnik} warga unik`,
+      `Total ${filtered.length} isian form · ${wargaTerdata} warga tersimpan`,
       `${kelStats.map((s) => `Kel. ${s.kel}: ${s.n}`).join(' · ')}`,
     ].join('\n')
     navigator.clipboard
@@ -484,7 +491,7 @@ function Laporan() {
         >
           <div className="grid grid-cols-3 gap-3 max-md:grid-cols-2">
             <StatCard caption="Total isian form" value={filtered.length} />
-            <StatCard caption="Warga unik" value={wargaUnik} />
+            <StatCard caption="Warga tersimpan" value={wargaTerdata} />
             <StatCard
               caption="Kelurahan tercakup"
               value={kelStats.filter((s) => s.n > 0).length}
@@ -520,7 +527,7 @@ function Laporan() {
             subtitle={
               <>
                 Periode {fmtDate(dari)} – {fmtDate(sampai)} · {namaFormFilter} ·{' '}
-                {filtered.length} isian form · {wargaUnik} warga
+                {filtered.length} isian form · {wargaTerdata} warga tersimpan
               </>
             }
             ttdNama={ttdNama}
@@ -742,8 +749,8 @@ function Laporan() {
               }}
               toolbar={
                 <span className="text-xs font-semibold text-muted">
-                  Menampilkan {filtered.length} isian form · {wargaUnik} warga
-                  unik
+                  Menampilkan {filtered.length} isian form · {wargaTerdata}{' '}
+                  warga tersimpan
                 </span>
               }
               info={info}
