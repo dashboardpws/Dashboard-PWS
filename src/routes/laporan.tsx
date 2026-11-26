@@ -219,7 +219,10 @@ function Laporan() {
   }, [rows, dari, sampai, kel, formId, cari, formAdaSubmit])
 
   const wargaUnik = new Set(
-    filtered.map((r) => r.nik).filter((n): n is string => n !== null),
+    filtered
+      .filter((r) => r.formKode === KODE_FORM_BAWAAN.kunjunganRumah)
+      .map((r) => r.nik)
+      .filter((n): n is string => n !== null),
   ).size
 
   const namaFormFilter =
@@ -227,8 +230,12 @@ function Laporan() {
       ? 'semua form'
       : (formAdaSubmit.find((f) => f.formId === formId)?.nama ?? 'form')
 
+  const normalisasiKelurahan = (nilai: string) =>
+    nilai.trim().toLocaleLowerCase('id-ID')
   const kelStats = KELS.map((k) => {
-    const sub = filtered.filter((r) => r.kelurahan === k)
+    const sub = filtered.filter(
+      (r) => normalisasiKelurahan(r.kelurahan) === normalisasiKelurahan(k),
+    )
     return {
       kel: k,
       n: sub.length,
