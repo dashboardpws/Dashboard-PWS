@@ -25,7 +25,7 @@ export const Route = createRootRoute({
       { charSet: 'utf-8' },
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
       { name: 'theme-color', content: '#ffffff' },
-      { title: 'Dashboard PWS — Dinas Kesehatan Kota Pasuruan' },
+      { title: 'Dashboard PWS — Puskesmas Trajeng Kota Pasuruan' },
     ],
     links: [
       {

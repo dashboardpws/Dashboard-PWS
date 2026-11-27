@@ -74,7 +74,7 @@ function SasaranDetailPending() {
 
 function SasaranDetail() {
   const navigate = useNavigate()
-  const { warga: row, surveys } = Route.useLoaderData()
+  const { warga: row, surveys, pemeriksaan } = Route.useLoaderData()
 
   if (!row) {
     return (
@@ -184,6 +184,77 @@ function SasaranDetail() {
               },
             ]}
           />
+          <div className="mt-4 border-t border-line pt-3">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <b className="text-xs text-ink">Pemeriksaan KR terakhir</b>
+              <span className="text-[11px] text-muted">
+                {pemeriksaan.tanggal
+                  ? fmtDate(pemeriksaan.tanggal)
+                  : 'Belum ada'}
+                {pemeriksaan.petugas ? ` · ${pemeriksaan.petugas}` : ''}
+              </span>
+            </div>
+            {pemeriksaan.item.length === 0 ? (
+              <p className="mt-2 text-xs text-muted">
+                Belum ada hasil pemeriksaan sasaran KR yang cocok dengan warga
+                ini.
+              </p>
+            ) : (
+              <div className="mt-3 grid gap-3">
+                {pemeriksaan.item.map((item, index) => (
+                  <div
+                    key={`${item.sasaran}-${index}`}
+                    className="rounded-lg border border-line bg-surface-2 p-3"
+                  >
+                    <b className="text-xs text-ink">{item.label}</b>
+                    {item.nilai.length > 0 ? (
+                      <dl className="mt-2 grid gap-x-4 gap-y-2 sm:grid-cols-2">
+                        {item.nilai.map((nilai) => (
+                          <div key={nilai.label} className="min-w-0">
+                            <dt className="text-[10px] text-muted">
+                              {nilai.label}
+                            </dt>
+                            <dd className="break-words text-xs font-medium text-ink-2">
+                              {nilai.kind === 'date'
+                                ? fmtDate(nilai.value)
+                                : nilai.value}
+                            </dd>
+                          </div>
+                        ))}
+                      </dl>
+                    ) : null}
+                    {item.indikator.length > 0 ? (
+                      <div className="mt-2 text-[11px] text-ink-2">
+                        <span className="font-semibold">Indikator: </span>
+                        {item.indikator.join(', ')}
+                      </div>
+                    ) : null}
+                    {item.tandaBahaya.length > 0 ? (
+                      <div className="mt-2 text-[11px] text-danger">
+                        <span className="font-semibold">Tanda bahaya: </span>
+                        {item.tandaBahaya.join(', ')}
+                      </div>
+                    ) : null}
+                    {item.prioritas.length > 0 ? (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {item.prioritas.map((prioritas) => (
+                          <StatusBadge key={prioritas} value={prioritas} />
+                        ))}
+                      </div>
+                    ) : null}
+                    {item.nilai.length === 0 &&
+                    item.indikator.length === 0 &&
+                    item.tandaBahaya.length === 0 &&
+                    item.prioritas.length === 0 ? (
+                      <p className="mt-2 text-[11px] text-muted">
+                        Tidak ada hasil pemeriksaan yang terisi.
+                      </p>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </SectionCard>
       </div>
 

@@ -39,7 +39,9 @@ import {
   queryWargaImportUntukCakupan,
   queryJumlahWargaTerdata,
   queryRiwayatKsUntukNik,
+  ringkasPemeriksaanSasaran,
 } from '@/lib/server/sasaran.server'
+import { getMemberKey } from '@/lib/kunjungan-rumah/penilaian-riwayat'
 import {
   queryAnggotaSubmit,
   queryFormAdaSubmit,
@@ -277,18 +279,52 @@ export const getSasaranDetail = createServerFn({ method: 'GET' })
   .handler(
     async ({
       data,
-    }): Promise<{ warga: SasaranDetailRow | null; surveys: SurveyRow[] }> => {
+    }): Promise<{
+      warga: SasaranDetailRow | null
+      surveys: SurveyRow[]
+      pemeriksaan: {
+        tanggal: string | null
+        petugas: string | null
+        item: ReturnType<typeof ringkasPemeriksaanSasaran>
+      }
+    }> => {
       const found = await querySasaranByRef(data.ref)
-      if (!found) return { warga: null, surveys: [] as SurveyRow[] }
+      if (!found)
+        return {
+          warga: null,
+          surveys: [],
+          pemeriksaan: { tanggal: null, petugas: null, item: [] },
+        }
 
       // Survey dan riwayat tetap dikunci NIK/rawId internal, bukan ref URL.
-      const [surveys, riwayat] = await Promise.all([
+      const [surveys, riwayat, riwayatKR] = await Promise.all([
         querySurveysWithWarga(500, found.nik),
         queryRiwayatKsUntukNik(found.rawId ? found.rawId : found.nik),
+        queryRiwayatKRTerbaru({
+          nik: found.nikValid ? found.nik : '',
+          namaKk: found.nama_kk,
+          kelurahan: found.kelurahan,
+          kecamatan: found.kecamatan,
+          rt: found.rt,
+          rw: found.rw,
+        }),
       ])
+      const memberKey = getMemberKey({
+        nik: found.nikValid ? found.nik : '',
+        nama: found.nama_art,
+        tglLahir: found.tgl_lahir,
+      })
+      const item = ringkasPemeriksaanSasaran(
+        memberKey ? (riwayatKR.penilaian[memberKey] ?? []) : [],
+      )
       return {
         warga: { ...found, ...riwayat },
         surveys,
+        pemeriksaan: {
+          tanggal: item.length > 0 ? riwayatKR.tanggal : null,
+          petugas: item.length > 0 ? riwayatKR.petugas : null,
+          item,
+        },
       }
     },
   )

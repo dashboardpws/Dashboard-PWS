@@ -11,6 +11,7 @@
 export function cetakElemen(target: HTMLElement | null): void {
   if (!target || typeof window === 'undefined') return
 
+  document.body.classList.add('laporan-print-active')
   const disembunyikan: Array<{ elemen: HTMLElement; display: string }> = []
   let node: HTMLElement | null = target
 
@@ -40,6 +41,7 @@ export function cetakElemen(target: HTMLElement | null): void {
     window.clearTimeout(batasWaktu)
     window.removeEventListener('afterprint', pulihkan)
     window.removeEventListener('focus', pulihkan)
+    document.body.classList.remove('laporan-print-active')
 
     for (const { elemen, display } of disembunyikan) {
       elemen.style.display = display

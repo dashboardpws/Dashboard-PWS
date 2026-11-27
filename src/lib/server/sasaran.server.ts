@@ -35,6 +35,8 @@ import {
   getMemberKey,
 } from '@/lib/kunjungan-rumah/penilaian-riwayat'
 import type { PenilaianRiwayat } from '@/lib/kunjungan-rumah/penilaian-riwayat'
+import { SASARAN_DEF_BY_KEY } from '@/lib/kunjungan-rumah/template/kunjungan-rumah-form'
+import type { SasaranKey } from '@/lib/kunjungan-rumah/template/kunjungan-rumah-form'
 
 // ---- pencarian warga sasaran di data_warga + data import ----
 //
@@ -337,13 +339,21 @@ async function payloadSubmissionTerbaru(kunci: {
   kecamatan?: string | null
   rt?: string | null
   rw?: string | null
-}): Promise<Record<string, unknown> | null> {
+}): Promise<{
+  payload: Record<string, unknown>
+  tanggal: string | null
+  petugas: string | null
+} | null> {
   const nik = kunci.nik?.trim() ?? ''
   const rows = await db.execute(sql`
-    SELECT e.value
+    SELECT
+      e.value,
+      to_char(s."tanggal", 'YYYY-MM-DD') AS tanggal,
+      u.nama AS petugas
     FROM surveys s
     JOIN survey_entries e ON e."surveyId" = s.id
     JOIN form_versions fv ON fv.id = s."formVersionId"
+    LEFT JOIN users u ON u.id = s."petugasId"
     CROSS JOIN LATERAL jsonb_array_elements(fv."schema"->'sections') section
     CROSS JOIN LATERAL jsonb_array_elements(section->'fields') field
     WHERE field->>'id' = e."fieldId"::text
@@ -380,10 +390,16 @@ async function payloadSubmissionTerbaru(kunci: {
     ORDER BY e."createdAt" DESC
     LIMIT 1
   `)
-  const payload = (rows[0] as { value?: unknown } | undefined)?.value
+  const row = rows[0] as
+    { value?: unknown; tanggal?: unknown; petugas?: unknown } | undefined
+  const payload = row?.value
   if (!payload || typeof payload !== 'object' || Array.isArray(payload))
     return null
-  return payload as Record<string, unknown>
+  return {
+    payload: payload as Record<string, unknown>,
+    tanggal: typeof row.tanggal === 'string' ? row.tanggal : null,
+    petugas: typeof row.petugas === 'string' ? row.petugas : null,
+  }
 }
 
 export async function queryRiwayatKRTerbaru(
@@ -391,16 +407,20 @@ export async function queryRiwayatKRTerbaru(
 ): Promise<{
   penilaian: Record<string, PenilaianRiwayat[]>
   sanitasi: Sanitasi | null
+  tanggal: string | null
+  petugas: string | null
 }> {
-  const kosong = { penilaian: {}, sanitasi: null }
+  const kosong = { penilaian: {}, sanitasi: null, tanggal: null, petugas: null }
   if (!isValidNik(kunci.nik ?? '') && !kunci.namaKk?.trim()) return kosong
-  const payload = await payloadSubmissionTerbaru(kunci)
-  if (!payload) return kosong
+  const hasil = await payloadSubmissionTerbaru(kunci)
+  if (!hasil) return kosong
   return {
-    penilaian: buildPenilaianMapFromSubmission(payload),
+    penilaian: buildPenilaianMapFromSubmission(hasil.payload),
     // Record KR terbaru menyimpan sanitasi lengkap; ini satu-satunya sumber
     // untuk `ventilasi`/`dm` yang tidak punya kolom di `riwayat_ks_import`.
-    sanitasi: sanitizeRecord(payload)?.sanitasi ?? null,
+    sanitasi: sanitizeRecord(hasil.payload)?.sanitasi ?? null,
+    tanggal: hasil.tanggal,
+    petugas: hasil.petugas,
   }
 }
 
@@ -408,8 +428,9 @@ export async function queryRiwayatKRTerbaru(
 async function anggotaSubmissionTerbaru(
   kunci: Parameters<typeof payloadSubmissionTerbaru>[0],
 ): Promise<SasaranSuggestion[]> {
-  const rec = await payloadSubmissionTerbaru(kunci)
-  if (!rec) return []
+  const hasil = await payloadSubmissionTerbaru(kunci)
+  if (!hasil) return []
+  const rec = hasil.payload
   const info = (rec.info ?? {}) as Record<string, unknown>
   const anggota = Array.isArray(rec.anggota)
     ? rec.anggota
@@ -875,6 +896,34 @@ export async function querySasaranByRef(
     tgl_lahir: String(row.tgl_lahir ?? ''),
     jenis_kelamin: String(row.jenis_kelamin ?? ''),
   }
+}
+
+export function ringkasPemeriksaanSasaran(items: PenilaianRiwayat[]): Array<{
+  sasaran: SasaranKey
+  label: string
+  nilai: Array<{ label: string; value: string; kind: string }>
+  indikator: string[]
+  tandaBahaya: string[]
+  prioritas: string[]
+}> {
+  return items.map((item) => {
+    const definisi = SASARAN_DEF_BY_KEY[item.sasaran]
+    return {
+      sasaran: item.sasaran,
+      label: definisi.label,
+      nilai: definisi.kolom.flatMap((field) => {
+        const value = item.values[field.key]?.trim()
+        return value ? [{ label: field.label, value, kind: field.kind }] : []
+      }),
+      indikator: definisi.bools
+        .filter((field) => item.checks[field.key])
+        .map((field) => field.label),
+      tandaBahaya: definisi.baha
+        .filter((field) => item.checks[field.key])
+        .map((field) => field.label),
+      prioritas: item.prioritas,
+    }
+  })
 }
 
 const SELECT_RIWAYAT_KS = sql`

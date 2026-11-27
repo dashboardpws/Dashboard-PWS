@@ -329,6 +329,7 @@ pre code {
   }
   body {
     background: #fff !important;
+    margin: 0 !important;
   }
   body::before,
   body::after {
@@ -355,8 +356,15 @@ pre code {
   .kop-tabel thead {
     display: table-header-group;
   }
+  /* Saat laporan dicetak sendiri, hilangkan padding aplikasi agar tabel
+     memakai lebar kertas. Padding halaman kecil tetap menjaga jarak dari tepi. */
+  body.laporan-print-active .app-shell-content {
+    width: 100% !important;
+    max-width: none !important;
+    padding: 8mm !important;
+  }
   @page {
-    margin: 12mm;
+    margin: 0;
   }
 }
 

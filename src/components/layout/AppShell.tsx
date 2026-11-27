@@ -17,7 +17,7 @@ export function AppShell({ children }: AppShellProps) {
       <Sidebar collapsed={collapsed} onToggleCollapsed={toggle} />
       <div className="flex min-w-0 flex-1 flex-col bg-canvas">
         <Topbar />
-        <div className="w-full max-w px-7 pb-8 pt-7 max-md:px-3.5 max-md:pb-21.5 max-md:pt-4">
+        <div className="app-shell-content w-full max-w px-7 pb-8 pt-7 max-md:px-3.5 max-md:pb-21.5 max-md:pt-4">
           {children}
         </div>
       </div>
