@@ -11,7 +11,6 @@ import {
   listKegiatan,
 } from '@/lib/api/server-fns'
 import type { KegiatanRecord } from '@/hooks/survey/use-kegiatan'
-import { cocokDenganForm } from '@/lib/laporan/report-filter'
 import {
   JENIS_KEGIATAN,
   KELS,
@@ -167,7 +166,6 @@ function Laporan() {
   const [kel, setKel] = useState('all')
 
   // Section 1: Isian Form (Kunjungan Rumah)
-  const [formId, setFormId] = useState<number | 'all'>('all')
   const [cari, setCari] = useState('')
   const [page, setPage] = useState(1)
   const [judul, setJudul] = useState(
@@ -223,19 +221,16 @@ function Laporan() {
         r.tanggal >= dari &&
         r.tanggal <= sampai &&
         (kel === 'all' || r.kelurahan === kel) &&
-        cocokDenganForm(r, formId, formAdaSubmit) &&
+        r.formKode === KODE_FORM_BAWAAN.kunjunganRumah &&
         (!cari ||
           r.nama.toLowerCase().includes(cari.toLowerCase()) ||
           (r.nik ?? '').includes(cari) ||
           (r.nikKk ?? '').includes(cari) ||
           r.formNama.toLowerCase().includes(cari.toLowerCase())),
     )
-  }, [rows, dari, sampai, kel, formId, cari, formAdaSubmit])
+  }, [rows, dari, sampai, kel, cari])
 
-  const namaFormFilter =
-    formId === 'all'
-      ? 'semua form'
-      : (formAdaSubmit.find((f) => f.formId === formId)?.nama ?? 'form')
+  const namaFormFilter = 'Form Kunjungan Rumah'
 
   const normalisasiKelurahan = (nilai: string) =>
     nilai.trim().toLocaleLowerCase('id-ID')
@@ -261,7 +256,7 @@ function Laporan() {
   // Tutup collapse-nya daripada menunjuk submit yang sudah tidak ada di tabel.
   useEffect(() => {
     setBukaId(null)
-  }, [dari, sampai, kel, formId, cari, page])
+  }, [dari, sampai, kel, cari, page])
 
   const muatAnggota = async (surveyId: string) => {
     setMemuatId(surveyId)
@@ -449,32 +444,14 @@ function Laporan() {
       {/* SECTION 1: Isian Form (Kunjungan Rumah) */}
       <CollapsibleSection
         title="Isian Form (Kunjungan Rumah)"
-        subtitle="Data kunjungan rumah dari form PWS dengan filter form & pencarian"
+        subtitle="Data khusus form kunjungan rumah dengan filter tanggal, kelurahan, dan pencarian"
         open={openSection1}
         onChange={setOpenSection1}
       >
         <FilterToolbar
           title="Saring Laporan"
-          sub="Semua form ikut dihitung dan setiap baris diberi nama formnya. Filter ikut memperbarui ringkasan, kop, dan pratinjau di bawah."
+          sub="Hanya isian dari form kunjungan rumah yang dihitung. Filter ikut memperbarui ringkasan, kop, dan pratinjau di bawah."
         >
-          <Select
-            value={String(formId)}
-            onChange={(e) => {
-              setFormId(
-                e.target.value === 'all' ? 'all' : Number(e.target.value),
-              )
-              setPage(1)
-            }}
-            aria-label="Filter form"
-            className="max-w-52.5 max-md:max-w-none"
-          >
-            <option value="all">Semua form</option>
-            {formAdaSubmit.map((f) => (
-              <option key={f.formId} value={f.formId}>
-                {f.nama} ({f.jumlahSubmit})
-              </option>
-            ))}
-          </Select>
           <Input
             value={cari}
             onChange={(e) => setCari(e.target.value)}
